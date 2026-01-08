@@ -1,0 +1,61 @@
+1. Project Context
+Project Name: Ice Cream Formulation Engine (Refactor Phase) Description: A web-based application for calculating and balancing ice cream recipes based on scientific parameters (Fat, MSNF, PAC, POD). Current State: The codebase is a "rescue" project containing valuable core logic mixed with experimental, cluttered, and broken AI/Legacy features. Immediate Goal: We are establishing a stable Phase 1 MVP ("The Validator"). This requires isolating the core "Recipe Calculator" and hiding all other experimental features (Reverse Engineer, Paste Studio, Advanced AI Optimizers) to prevent confusion during development.
+
+2. Objective
+Primary Goal: Implement a Feature Flag system to hide non-core functionality from the UI and Routing system. Default State: The application must load directly into the Recipe Calculator view. All other tabs/links must be hidden when the flag is disabled.
+
+3. Technical Specifications
+Feature Flag Configuration
+Environment Variable: NEXT_PUBLIC_ENABLE_ADVANCED
+
+Default Value: false (Boolean string)
+
+Affected Features:
+
+Reverse Engineer
+
+Paste Studio
+
+Advanced Optimizers (Genetic Algo, PSO, LP)
+
+Any "AI" labeled tabs currently in the nav.
+
+Architecture Changes
+Global Utility: A helper function isAdvancedMode() must be created to centralize the flag logic.
+
+Navigation Component: The Sidebar/Navbar must conditionally render links based on this utility.
+
+Routing (Optional): Routes for advanced features should ideally redirect to the home page if the flag is false.
+
+4. Implementation Steps (Instructions for AI)
+Step 1: Environment Setup
+Check for an existing .env.local file. If not present, create it.
+
+Add NEXT_PUBLIC_ENABLE_ADVANCED=false.
+
+Step 2: Utility Function
+Create a strict utility file at src/utils/featureFlags.js (or .ts if TypeScript).
+
+Export a function isAdvancedMode() that returns true only if the environment variable explicitly equals the string 'true'.
+
+Step 3: UI Cleanup (The "Hiding")
+Analyze the file structure to locate the main Navigation component (common names: Sidebar, Navbar, AppLayout, or Layout).
+
+Wrap the list items or buttons for "Reverse Engineer", "Paste Studio", and "Optimizer" in a conditional block:
+
+JavaScript
+
+{isAdvancedMode() && ( <Link ... /> )}
+Ensure the Recipe Calculator link remains always visible and is the default active state.
+
+Step 4: Routing Cleanup
+Check App.js or the Next.js app/ directory.
+
+Ensure the root path / renders the Recipe Calculator component, not a landing page or an experimental dashboard.
+
+5. Success Criteria (Definition of Done)
+Visual Check: When the app runs, the Sidebar only shows "Recipe Calculator" (and optionally "Settings").
+
+Logic Check: Changing NEXT_PUBLIC_ENABLE_ADVANCED to true and restarting the server makes the hidden links reappear.
+
+Code Check: No code is deleted; it is only hidden behind the logic gate.

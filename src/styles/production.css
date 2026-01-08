@@ -1,0 +1,181 @@
+/* Production Mode Styles - Distraction-free kitchen view */
+
+.production-mode .app-nav,
+.production-mode .sidebar,
+.production-mode .promo,
+.production-mode .footer {
+  display: none !important;
+}
+
+.production-mode {
+  background: hsl(var(--background)) !important;
+}
+
+.ingredient-name {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.ingredient-qty {
+  font-size: 24px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.02em;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+
+.metric-label {
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Touch-friendly tap targets */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* High contrast mode for kitchen environment */
+.production-mode .card {
+  border: 2px solid hsl(var(--border));
+  background: hsl(var(--card));
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Hide non-essential elements */
+.production-mode .warnings-panel,
+.production-mode .science-metrics,
+.production-mode .ai-buttons,
+.production-mode .export-buttons,
+.production-mode .optimization-section {
+  display: none !important;
+}
+
+/* Smooth scrolling on mobile */
+@media (max-width: 768px) {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    overflow-x: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  
+  /* Safe area for mobile bottom bar */
+  .safe-area-bottom {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0));
+  }
+  
+  /* Ensure content doesn't get hidden under mobile action bar */
+  .mobile-content-wrapper {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0));
+  }
+}
+
+/* Print styles - Kitchen-friendly printout */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Hide all UI chrome */
+  .app-nav,
+  .sidebar,
+  .ai-actions,
+  .promo,
+  .charts,
+  .footer,
+  .warnings-panel,
+  .science-metrics,
+  .ai-buttons,
+  .export-buttons,
+  .actions,
+  button,
+  .production-toggle {
+    display: none !important;
+  }
+
+  /* Large, readable ingredient rows */
+  .ingredient-row {
+    font-size: 18px;
+    line-height: 1.6;
+    padding: 8px 0;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .ingredient-name {
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  /* Prominent quantities */
+  .ingredient-qty {
+    font-size: 24px !important;
+    font-weight: 600 !important;
+    color: #000 !important;
+  }
+
+  /* Always show totals and FPDT/WF */
+  .totals,
+  .fpdt-wf,
+  .metric-card,
+  .metrics-display {
+    display: block !important;
+    page-break-inside: avoid;
+  }
+
+  .metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #000;
+  }
+
+  .metric-label {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  /* Clean card styling */
+  .card {
+    border: 2px solid #333;
+    box-shadow: none;
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+    background: #fff;
+  }
+
+  .card-header {
+    border-bottom: 2px solid #333;
+    padding: 12px;
+  }
+
+  .card-title {
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  /* Ensure clean page breaks */
+  h1, h2, h3 {
+    page-break-after: avoid;
+    font-weight: 700;
+  }
+
+  /* Recipe name prominent */
+  .recipe-name {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+}
