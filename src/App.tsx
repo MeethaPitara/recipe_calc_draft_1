@@ -9,6 +9,7 @@ import { mlScheduler } from "@/lib/mlTrainingScheduler";
 import ErrorBoundary from "./components/ui/error-boundary";
 import { IngredientsProvider } from "@/contexts/IngredientsContext";
 import { getSupabase } from "@/integrations/supabase/safeClient";
+import { isAdvancedMode } from "@/utils/feature-flags";
 
 const queryClient = new QueryClient();
 
@@ -47,7 +48,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   if (isAuthenticated === null) {
-    return <div style={{padding:'2rem'}}>Loading...</div>;
+    return <div style={{ padding: '2rem' }}>Loading...</div>;
   }
 
   if (!isAuthenticated) {
@@ -64,7 +65,7 @@ const App = () => {
     mlScheduler.start().catch(err => {
       console.log('ML scheduler initialization deferred:', err.message);
     });
-    
+
     return () => mlScheduler.stop();
   }, []);
 
@@ -77,14 +78,14 @@ const App = () => {
               <Toaster />
               <Sonner />
               <BrowserRouter>
-                <Suspense fallback={<div style={{padding:'2rem'}}>Loading…</div>}>
+                <Suspense fallback={<div style={{ padding: '2rem' }}>Loading…</div>}>
                   <Routes>
                     <Route path="/auth" element={<Auth />} />
                     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                    <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
-                    <Route path="/reverse-engineer" element={<ProtectedRoute><ReverseEngineer /></ProtectedRoute>} />
+                    <Route path="/admin" element={<ProtectedRoute>{isAdvancedMode() ? <AdminPanel /> : <Navigate to="/" replace />}</ProtectedRoute>} />
+                    <Route path="/reverse-engineer" element={<ProtectedRoute>{isAdvancedMode() ? <ReverseEngineer /> : <Navigate to="/" replace />}</ProtectedRoute>} />
                     <Route path="/help/glossary" element={<ProtectedRoute><Glossary /></ProtectedRoute>} />
-                    <Route path="/database" element={<ProtectedRoute><Database /></ProtectedRoute>} />
+                    <Route path="/database" element={<ProtectedRoute>{isAdvancedMode() ? <Database /> : <Navigate to="/" replace />}</ProtectedRoute>} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

@@ -30,11 +30,11 @@ function addRecent(id: string) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, 5)));
 }
 
-export function SmartIngredientSearch({ 
-  ingredients, 
-  onSelect, 
-  open, 
-  onOpenChange 
+export function SmartIngredientSearch({
+  ingredients,
+  onSelect,
+  open,
+  onOpenChange
 }: SmartIngredientSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -186,7 +186,7 @@ export function SmartIngredientSearch({
                 </h4>
               </div>
               <div className="space-y-1">
-                {recentIngredients.map((ing, idx) => 
+                {recentIngredients.map((ing, idx) =>
                   renderIngredientItem(ing, idx, !searchQuery && selectedIndex === idx)
                 )}
               </div>
@@ -208,7 +208,7 @@ export function SmartIngredientSearch({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {filteredIngredients.map((ing, idx) => 
+                  {filteredIngredients.map((ing, idx) =>
                     renderIngredientItem(ing, idx, selectedIndex === idx)
                   )}
                 </div>

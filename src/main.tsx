@@ -38,9 +38,9 @@ const queryClient = new QueryClient({
 })
 
 createRoot(document.getElementById("root")!).render(
-  <PersistQueryClientProvider 
-    client={queryClient} 
-    persistOptions={{ 
+  <PersistQueryClientProvider
+    client={queryClient}
+    persistOptions={{
       persister,
       maxAge: 1000 * 60 * 60 * 24 * 7, // Persist for 7 days
       dehydrateOptions: {
