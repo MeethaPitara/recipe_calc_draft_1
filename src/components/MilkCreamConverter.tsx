@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Droplet, Flame, Info } from 'lucide-react';
-import { calculateMilkCreamMix } from '@/lib/calc';
+import { calculateMilkCreamMix } from '@/lib/calc.v2';
 
 export const MilkCreamConverter: React.FC = () => {
   const [milkFat, setMilkFat] = useState(3.5);
@@ -102,7 +102,7 @@ export const MilkCreamConverter: React.FC = () => {
         {/* Results Section */}
         <div className="space-y-3 p-4 bg-success/10 dark:bg-success/20 rounded-lg border border-success/30">
           <Label className="text-sm font-semibold">Required Volumes:</Label>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center p-3 bg-card rounded">
               <p className="text-xs text-muted-foreground">Milk</p>

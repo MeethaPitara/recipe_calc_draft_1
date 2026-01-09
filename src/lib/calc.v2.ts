@@ -59,6 +59,11 @@ export type MetricsV2 = {
   fruitAdjustments?: AcidityAdjustment;
   overrunPrediction?: OverrunPrediction;
   servingTemp?: ServingTempRecommendation;
+
+  // Backwards compatibility for classification
+  ts_add_pct?: number; // alias for ts_pct
+  sp?: number; // alias for pod_index
+  pac?: number; // alias for fpdt * 10 (approx)
 };
 
 export type CalcOptionsV2 = {
@@ -112,7 +117,7 @@ export function calcMetricsV2(
   opts: CalcOptionsV2 = {}
 ): MetricsV2 {
   const warnings: string[] = [];
-  
+
   // 0. Validate ingredients before calculation
   for (const { ing, grams } of rows) {
     if (grams <= 0) continue;
@@ -124,28 +129,28 @@ export function calcMetricsV2(
       warnings.push(`⚠️ "${ing.name}": ${validation.totalComposition}`);
     }
   }
-  
+
   // 1. Calculate batch totals with NaN guards
   const total_g = guardResult(rows.reduce((a, r) => a + safeNumber(r.grams), 0), 0, 'total_g');
 
   let water_g = 0, nonLactoseSugars_g = 0, fat_g = 0, msnf_g = 0, other_g = 0;
   for (const { ing, grams } of rows) {
     const g = safeNumber(grams);
-    
+
     // Protect against NULL and NaN values
     const water_pct = safeNumber(ing.water_pct);
     const sugars_pct = safeNumber(ing.sugars_pct);
     const fat_pct = safeNumber(ing.fat_pct);
     const msnf_pct = safeNumber(ing.msnf_pct);
     const other_pct = safeNumber(ing.other_solids_pct);
-    
+
     water_g += g * water_pct / 100;
     nonLactoseSugars_g += g * sugars_pct / 100;
     fat_g += g * fat_pct / 100;
     msnf_g += g * msnf_pct / 100;
     other_g += g * other_pct / 100;
   }
-  
+
   // Guard accumulated values
   water_g = guardResult(water_g, 0, 'water_g');
   nonLactoseSugars_g = guardResult(nonLactoseSugars_g, 0, 'nonLactoseSugars_g');
@@ -171,7 +176,7 @@ export function calcMetricsV2(
 
   // 6. Percentages
   const pct = (x: number) => total_after_evap_g > 0 ? (x / total_after_evap_g) * 100 : 0;
-  
+
   const water_pct = pct(water_after_evap_g);
   const nonLactoseSugars_pct = pct(nonLactoseSugars_g);
   const fat_pct = pct(fat_g);
@@ -184,11 +189,11 @@ export function calcMetricsV2(
 
   // 7. Calculate Sucrose Equivalents (SE)
   let se_g = 0;
-  
+
   for (const { ing, grams } of rows) {
     const g = grams || 0;
     const sug_g = g * (ing.sugars_pct || 0) / 100;
-    
+
     if (sug_g <= 0) continue;
 
     // Handle fruit with sugar split
@@ -206,7 +211,7 @@ export function calcMetricsV2(
     // Handle glucose syrup with DE split
     const id = (ing.id || '').toLowerCase();
     const name = (ing.name || '').toLowerCase();
-    
+
     if (id.includes('glucose_syrup') || name.includes('glucose syrup')) {
       // Extract DE from name/id (e.g., "glucose_de60" or "Glucose Syrup DE60")
       const deMatch = (id + name).match(/de\s*(\d+)/i);
@@ -234,7 +239,7 @@ export function calcMetricsV2(
   const sucrosePer100gWater = water_after_evap_g > 0 ? (se_g / water_after_evap_g) * 100 : 0;
   const leightonResult = leightonLookup(sucrosePer100gWater);
   const fpdse = leightonResult.fpdse;
-  
+
   if (leightonResult.clamped) {
     warnings.push(`⚠️ Leighton table clamped: ${sucrosePer100gWater.toFixed(1)} g sucrose/100g water is outside normal range`);
   }
@@ -244,11 +249,11 @@ export function calcMetricsV2(
 
   // 9. POD (normalized sweetness index per 100g total sugars)
   let pod_numerator = 0;
-  
+
   for (const { ing, grams } of rows) {
     const g = grams || 0;
     const sug_g = g * (ing.sugars_pct || 0) / 100;
-    
+
     if (sug_g <= 0) continue;
 
     if (ing.category === 'fruit' && ing.sugar_split) {
@@ -262,7 +267,7 @@ export function calcMetricsV2(
     } else {
       const id = (ing.id || '').toLowerCase();
       const name = (ing.name || '').toLowerCase();
-      
+
       if (id.includes('dextrose') || name.includes('dextrose') || id.includes('glucose')) {
         pod_numerator += 70 * sug_g;
       } else if (id.includes('fructose') || name.includes('fructose')) {
@@ -275,12 +280,12 @@ export function calcMetricsV2(
 
   // Add lactose contribution to POD
   pod_numerator += 16 * lactose_g;
-  
+
   const pod_index = totalSugars_g > 0 ? pod_numerator / totalSugars_g : 100;
 
   // 10. P2 Science: Fruit Acidity Analysis
   let fruitAdjustments: AcidityAdjustment | undefined;
-  
+
   for (const { ing, grams } of rows) {
     if (ing.category === 'fruit' && ing.acidity_citric_pct && ing.brix_estimate) {
       const fruitInput: FruitAcidityInput = {
@@ -289,34 +294,34 @@ export function calcMetricsV2(
         fruitGrams: grams,
         totalMixGrams: total_after_evap_g
       };
-      
+
       const adjustment = adjustPACforAcids(fruitInput);
-      
+
       // Add fruit acidity notes to warnings
       adjustment.notes.forEach(note => {
         warnings.push(`🍋 ${ing.name}: ${note}`);
       });
-      
+
       // Store adjustment for UI display (take first/most significant fruit)
       if (!fruitAdjustments) {
         fruitAdjustments = adjustment;
       }
-      
+
       break; // Process only first fruit for now (can extend to multi-fruit later)
     }
   }
 
   // 11. Validation warnings
   const mode = opts.mode || 'gelato';
-  
+
   // PHASE 2: Context-aware MSNF/Stabilizer guardrails
-  const hasChocolate = rows.some(r => 
+  const hasChocolate = rows.some(r =>
     r.ing.name.toLowerCase().includes('chocolate') ||
     r.ing.name.toLowerCase().includes('cocoa') ||
     r.ing.name.toLowerCase().includes('cacao')
   );
-  
-  const hasNutsOrEggs = rows.some(r => 
+
+  const hasNutsOrEggs = rows.some(r =>
     (r.ing.category === 'other' && (
       r.ing.name.toLowerCase().includes('nut') ||
       r.ing.name.toLowerCase().includes('almond') ||
@@ -325,10 +330,10 @@ export function calcMetricsV2(
     )) ||
     r.ing.name.toLowerCase().includes('egg')
   );
-  
+
   let contextualMSNF: [number, number] = [9, 12]; // Default
   let contextLabel = 'standard';
-  
+
   if (hasChocolate) {
     contextualMSNF = [7, 9];
     contextLabel = 'chocolate';
@@ -336,7 +341,7 @@ export function calcMetricsV2(
     contextualMSNF = [8, 10];
     contextLabel = 'nuts/eggs';
   }
-  
+
   if (mode === 'gelato') {
     // Gelato guardrails
     if (fat_pct < 6 || fat_pct > 10) {
@@ -400,19 +405,19 @@ export function calcMetricsV2(
       warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside kulfi target 2.0-2.5°C`);
     }
   }
-  
+
   // PHASE 4: Sugar Spectrum Policy
   let disaccharides_g = lactose_g; // Start with lactose
   let monosaccharides_g = 0;
   let polysaccharides_g = 0;
-  
+
   for (const { ing, grams } of rows) {
     const sug_g = grams * (ing.sugars_pct || 0) / 100;
     if (sug_g <= 0) continue;
-    
+
     const id = (ing.id || '').toLowerCase();
     const name = (ing.name || '').toLowerCase();
-    
+
     if (name.includes('sucrose') || id.includes('sucrose')) {
       disaccharides_g += sug_g;
     } else if (name.includes('dextrose') || id.includes('dextrose')) {
@@ -432,12 +437,12 @@ export function calcMetricsV2(
       disaccharides_g += sug_g; // Default to disaccharides
     }
   }
-  
+
   if (totalSugars_g > 0) {
     const disaccharides_pct = (disaccharides_g / totalSugars_g) * 100;
     const monosaccharides_pct = (monosaccharides_g / totalSugars_g) * 100;
     const polysaccharides_pct = (polysaccharides_g / totalSugars_g) * 100;
-    
+
     if (disaccharides_pct < 50) {
       warnings.push(`⚠️ Sugar spectrum: Disaccharides ${disaccharides_pct.toFixed(1)}% below target 50-100%`);
     }
@@ -448,11 +453,11 @@ export function calcMetricsV2(
       warnings.push(`⚠️ Sugar spectrum: Polysaccharides ${polysaccharides_pct.toFixed(1)}% exceeds target 0-35%`);
     }
   }
-  
+
   // PHASE 5: SP/AFP Target Validation
   const sp = pod_index;
   const afp_sugars = sucrosePer100gWater;
-  
+
   if (mode === 'gelato') {
     if (sp < 12 || sp > 22) {
       warnings.push(`⚠️ SP ${sp.toFixed(1)} outside gelato target 12-22`);
@@ -550,6 +555,163 @@ export function calcMetricsV2(
     // P2 Science Features
     fruitAdjustments,
     overrunPrediction,
-    servingTemp
+    servingTemp,
+
+    // Backwards compatibility assignments
+    ts_add_pct: ts_pct,
+    sp: pod_index,
+    pac: fpdt * 10
   };
 }
+
+// ============================================================================
+// Enhanced Features (migrated from calc.ts for centralization)
+// ============================================================================
+
+export type ProductClass =
+  | 'ice_cream'
+  | 'gelato_white'
+  | 'gelato_finished'
+  | 'fruit_gelato'
+  | 'sorbet'
+  | 'kulfi'
+  | 'unknown';
+
+export interface ClassificationResult {
+  productType: ProductClass;
+  confidence: 'high' | 'medium' | 'low';
+  reasons: string[];
+  deltas: Record<string, number>;
+}
+
+/**
+ * Classify product type based on composition
+ */
+export function classifyProduct(metrics: MetricsV2): ClassificationResult {
+  const targets = {
+    ice_cream: { ts: [37, 46], fat: [10, 20], sugar: [16, 22], msnf: [7, 12], sp: [12, 22], pac: [22, 28] },
+    gelato_white: { ts: [32, 37], fat: [3, 7], sugar: [16, 19], msnf: [7, 12], sp: [12, 22], pac: [22, 28] },
+    gelato_finished: { ts: [32, 40], fat: [6, 12], sugar: [18, 24], msnf: [7, 12], sp: [12, 22], pac: [22, 28] },
+    fruit_gelato: { ts: [32, 42], fat: [3, 10], sugar: [22, 24], msnf: [3, 7], sp: [18, 26], pac: [25, 29] },
+    sorbet: { ts: [22, 30], fat: [0, 0], sugar: [26, 31], msnf: [0, 0], sp: [20, 28], pac: [28, 33] },
+    kulfi: { ts: [40, 50], fat: [8, 15], sugar: [18, 25], msnf: [12, 18], sp: [12, 22], pac: [22, 28] }
+  };
+
+  const scores: Record<ProductClass, { score: number; reasons: string[]; deltas: Record<string, number> }> = {} as any;
+
+  for (const [type, bands] of Object.entries(targets)) {
+    const reasons: string[] = [];
+    const deltas: Record<string, number> = {};
+    let totalDelta = 0;
+    let matchCount = 0;
+
+    // Logic adapted for v2 metrics
+    const checks = [
+      { key: 'ts', val: metrics.ts_pct, band: bands.ts, label: 'Total Solids' },
+      { key: 'fat', val: metrics.fat_pct, band: bands.fat, label: 'Fat' },
+      { key: 'sugar', val: metrics.nonLactoseSugars_pct, band: bands.sugar, label: 'Sugar' }, // Note: check logic on sugar vs total sugars
+      { key: 'msnf', val: metrics.msnf_pct, band: bands.msnf, label: 'MSNF' },
+      { key: 'sp', val: metrics.pod_index, band: bands.sp, label: 'SP' },
+      { key: 'pac', val: metrics.fpdt * 10, band: bands.pac, label: 'PAC' }
+    ];
+
+    for (const { key, val, band, label } of checks) {
+      const [min, max] = band;
+      if (val >= min && val <= max) {
+        reasons.push(`${label} within target (${val.toFixed(1)})`);
+        deltas[key] = 0;
+        matchCount++;
+      } else if (val < min) {
+        const delta = min - val;
+        reasons.push(`${label} low (${val.toFixed(1)} vs ${min.toFixed(1)})`);
+        deltas[key] = -delta;
+        totalDelta += delta;
+      } else {
+        const delta = val - max;
+        reasons.push(`${label} high (${val.toFixed(1)} vs ${max.toFixed(1)})`);
+        deltas[key] = delta;
+        totalDelta += delta;
+      }
+    }
+
+    scores[type as ProductClass] = { score: totalDelta - (matchCount * 2), reasons, deltas };
+  }
+
+  const entries = Object.entries(scores) as Array<[ProductClass, typeof scores[ProductClass]]>;
+  entries.sort((a, b) => a[1].score - b[1].score);
+
+  const [bestType, bestMatch] = entries[0];
+  const matchCount = bestMatch.reasons.filter(r => r.includes('within')).length;
+  const confidence: 'high' | 'medium' | 'low' = matchCount >= 5 ? 'high' : matchCount >= 3 ? 'medium' : 'low';
+
+  return { productType: bestType, confidence, reasons: bestMatch.reasons, deltas: bestMatch.deltas };
+}
+
+/**
+ * Calculate optimal milk/cream volumes to achieve target fat
+ */
+export function calculateMilkCreamMix(
+  milkFatPct: number,
+  creamFatPct: number,
+  targetFatPct: number,
+  targetMass: number = 1000,
+  evaporationPct: number = 8
+): {
+  milk_g: number;
+  cream_g: number;
+  water_loss_g: number;
+  final_mass_g: number;
+  actual_fat_pct: number;
+  notes: string[];
+} {
+  const cream_g = ((targetFatPct - milkFatPct) / (creamFatPct - milkFatPct)) * targetMass;
+  const milk_g = targetMass - cream_g;
+
+  const milk_water = milk_g * 0.88;
+  const cream_water = cream_g * 0.58;
+  const total_water = milk_water + cream_water;
+  const water_loss_g = total_water * (evaporationPct / 100);
+  const final_mass_g = targetMass - water_loss_g;
+
+  const total_fat_g = (milk_g * milkFatPct + cream_g * creamFatPct) / 100;
+  const actual_fat_pct = (total_fat_g / final_mass_g) * 100;
+
+  const notes: string[] = [];
+  if (cream_g < 0 || milk_g < 0) notes.push('⚠️ Impossible to achieve target with given milk/cream.');
+  if (evaporationPct > 0) notes.push(`💡 Evaporation will increase fat% from ${targetFatPct.toFixed(1)}% to ${actual_fat_pct.toFixed(1)}%`);
+  if (water_loss_g > 50) notes.push(`💧 Significant water loss (${water_loss_g.toFixed(0)}g).`);
+
+  return {
+    milk_g: Math.max(0, milk_g),
+    cream_g: Math.max(0, cream_g),
+    water_loss_g,
+    final_mass_g,
+    actual_fat_pct,
+    notes
+  };
+}
+
+/**
+ * DE (Dextrose Equivalent) effects reference
+ */
+export const DE_EFFECTS = {
+  increase: [
+    { property: 'Sweetness', effect: '↑ Increases', explanation: 'Higher DE = more simple sugars = sweeter' },
+    { property: 'Anti-freeze Power (PAC)', effect: '↑ Increases', explanation: 'More monosaccharides lower freezing point' },
+    { property: 'Anti-crystallization', effect: '↑ Increases', explanation: 'Prevents sugar crystal formation' },
+    { property: 'Hygroscopicity', effect: '↑ Increases', explanation: 'Absorbs moisture from environment' },
+    { property: 'Aroma', effect: '↑ Enhances', explanation: 'Volatile compounds more pronounced' },
+    { property: 'Foaming', effect: '↑ Increases', explanation: 'Better air incorporation during churning' }
+  ],
+  decrease: [
+    { property: 'Viscosity', effect: '↓ Decreases', explanation: 'Lower molecular weight = less thick' },
+    { property: 'Body/Chewiness', effect: '↓ Decreases', explanation: 'Less structure from complex sugars' },
+    { property: 'Freezing Point', effect: '↓ Lowers', explanation: 'More dissolved particles = lower FP' }
+  ],
+  reference: {
+    'DE 15-19 (Maltodextrin)': 'Low sweetness, high viscosity, body builder',
+    'DE 38-40': 'Balanced, good for structure',
+    'DE 60-62': 'Standard glucose syrup, versatile',
+    'DE 100 (Dextrose)': 'Maximum sweetness and anti-freeze'
+  }
+};

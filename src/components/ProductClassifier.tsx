@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Target, TrendingUp, TrendingDown, CheckCircle } from 'lucide-react';
-import { Metrics, classifyProduct } from '@/lib/calc';
+import { MetricsV2 as Metrics, classifyProduct } from '@/lib/calc.v2';
 
 interface ProductClassifierProps {
   metrics: Metrics;
@@ -17,15 +17,15 @@ interface ProductClassifierProps {
 export const ProductClassifier: React.FC<ProductClassifierProps> = ({ metrics }) => {
   const classification = classifyProduct(metrics);
 
-  const confidenceColor = 
+  const confidenceColor =
     classification.confidence === 'high' ? 'bg-green-500' :
-    classification.confidence === 'medium' ? 'bg-yellow-500' :
-    'bg-red-500';
+      classification.confidence === 'medium' ? 'bg-yellow-500' :
+        'bg-red-500';
 
-  const confidencePercentage = 
+  const confidencePercentage =
     classification.confidence === 'high' ? 90 :
-    classification.confidence === 'medium' ? 60 :
-    30;
+      classification.confidence === 'medium' ? 60 :
+        30;
 
   const productTypeLabels: Record<string, string> = {
     ice_cream: 'Ice Cream',
@@ -55,14 +55,14 @@ export const ProductClassifier: React.FC<ProductClassifierProps> = ({ metrics })
           <h3 className="text-3xl font-bold text-foreground">
             {productTypeLabels[classification.productType]}
           </h3>
-          
+
           <div className="mt-3 flex items-center justify-center gap-2">
             <span className="text-sm font-medium">Confidence:</span>
             <Badge className={confidenceColor}>
               {classification.confidence.toUpperCase()}
             </Badge>
           </div>
-          
+
           <Progress value={confidencePercentage} className="mt-2" />
         </div>
 
@@ -74,15 +74,14 @@ export const ProductClassifier: React.FC<ProductClassifierProps> = ({ metrics })
               const isMatch = reason.includes('within');
               const isLow = reason.includes('low');
               const isHigh = reason.includes('high');
-              
+
               return (
                 <div
                   key={idx}
-                  className={`flex items-start gap-2 p-2 rounded text-sm ${
-                    isMatch ? 'bg-success/10 dark:bg-success/20 text-success-foreground' :
-                    isLow || isHigh ? 'bg-warning/10 dark:bg-warning/20 text-warning-foreground' :
-                    'bg-muted text-muted-foreground'
-                  }`}
+                  className={`flex items-start gap-2 p-2 rounded text-sm ${isMatch ? 'bg-success/10 dark:bg-success/20 text-success-foreground' :
+                      isLow || isHigh ? 'bg-warning/10 dark:bg-warning/20 text-warning-foreground' :
+                        'bg-muted text-muted-foreground'
+                    }`}
                 >
                   {isMatch ? (
                     <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
@@ -107,11 +106,10 @@ export const ProductClassifier: React.FC<ProductClassifierProps> = ({ metrics })
             {Object.entries(classification.deltas).map(([key, delta]) => (
               <div key={key} className="text-center">
                 <p className="text-muted-foreground uppercase">{key}</p>
-                <p className={`font-semibold ${
-                  Math.abs(delta) < 0.5 ? 'text-green-600' :
-                  Math.abs(delta) < 2 ? 'text-yellow-600' :
-                  'text-red-600'
-                }`}>
+                <p className={`font-semibold ${Math.abs(delta) < 0.5 ? 'text-green-600' :
+                    Math.abs(delta) < 2 ? 'text-yellow-600' :
+                      'text-red-600'
+                  }`}>
                   {delta > 0 ? '+' : ''}{delta.toFixed(1)}
                 </p>
               </div>

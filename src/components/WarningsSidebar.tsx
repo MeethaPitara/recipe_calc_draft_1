@@ -8,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Info, Lightbulb, CheckCircle } from 'lucide-react';
-import { Metrics, generateWarnings, ProductClass } from '@/lib/calc';
+import { MetricsV2, ProductClass } from '@/lib/calc.v2';
 
 interface WarningsSidebarProps {
-  metrics: Metrics;
+  metrics: MetricsV2;
   productType?: ProductClass;
   additionalWarnings?: string[];
 }
@@ -21,7 +21,8 @@ export const WarningsSidebar: React.FC<WarningsSidebarProps> = ({
   productType,
   additionalWarnings = []
 }) => {
-  const warnings = generateWarnings(metrics, productType);
+  // Warnings are now pre-calculated in V2 engine
+  const warnings = metrics.warnings || [];
   const allWarnings = [...warnings, ...additionalWarnings].filter(Boolean);
 
   const categorizeWarning = (warning: string): {
@@ -99,9 +100,9 @@ export const WarningsSidebar: React.FC<WarningsSidebarProps> = ({
                   variant={type === 'error' || type === 'warning' ? 'destructive' : 'default'}
                   className={
                     type === 'error' ? 'border-red-300 bg-red-50 dark:bg-red-950/20' :
-                    type === 'warning' ? 'border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20' :
-                    type === 'info' ? 'border-blue-300 bg-blue-50 dark:bg-blue-950/20' :
-                    'border-green-300 bg-green-50 dark:bg-green-950/20'
+                      type === 'warning' ? 'border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20' :
+                        type === 'info' ? 'border-blue-300 bg-blue-50 dark:bg-blue-950/20' :
+                          'border-green-300 bg-green-50 dark:bg-green-950/20'
                   }
                 >
                   <div className="flex items-start gap-2">

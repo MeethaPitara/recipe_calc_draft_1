@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Info } from 'lucide-react';
-import { balanceSugarSpectrum } from '@/lib/calc';
+import { balanceSugarSpectrum } from '@/lib/legacy/calc';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SugarSpectrumBalanceProps {
