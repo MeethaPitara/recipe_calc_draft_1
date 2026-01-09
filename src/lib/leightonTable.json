@@ -1,0 +1,22 @@
+{
+  "comment": "Leighton table: g sucrose per 100g water → freezing point depression (FPDSE in °C)",
+  "data": [
+    { "sucrosePer100gWater": 0, "fpdse": 0.0 },
+    { "sucrosePer100gWater": 5, "fpdse": 0.28 },
+    { "sucrosePer100gWater": 10, "fpdse": 0.55 },
+    { "sucrosePer100gWater": 15, "fpdse": 0.83 },
+    { "sucrosePer100gWater": 20, "fpdse": 1.11 },
+    { "sucrosePer100gWater": 25, "fpdse": 1.39 },
+    { "sucrosePer100gWater": 30, "fpdse": 1.67 },
+    { "sucrosePer100gWater": 35, "fpdse": 1.96 },
+    { "sucrosePer100gWater": 40, "fpdse": 2.24 },
+    { "sucrosePer100gWater": 45, "fpdse": 2.53 },
+    { "sucrosePer100gWater": 50, "fpdse": 2.82 },
+    { "sucrosePer100gWater": 55, "fpdse": 3.11 },
+    { "sucrosePer100gWater": 60, "fpdse": 3.41 },
+    { "sucrosePer100gWater": 65, "fpdse": 3.70 },
+    { "sucrosePer100gWater": 70, "fpdse": 4.00 },
+    { "sucrosePer100gWater": 75, "fpdse": 4.30 },
+    { "sucrosePer100gWater": 80, "fpdse": 4.60 }
+  ]
+}

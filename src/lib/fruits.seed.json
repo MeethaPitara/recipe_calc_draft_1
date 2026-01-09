@@ -1,0 +1,7 @@
+[
+  { "name":"Mango (ripe)", "water_pct":83, "sugar_pct":14, "other_solids_pct":3, "fat_pct":0.4, "brix":14, "notes":"Alphonso-style" },
+  { "name":"Strawberry", "water_pct":91, "sugar_pct":7, "other_solids_pct":2, "fat_pct":0.3, "brix":7 },
+  { "name":"Banana (ripe)", "water_pct":74, "sugar_pct":15, "other_solids_pct":11, "fat_pct":0.3, "brix":20 },
+  { "name":"Pineapple", "water_pct":86, "sugar_pct":10, "other_solids_pct":4, "fat_pct":0.1, "brix":12 },
+  { "name":"Tamarind Pulp", "water_pct":68, "sugar_pct":9, "other_solids_pct":23, "fat_pct":0.0, "brix":45, "notes":"High acids & other solids" }
+]

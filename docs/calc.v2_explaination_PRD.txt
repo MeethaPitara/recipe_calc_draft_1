@@ -1,0 +1,58 @@
+PRD: Documentation Task — Explain calc.v2.ts
+1. Context
+File: src/lib/calc.v2.ts (or equivalent path) Role: This file is the "Brain" of the application. It contains the deterministic mathematical models, physics equations, and scientific relationships required to balance ice cream recipes. User Need: The developer needs to understand exactly how the math works, block-by-block, to verify its accuracy and scientific validity before building AI features on top of it.
+
+2. Objective
+Generate a comprehensive Technical Reference Document that breaks down calc.v2.ts into logical code blocks. For each block, provide:
+
+Code Purpose: What does this specific function or constant do?
+
+Scientific Reasoning: Why is this calculation necessary for ice cream? (e.g., explaining why POD/PAC matters).
+
+Mathematical Logic: The specific formula being applied.
+
+3. Instructions for AI (How to execute this task)
+Step 1: File Analysis
+Read the entire file calc.v2.ts.
+
+Identify the key structures:
+
+Data Models: interfaces/types for Ingredients and Recipes.
+
+Constants: Fixed values (e.g., standard POD/PAC for generic sugars).
+
+Helper Functions: Utilities for rounding, unit conversion, etc.
+
+Core Math Functions: The heavy lifters (calculating Solids, Water, Freezing Point).
+
+The Main Solver: The function that ties it all together.
+
+Step 2: Block-by-Block Explanation
+Generate a markdown response structured as follows:
+
+Block [X]: [Function Name / Section Name]
+Code Snippet: (Brief 1-2 line reference or the signature).
+
+Plain English Explanation: What is happening here?
+
+The "Why" (Science):
+
+Example: "This block calculates the Freezing Point Depression (PAC). In ice cream, this control how soft the scoop is at -18°C. If this number is too low, the ice cream becomes a rock."
+
+The Math:
+
+Example: PAC = (Sugar_Grams * Sugar_PAC_Factor) + (Salt * Salt_Factor)...
+
+Step 3: Specific Areas to Highlight
+Pay special attention to how the code handles:
+
+Water Calculation: Is it 100 - Total Solids?
+
+PAC (Anti-Freezing Power): How is it weighted?
+
+POD (Sweetness): How is it weighted relative to Sucrose?
+
+MSNF (Milk Solids Non-Fat): How is it isolated from Total Fat?
+
+4. Output Format
+The final output should be a Markdown file titled docs/calc_engine_deep_dive.md.

@@ -1,0 +1,61 @@
+PRD: Task B — Single Source of Truth (Math & Data Pipeline)
+1. Project Context
+Project Name: Ice Cream Formulation Engine (Refactor Phase) Current State: The codebase has fragmented calculation logic (using both calc.ts and calc.v2.ts) and potentially inconsistent methods for fetching ingredient data from Supabase. Goal: 1. Establish src/lib/calc.v2.ts as the Sole Source of Truth for math. 2. Identify and verify the Data Ingestion Point (where and how we fetch ingredients) to ensure the math engine receives consistent data.
+
+2. Objective
+Deep Audit: Identify every location where:
+
+Scientific parameters are calculated (inline or via imports).
+
+Data is fetched from Supabase (e.g., queries to the ingredients table).
+
+Consolidate: Refactor to ensure a single data entry point flows into a single calculation engine.
+
+Cleanup: Deprecate calc.ts and inconsistent fetchers.
+
+3. Workflow Steps (Instructions for AI)
+Phase 1: The Audit (Discovery)
+CRITICAL: Do not write any code or change files yet.
+
+Search Math & Imports:
+
+Identify files importing calc.ts vs calc.v2.ts.
+
+Scan UI components for inline math (keywords: .reduce(, fat *, msnf +).
+
+Search Data Retrieval (Supabase):
+
+Scan the codebase for Supabase client calls (e.g., .from('ingredients'), supabase.rpc, or custom hooks like useIngredients).
+
+Identify if data is being fetched raw in components vs. using a centralized service/store.
+
+Check if the fetched data structure matches what calc.v2.ts expects (type compatibility).
+
+Output Requirement: Present a Categorized Report to the user:
+
+Section A: Math Fragmentation: "Files doing manual math or using old calc."
+
+Section B: Data Fetching: "List of files fetching data from Supabase. Note any inconsistencies in what columns are being fetched."
+
+STOP POINT: Wait for user confirmation and review of the audit list before proceeding.
+
+Phase 2: Refactor & Redirect
+Once the audit is approved:
+
+Standardize Fetching (If needed): Ensure the fetching logic retrieves all necessary columns for calc.v2.ts (Fat, MSNF, Solids, PAC, POD).
+
+Replace Math Imports: Switch all calc.ts imports to calc.v2.ts.
+
+Eliminate Inline Math: Replace manual UI calculations with calls to the engine.
+
+Phase 3: Archive Legacy
+Move calc.ts to src/lib/legacy/.
+
+Verify the build ensures no hidden dependencies remain.
+
+4. Success Criteria
+Zero Imports: No active file imports calc.ts.
+
+Unified Data: Ingredient data is fetched consistently (e.g., via a single hook or service) and passed cleanly to the calculator.
+
+Accuracy: The UI displays metrics that exactly match the calc.v2.ts output.
