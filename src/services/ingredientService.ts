@@ -1,6 +1,7 @@
 import { getSupabase } from "@/integrations/supabase/safeClient";
 import { z } from "zod";
 import type { IngredientData } from "@/types/ingredients";
+import { trace } from "@/utils/tracer";
 
 const DbIngredientSchema = z.object({
   id: z.string().uuid(),
@@ -9,6 +10,7 @@ const DbIngredientSchema = z.object({
   tags: z.array(z.string()).nullable().optional(),
   notes: z.string().nullable().optional(),
   water_pct: z.number(),
+  sugar_pct: z.number().nullable().optional(),
   sugars_pct: z.number().nullable().optional(),
   fat_pct: z.number(),
   msnf_pct: z.number().nullable().optional(),
@@ -61,7 +63,8 @@ function transformToIngredientData(dbRow: z.infer<typeof DbIngredientSchema>): I
     tags: dbRow.tags || undefined,
     notes: dbRow.notes ? [dbRow.notes] : undefined,
     water_pct: safeNumber(dbRow.water_pct),
-    sugars_pct: safeNumber(dbRow.sugars_pct) || undefined,
+    // Handle both singular (historic/seed) and plural (schema) naming
+    sugars_pct: safeNumber(dbRow.sugars_pct) || safeNumber(dbRow.sugar_pct) || undefined,
     fat_pct: safeNumber(dbRow.fat_pct),
     msnf_pct: safeNumber(dbRow.msnf_pct) || undefined,
     other_solids_pct: safeNumber(dbRow.other_solids_pct) || undefined,
@@ -72,11 +75,19 @@ function transformToIngredientData(dbRow: z.infer<typeof DbIngredientSchema>): I
   };
 }
 
+
+
 export async function getAllIngredients(): Promise<IngredientData[]> {
   const supabase = await getSupabase();
   const { data, error } = await supabase.from("ingredients").select("*").order("category").order("name");
+
+  if (data) {
+    trace('ingredientService.ts', 'getAllIngredients', 'RAW_FETCH_FROM_DB', { count: data.length, sample: data[0] });
+  }
+
   if (error) {
     console.error('❌ Error fetching ingredients:', error);
+
     throw error;
   }
 

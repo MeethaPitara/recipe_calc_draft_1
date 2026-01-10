@@ -1,0 +1,66 @@
+ntext
+Project: Ice Cream Formulation Engine. Problem: Suspected silent data mutation. The ingredient nutritional values (Fat, MSNF, etc.) appear to change or drift between the initial Supabase fetch and the final calc.v2.ts execution. Goal: Implement a temporary "Verbose Tracing Mode" that logs the data state at every critical hop in the architecture, allowing the developer to pinpoint exactly where and when the data changes.
+
+2. Technical Requirement: The "Trace Log"
+We need a standardized log format that allows us to follow the data's journey. Target Format: [TIMESTAMP] [FILE:FUNCTION] [ACTION] -> Data Snapshot
+
+Example Output:
+
+[10:00:01] [api/ingredients.ts:fetchIngredients] RECEIVED from DB -> { Butter: { fat: 80, msnf: 1 } } [10:00:02] [RecipeBuilder.tsx:useEffect] STATE UPDATE -> { Butter: { fat: 80, msnf: 1 } } [10:00:05] [calc.v2.ts:calculate] INPUT RECEIVED -> { Butter: { fat: 40, msnf: 0.5 } } (WAIT! Why did it drop? Found the bug.)
+
+3. Implementation Plan (Instructions for AI)
+Step 1: Create the TraceLogger Utility
+Create a file src/utils/tracer.ts. It should export a function trace(file, functionName, action, payload) that:
+
+Checks if a flag NEXT_PUBLIC_DEBUG_MODE is true.
+
+If true, uses console.groupCollapsed (to keep console clean) or standard console.log with color coding.
+
+Prints the path clearly: 🛑 TRACE: ${file} :: ${functionName} -> ${action}.
+
+Step 2: Instrument the "Critical Path"
+Inject the trace() function into these specific locations. Do not refactor logic yet, just observe it.
+
+The Source (Supabase Service):
+
+Locate the file fetching from supabase.from('ingredients').
+
+Log the raw payload immediately after the await.
+
+Tag: [SupabaseService] [RawFetch]
+
+The Handover (React State):
+
+Locate where the ingredient list is set into state (e.g., setIngredients(...)).
+
+Log the data inside the setter or the useEffect handling it.
+
+Tag: [RecipeContext] [StateSet]
+
+The Calculation Trigger (UI Component):
+
+Locate the "Calculate" button handler or the useEffect that triggers updates.
+
+Log the exact object being passed to the calculator.
+
+Tag: [RecipeBuilder] [PreCalc]
+
+The Brain (Calc Engine):
+
+Inside calc.v2.ts, at the very top of the main export function.
+
+Log the arguments received.
+
+Tag: [CalcV2] [InputReceived]
+
+Step 3: The "Diff" Analysis (Auto-Check)
+Ask the AI to look for specific mutations:
+
+Normalization errors: Is the DB sending data "per 100g" but the app storing it as "per 1g"?
+
+Reference errors: Is the app mutating the original ingredient object when scaling for weight? (e.g., ingredient.fat = ingredient.fat * quantity modifies the reference, ruining future calcs).
+
+4. Success Criteria
+Opening the browser console reveals a clear, step-by-step history of the "Butter" object (or any test ingredient).
+
+We can visually verify that Fat: 80 (from DB) stays Fat: 80 until the very moment math is applied.

@@ -10,6 +10,7 @@ import { predictOverrun, suggestServingTemp, OverrunPrediction, ServingTempRecom
 import type { Mode } from '@/types/mode';
 import { resolveMode } from './mode';
 import { safeNumber, guardResult, validateIngredientComposition } from './validation';
+import { trace } from "@/utils/tracer";
 
 export type MetricsV2 = {
   // Basic composition (g)
@@ -77,6 +78,7 @@ export type CalcOptionsV2 = {
 function leightonLookup(sucrosePer100gWater: number): { fpdse: number; clamped: boolean } {
   const data = leightonTable.data;
   const x = sucrosePer100gWater;
+  trace('calc.v2.ts', 'leightonLookup', 'START', { sucrosePer100gWater: x });
 
   // Clamp to table bounds
   if (x <= data[0].sucrosePer100gWater) {
@@ -104,6 +106,7 @@ function leightonLookup(sucrosePer100gWater: number): { fpdse: number; clamped: 
  * Calculate glucose syrup contribution by DE split
  */
 function calcGlucoseSyrupSE(solids_g: number, de: number): number {
+  trace('calc.v2.ts', 'calcGlucoseSyrupSE', 'START', { solids_g, de });
   const dextrose_g = solids_g * (de / 100);
   const oligo_g = solids_g - dextrose_g;
   return 1.9 * dextrose_g + 1.0 * oligo_g;
@@ -116,6 +119,11 @@ export function calcMetricsV2(
   rows: { ing: IngredientData; grams: number }[],
   opts: CalcOptionsV2 = {}
 ): MetricsV2 {
+  trace('calc.v2.ts', 'calcMetricsV2', 'INPUT_RECEIVED', {
+    rowCount: rows.length,
+    rowsSample: rows.slice(0, 3).map(r => ({ name: r.ing.name, fat: r.ing.fat_pct, msnf: r.ing.msnf_pct, grams: r.grams }))
+  });
+
   const warnings: string[] = [];
 
   // 0. Validate ingredients before calculation
@@ -129,9 +137,11 @@ export function calcMetricsV2(
       warnings.push(`⚠️ "${ing.name}": ${validation.totalComposition}`);
     }
   }
+  trace('calc.v2.ts', 'calcMetricsV2', 'VALIDATION_DONE', { warningsCount: warnings.length });
 
   // 1. Calculate batch totals with NaN guards
   const total_g = guardResult(rows.reduce((a, r) => a + safeNumber(r.grams), 0), 0, 'total_g');
+  trace('calc.v2.ts', 'calcMetricsV2', 'TOTAL_G_CALC', { total_g });
 
   let water_g = 0, nonLactoseSugars_g = 0, fat_g = 0, msnf_g = 0, other_g = 0;
   for (const { ing, grams } of rows) {
@@ -187,6 +197,10 @@ export function calcMetricsV2(
   const totalSugars_pct = pct(totalSugars_g);
   const ts_pct = pct(ts_g);
 
+  trace('calc.v2.ts', 'calcMetricsV2', 'BASIC_METRICS_CALC', {
+    water_pct, fat_pct, msnf_pct, totalSugars_pct, ts_pct
+  });
+
   // 7. Calculate Sucrose Equivalents (SE)
   let se_g = 0;
 
@@ -234,6 +248,7 @@ export function calcMetricsV2(
 
   // Add lactose contribution to SE (0.545 from MSNF)
   se_g += 0.545 * msnf_g;
+  trace('calc.v2.ts', 'calcMetricsV2', 'SE_CALC_DONE', { se_g, msnf_contribution: 0.545 * msnf_g });
 
   // 8. Freezing Point Depression
   const sucrosePer100gWater = water_after_evap_g > 0 ? (se_g / water_after_evap_g) * 100 : 0;
@@ -246,6 +261,7 @@ export function calcMetricsV2(
 
   const fpdsa = water_after_evap_g > 0 ? (msnf_g * 2.37) / water_after_evap_g : 0;
   const fpdt = fpdse + fpdsa;
+  trace('calc.v2.ts', 'calcMetricsV2', 'FPDT_CALC', { sucrosePer100gWater, fpdse, fpdsa, fpdt, clamped: leightonResult.clamped });
 
   // 9. POD (normalized sweetness index per 100g total sugars)
   let pod_numerator = 0;
@@ -282,6 +298,7 @@ export function calcMetricsV2(
   pod_numerator += 16 * lactose_g;
 
   const pod_index = totalSugars_g > 0 ? pod_numerator / totalSugars_g : 100;
+  trace('calc.v2.ts', 'calcMetricsV2', 'POD_CALC', { pod_numerator, totalSugars_g, pod_index });
 
   // 10. P2 Science: Fruit Acidity Analysis
   let fruitAdjustments: AcidityAdjustment | undefined;
@@ -301,6 +318,7 @@ export function calcMetricsV2(
       adjustment.notes.forEach(note => {
         warnings.push(`🍋 ${ing.name}: ${note}`);
       });
+      trace('calc.v2.ts', 'calcMetricsV2', 'FRUIT_ACIDITY_ADJUSTMENT', { ingredient: ing.name, adjustment });
 
       // Store adjustment for UI display (take first/most significant fruit)
       if (!fruitAdjustments) {
@@ -341,6 +359,8 @@ export function calcMetricsV2(
     contextualMSNF = [8, 10];
     contextLabel = 'nuts/eggs';
   }
+
+  trace('calc.v2.ts', 'calcMetricsV2', 'CONTEXT_CHECK', { hasChocolate, hasNutsOrEggs, contextLabel, contextualMSNF });
 
   if (mode === 'gelato') {
     // Gelato guardrails
@@ -598,6 +618,7 @@ export function classifyProduct(metrics: MetricsV2): ClassificationResult {
   };
 
   const scores: Record<ProductClass, { score: number; reasons: string[]; deltas: Record<string, number> }> = {} as any;
+  trace('calc.v2.ts', 'classifyProduct', 'START', { metrics: { ts: metrics.ts_pct, fat: metrics.fat_pct, sugar: metrics.nonLactoseSugars_pct } });
 
   for (const [type, bands] of Object.entries(targets)) {
     const reasons: string[] = [];
@@ -644,6 +665,8 @@ export function classifyProduct(metrics: MetricsV2): ClassificationResult {
   const matchCount = bestMatch.reasons.filter(r => r.includes('within')).length;
   const confidence: 'high' | 'medium' | 'low' = matchCount >= 5 ? 'high' : matchCount >= 3 ? 'medium' : 'low';
 
+  trace('calc.v2.ts', 'classifyProduct', 'RESULT', { productType: bestType, confidence, score: bestMatch.score });
+
   return { productType: bestType, confidence, reasons: bestMatch.reasons, deltas: bestMatch.deltas };
 }
 
@@ -664,6 +687,7 @@ export function calculateMilkCreamMix(
   actual_fat_pct: number;
   notes: string[];
 } {
+  trace('calc.v2.ts', 'calculateMilkCreamMix', 'START', { milkFatPct, creamFatPct, targetFatPct, targetMass });
   const cream_g = ((targetFatPct - milkFatPct) / (creamFatPct - milkFatPct)) * targetMass;
   const milk_g = targetMass - cream_g;
 

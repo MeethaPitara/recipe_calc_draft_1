@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { IngredientService } from '@/services/ingredientService';
 import type { IngredientData } from '@/types/ingredients';
 import { useToast } from '@/hooks/use-toast';
+import { trace } from "@/utils/tracer";
 
 interface IngredientsContextType {
   ingredients: IngredientData[];
@@ -26,14 +27,19 @@ export function IngredientsProvider({ children }: { children: React.ReactNode })
       if (import.meta.env.DEV) {
         console.log('🔄 Loading ingredients from database (global context)...');
       }
-      
+
       const data = await IngredientService.getIngredients();
-      
+
+
+
+
       if (import.meta.env.DEV) {
         console.log(`✅ Loaded ${data.length} ingredients globally`);
       }
+
+      trace('IngredientsContext.tsx', 'loadIngredients', 'SET_STATE', { count: data.length, sample: data[0] });
       setIngredients(data);
-      
+
       // Only show empty database warning after first successful load, not during initial mount
       if (hasLoadedOnce && data.length === 0) {
         toast({
@@ -62,12 +68,12 @@ export function IngredientsProvider({ children }: { children: React.ReactNode })
   }, []);
 
   return (
-    <IngredientsContext.Provider 
-      value={{ 
-        ingredients, 
-        isLoading, 
+    <IngredientsContext.Provider
+      value={{
+        ingredients,
+        isLoading,
         error,
-        refetch: loadIngredients 
+        refetch: loadIngredients
       }}
     >
       {children}

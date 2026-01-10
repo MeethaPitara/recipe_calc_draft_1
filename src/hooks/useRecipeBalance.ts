@@ -12,11 +12,12 @@ import { PRODUCT_CONSTRAINTS, getBalancingTargets } from '@/lib/productConstrain
 import { diagnoseBalancingFailure as diagnoseFailure } from '@/lib/ingredientMapper';
 import { diagnoseFeasibility, Feasibility, applyAutoFix } from '@/lib/diagnostics';
 import { resolveMode, resolveProductKey } from '@/lib/mode';
-import { 
-  validateRecipeIngredients, 
+import { trace } from "@/utils/tracer";
+import {
+  validateRecipeIngredients,
   diagnoseBalancingFailure as diagnoseBalancingError,
   getBalancingErrorInfo,
-  type BalancingFailureReason 
+  type BalancingFailureReason
 } from '@/lib/validation';
 import type { IngredientRow, BalancingSuggestion, BalancingDiagnostics } from '@/types/calculator';
 import type { IngredientData } from '@/types/ingredients';
@@ -95,7 +96,7 @@ export function useRecipeBalance({
     const fat_g = ((ingredient.fat_pct ?? 0) / 100) * quantity_g;
     const msnf_g = ((ingredient.msnf_pct ?? 0) / 100) * quantity_g;
     const other_solids_g = ((ingredient.other_solids_pct ?? 0) / 100) * quantity_g;
-    
+
     return {
       ingredientData: ingredient,
       ingredient: ingredient.name,
@@ -112,7 +113,7 @@ export function useRecipeBalance({
     const mode = resolveMode(productType);
     const validRows = rows.filter(r => r.ingredientData && r.quantity_g > 0);
     const rowsWithoutData = rows.filter(r => !r.ingredientData && r.ingredient).length;
-    
+
     if (!metrics) {
       toast({
         title: "Calculate metrics first",
@@ -125,7 +126,7 @@ export function useRecipeBalance({
     if (validRows.length === 0) {
       toast({
         title: rowsWithoutData > 0 ? "No valid ingredients" : "No ingredients to balance",
-        description: rowsWithoutData > 0 
+        description: rowsWithoutData > 0
           ? "All ingredients must be selected from the database list."
           : "Add ingredients from the database and enter quantities first.",
         variant: "destructive",
@@ -148,7 +149,7 @@ export function useRecipeBalance({
         setIsOptimizing(false);
         return;
       }
-      
+
       const targets = getBalancingTargets(mode);
 
       // Convert rows to optimization format
@@ -162,7 +163,7 @@ export function useRecipeBalance({
       // Store diagnostics
       const diagnosis = diagnoseFailure(optRows, availableIngredients, targets);
       const hasFruit = rows.some(r => r.ingredientData?.category === 'fruit');
-      
+
       setBalancingDiagnostics({
         targets,
         diagnosis,
@@ -178,10 +179,10 @@ export function useRecipeBalance({
 
       // Run auto-fix prepass if needed
       const prepassFeasibility: Feasibility = diagnoseFeasibility(optRows, availableIngredients, targets, mode);
-      
+
       if (!prepassFeasibility.feasible && prepassFeasibility.missingCanonicals?.length > 0) {
         const prepassAutoFix = applyAutoFix(optRows, availableIngredients, mode, prepassFeasibility);
-        
+
         if (prepassAutoFix.applied) {
           prepassAutoFix.addedIngredients.forEach(added => {
             const ing = availableIngredients.find(i => i.name === added.name);
@@ -190,7 +191,7 @@ export function useRecipeBalance({
               setRows(prev => [...prev, createRowFromIngredient(ing, added.grams)]);
             }
           });
-          
+
           toast({
             title: '🛠️ Gentle Prepass Applied',
             description: prepassAutoFix.addedIngredients.map(a => `+ ${a.grams.toFixed(1)}g ${a.name}`).join(', '),
@@ -201,10 +202,10 @@ export function useRecipeBalance({
 
       // Check feasibility
       const feasibility: Feasibility = diagnoseFeasibility(optRows, availableIngredients, targets, mode);
-      
+
       if (!feasibility.feasible) {
         const autoFix = applyAutoFix(optRows, availableIngredients, mode, feasibility);
-        
+
         if (autoFix.applied) {
           autoFix.addedIngredients.forEach(added => {
             const ing = availableIngredients.find(i => i.name === added.name);
@@ -220,10 +221,10 @@ export function useRecipeBalance({
           const hasFat = rows.some(r => r.ingredientData && (r.ingredientData.fat_pct ?? 0) > 5);
           const hasMSNF = rows.some(r => r.ingredientData && (r.ingredientData.msnf_pct ?? 0) > 5);
           const hasSugar = rows.some(r => r.ingredientData && (r.ingredientData.sugars_pct ?? 0) > 10);
-          
+
           const failureReason = diagnoseBalancingError(hasWater, hasFat, hasMSNF, hasSugar, optRows.length, feasibility.reason);
           const errorInfo = getBalancingErrorInfo(failureReason);
-          
+
           toast({
             title: `⚠️ ${errorInfo.title}`,
             description: `${errorInfo.description} ${errorInfo.suggestion}`,
@@ -235,10 +236,17 @@ export function useRecipeBalance({
         }
       }
 
-      // Run balancing
       const calcMode = resolveMode(productType);
       const tolerance = calcMode === 'ice_cream' ? 3.0 : 2.0;
-      
+
+      // Log data before passing to calculator
+      trace('useRecipeBalance.ts', 'balanceRecipe', 'PRE_CALC_DETAILS', {
+        optRowsCount: optRows.length,
+        firstRowSample: optRows[0],
+        targets: targets,
+        mode: calcMode
+      });
+
       const result = RecipeBalancerV2.balance(optRows, targets, availableIngredients, {
         maxIterations: 200,
         tolerance,
@@ -253,11 +261,11 @@ export function useRecipeBalance({
         // Generate suggestions
         const currentMetrics = calcMetricsV2(optRows, { mode: calcMode });
         const structuredSuggestions: BalancingSuggestion[] = [];
-        
+
         const fatGap = targets.fat_pct - currentMetrics.fat_pct;
         const msnfGap = targets.msnf_pct - currentMetrics.msnf_pct;
         const sugarGap = targets.totalSugars_pct - currentMetrics.totalSugars_pct;
-        
+
         if (Math.abs(fatGap) > 2) {
           structuredSuggestions.push({
             id: fatGap > 0 ? 'fat-increase' : 'fat-decrease',
@@ -269,7 +277,7 @@ export function useRecipeBalance({
             priority: 1
           });
         }
-        
+
         if (Math.abs(msnfGap) > 2 && msnfGap > 0) {
           structuredSuggestions.push({
             id: 'msnf-increase',
@@ -281,7 +289,7 @@ export function useRecipeBalance({
             priority: 1
           });
         }
-        
+
         if (Math.abs(sugarGap) > 2 && sugarGap > 0) {
           structuredSuggestions.push({
             id: 'sugar-increase',
@@ -293,7 +301,7 @@ export function useRecipeBalance({
             priority: 2
           });
         }
-        
+
         setBalancingSuggestions(structuredSuggestions);
         setShowSuggestionsDialog(true);
         setIsOptimizing(false);
@@ -333,13 +341,13 @@ export function useRecipeBalance({
       if (import.meta.env.DEV) {
         console.error('Balancing error:', error);
       }
-      
+
       // Diagnose the failure and provide specific guidance
       const hasWater = rows.some(r => r.ingredientData && (r.ingredientData.water_pct ?? 0) > 50);
       const hasFat = rows.some(r => r.ingredientData && (r.ingredientData.fat_pct ?? 0) > 5);
       const hasMSNF = rows.some(r => r.ingredientData && (r.ingredientData.msnf_pct ?? 0) > 5);
       const hasSugar = rows.some(r => r.ingredientData && (r.ingredientData.sugars_pct ?? 0) > 10);
-      
+
       const failureReason = diagnoseBalancingError(
         hasWater,
         hasFat,
@@ -348,12 +356,12 @@ export function useRecipeBalance({
         validRows.length,
         error?.message
       );
-      
+
       const errorInfo = getBalancingErrorInfo(failureReason, {
         currentFat: metrics?.fat_pct,
         currentMSNF: metrics?.msnf_pct
       });
-      
+
       toast({
         title: errorInfo.title,
         description: `${errorInfo.description} ${errorInfo.suggestion}`,
@@ -369,15 +377,15 @@ export function useRecipeBalance({
     // Find ingredient using aliases
     const ingredient = availableIngredients.find(ing => {
       if (ing.name.toLowerCase() === suggestion.ingredientName.toLowerCase()) return true;
-      
+
       const searchTerms = INGREDIENT_ALIASES[suggestion.ingredientId] || [];
       return searchTerms.some(term => ing.name.toLowerCase().includes(term.toLowerCase()));
     });
-    
+
     if (!ingredient) {
       // Try auto-creating the ingredient
       const defaults = DEFAULT_COMPOSITIONS[suggestion.ingredientId];
-      
+
       if (defaults) {
         const insertData = {
           name: defaults.name!,
@@ -389,13 +397,13 @@ export function useRecipeBalance({
           sugars_pct: defaults.sugars_pct ?? 0,
           other_solids_pct: defaults.other_solids_pct ?? 0
         };
-        
+
         const { data: newIng, error } = await supabase
           .from('ingredients')
           .insert(insertData)
           .select()
           .single();
-        
+
         if (error || !newIng) {
           toast({
             title: '❌ Failed to add ingredient',
@@ -404,17 +412,17 @@ export function useRecipeBalance({
           });
           return;
         }
-        
+
         toast({
           title: '✨ Ingredient Added',
           description: `${defaults.name} was automatically added to your database`,
         });
-        
+
         await refetchIngredients();
         setTimeout(() => applySuggestion(suggestion), 500);
         return;
       }
-      
+
       toast({
         title: '❌ Ingredient Not Found',
         description: `"${suggestion.ingredientName}" is not in your database.`,
@@ -423,18 +431,18 @@ export function useRecipeBalance({
       });
       return;
     }
-    
+
     // Check if ingredient exists in recipe
     const existingRowIndex = rows.findIndex(r => r.ingredientData?.id === ingredient.id);
-    
+
     if (existingRowIndex >= 0) {
       const currentQty = rows[existingRowIndex].quantity_g;
       const newQty = currentQty + suggestion.quantityChange;
-      
-      setRows(prev => prev.map((r, i) => 
+
+      setRows(prev => prev.map((r, i) =>
         i === existingRowIndex ? createRowFromIngredient(ingredient, newQty) : r
       ));
-      
+
       toast({
         title: '✅ Suggestion Applied',
         description: `Increased ${ingredient.name} from ${currentQty.toFixed(0)}g to ${newQty.toFixed(0)}g`,
@@ -442,14 +450,14 @@ export function useRecipeBalance({
       });
     } else {
       setRows(prev => [...prev, createRowFromIngredient(ingredient, suggestion.quantityChange)]);
-      
+
       toast({
         title: '✅ Suggestion Applied',
         description: `Added ${suggestion.quantityChange.toFixed(0)}g ${ingredient.name} to recipe`,
         duration: 3000
       });
     }
-    
+
     setBalancingSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
   };
 
@@ -458,13 +466,13 @@ export function useRecipeBalance({
       await applySuggestion(suggestion);
     }
     setShowSuggestionsDialog(false);
-    
+
     toast({
       title: '✨ All Suggestions Applied',
       description: 'Re-balancing recipe automatically...',
       duration: 3000
     });
-    
+
     setTimeout(() => balanceRecipe(), 1000);
   };
 
