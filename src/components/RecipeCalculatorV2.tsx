@@ -63,6 +63,7 @@ function productKey(mode: Mode, rows: IngredientRow[]): string {
 
 interface RecipeCalculatorV2Props {
   onRecipeChange?: (recipe: any[], metrics: MetricsV2 | null, productType: string) => void;
+  externalRecipe?: { rows: IngredientRow[], name: string, type: string, id: string } | null;
 }
 
 // PHASE 1: Simplified Quantity Input - Direct controlled input with no buffering
@@ -143,7 +144,7 @@ const QuantityInput = ({ value, onChange, step, rowIndex, className }: {
 };
 
 
-export default function RecipeCalculatorV2({ onRecipeChange }: RecipeCalculatorV2Props) {
+export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: RecipeCalculatorV2Props) {
   const { toast } = useToast();
   const [recipeName, setRecipeName] = useState('');
   const [productType, setProductType] = useState('ice_cream');
@@ -370,6 +371,50 @@ export default function RecipeCalculatorV2({ onRecipeChange }: RecipeCalculatorV
       onRecipeChange(recipeData, metrics, productType);
     }
   }, [rows, metrics, productType, onRecipeChange]);
+
+  // Sync with external recipe (loaded from library)
+  // Sync with external recipe (loaded from library)
+  useEffect(() => {
+    if (externalRecipe && availableIngredients.length > 0) {
+      console.log("📥 Loading external recipe:", externalRecipe.name);
+
+      const hydratedRows = externalRecipe.rows.map(row => {
+        // Try to find by name match (case insensitive)
+        const found = availableIngredients.find(i =>
+          i.name.toLowerCase() === row.ingredient.toLowerCase() ||
+          i.id === row.ingredient // Fallback if we stored ID
+        );
+
+        if (found) {
+          const qty = row.quantity_g;
+          // Recalculate based on current ingredient data to ensure accuracy
+          return {
+            ...row,
+            ingredientData: found,
+            ingredient: found.name, // Normalize name
+            quantity_g: qty,
+            sugars_g: ((found.sugars_pct ?? 0) / 100) * qty,
+            fat_g: ((found.fat_pct ?? 0) / 100) * qty,
+            msnf_g: ((found.msnf_pct ?? 0) / 100) * qty,
+            other_solids_g: ((found.other_solids_pct ?? 0) / 100) * qty,
+            total_solids_g: (((found.sugars_pct ?? 0) + (found.fat_pct ?? 0) + (found.msnf_pct ?? 0) + (found.other_solids_pct ?? 0)) / 100) * qty
+          };
+        }
+        return row;
+      });
+
+      setRows(hydratedRows);
+      setRecipeName(externalRecipe.name);
+      setProductType(externalRecipe.type);
+      setCurrentRecipeId(externalRecipe.id);
+
+      // Toast to confirm load
+      toast({
+        title: "Recipe Loaded",
+        description: `Loaded "${externalRecipe.name}"`,
+      });
+    }
+  }, [externalRecipe, availableIngredients]);
 
   const FIXED_STEP_SIZE = 10; // Always ±10g
 

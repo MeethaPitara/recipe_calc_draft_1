@@ -1,0 +1,80 @@
+PRD: Task 2 — User-Based Recipe Persistence
+1. Context
+Goal: Enable users to save/load recipes, ensuring strict data isolation. A user logging in with alice@example.com must only see recipes she created. She must never see bob@example.com's recipes. Mechanism: We rely on Supabase Auth and Row Level Security (RLS). The frontend/service layer does not need to manually filter by email; the database will automatically reject requests for other users' data.
+
+2. Technical Specifications
+A. The Service Layer (src/services/recipeService.ts)
+The service must explicitly check for an active session before attempting operations.
+
+Prerequisite:
+
+The Supabase client must be initialized.
+
+Important: Do not pass user_id manually from the frontend. Let Supabase infer it from the active session token.
+
+Functions:
+
+saveRecipe(header, items, existingId?):
+
+Step 1: Check await supabase.auth.getUser(). If no user, throw error "Must be logged in".
+
+Step 2 (Create): Insert { name, type, notes }. Note: Do not send user_id; DB defaults it to auth.uid().
+
+Step 3 (Update): If updating, perform the update. Note: RLS ensures you can't overwrite someone else's recipe even if you try.
+
+Step 4 (Items): Handle the recipe_items insert/replace logic.
+
+getRecipes():
+
+Logic: supabase.from('recipes').select('*').order('updated_at', { ascending: false })
+
+Behavior: Because of RLS, this query will return only the rows belonging to the currently logged-in user. No WHERE clause is needed (though .eq('user_id', user.id) is a safe redundancy).
+
+getRecipeById(id):
+
+Fetch recipe + items.
+
+Security Check: If the database returns null or empty, it means either the recipe doesn't exist OR it belongs to someone else. Treat both as "Not Found."
+
+B. UI Changes (Auth Aware)
+RecipeLibrary (Sidebar):
+
+On Mount: Check if user is logged in.
+
+If Logged In: Call getRecipes() and display the list.
+
+If Guest: Show message "Log in to save your recipes." (Hide the list).
+
+SaveRecipeModal:
+
+If the user tries to save while logged out, redirect them to Login or show an alert: "Please log in to save recipes."
+
+3. Implementation Instructions for AI
+Step 1: Service Layer (Auth Integration)
+Implement src/services/recipeService.ts.
+
+Ensure every function starts with const { data: { user } } = await supabase.auth.getUser().
+
+If !user, throw a standard error: new Error('User not authenticated').
+
+Step 2: UI - Auth State
+In RecipeLibrary.tsx, use a hook (like useUser or useSession) to determine if we should render the list or the "Login Required" state.
+
+Do NOT display a "User ID" or "Email" filter dropdown. The filtering must be invisible and automatic.
+
+4. Success Criteria
+Isolation Test:
+
+Log in as User A. Create "Recipe A".
+
+Log out.
+
+Log in as User B. The Library list is empty.
+
+User B creates "Recipe B".
+
+User A logs back in. The Library shows only "Recipe A".
+
+Security Test:
+
+Even if I manually call getRecipeById('ID_OF_USER_B') while logged in as User A, the database returns error or null.

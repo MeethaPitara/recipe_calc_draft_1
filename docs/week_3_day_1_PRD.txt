@@ -1,0 +1,135 @@
+PRD: Task — Golden Tests (Correctness Lock)
+1. Context & Goal
+Objective: Implement a "Correctness Lock" mechanism to prevent mathematical regressions. We need to run the core calculation engine against a set of "Golden Recipes" (verified Ground Truth data from Excel) and ensure the output matches exactly within a tight tolerance. Approach: Create a dedicated CLI script (npm run test:golden) that acts as a standalone test runner. Priority: High (Must be completed before further refactoring).
+
+2. Technical Specifications
+A. The Data Source: src/tests/golden-data.ts
+We need a typed data file containing the test cases.
+
+Interface: GoldenTestCase (Input ingredients vs. Expected output metrics).
+
+Data Content: Must include the "Excel Validation Master" and "Butter Consistency Check" cases provided in the data block below.
+
+B. The Test Runner: src/scripts/run-golden.ts
+A TypeScript script that executes the tests.
+
+Dependencies: Uses ts-node (or tsx) to run directly from the terminal.
+
+Logic:
+
+Import calculateRecipe (or equivalent main function) from src/lib/calc.v2.ts.
+
+Iterate through GOLDEN_TEST_CASES.
+
+Feed inputs into the engine.
+
+Compare actual results vs. expected values.
+
+Tolerance: Allow a delta of ±0.05 for percentages and ±1.0g for weights.
+
+Output: Print a summary table. Use standard console colors (Green for PASS, Red for FAIL).
+
+Exit Code: Exit with 1 if any test fails (for future CI/CD compatibility).
+
+C. Execution
+Add a script to package.json: "test:golden": "ts-node src/scripts/run-golden.ts"
+
+3. Implementation Instructions for AI
+Step 1: Create the Data File
+Create src/tests/golden-data.ts and populate it with the following verified data structure and cases:
+
+TypeScript
+
+// src/tests/golden-data.ts
+
+export interface IngredientInput {
+  id: string;
+  name: string;
+  quantity: number;
+  // Nutritional values per 100g
+  fat: number;
+  msnf: number;
+  sugar: number;
+  other: number;
+  p_solids: number; // Total solids
+}
+
+export interface ExpectedMetrics {
+  totalWeight: number;
+  totalFat: number;
+  totalMSNF: number;
+  totalSugar: number;
+  totalSolids: number;
+}
+
+export interface GoldenTestCase {
+  name: string;
+  inputs: IngredientInput[];
+  expected: ExpectedMetrics;
+}
+
+export const GOLDEN_TEST_CASES: GoldenTestCase[] = [
+  {
+    name: "Excel Master Validation (Ground Truth)",
+    inputs: [
+      { id: "milk_3", name: "Milk (3% fat)", quantity: 589, fat: 3.0, msnf: 8.5, sugar: 0, other: 0, p_solids: 11.5 },
+      { id: "cream_25", name: "Cream (25% fat)", quantity: 165, fat: 25.0, msnf: 6.8, sugar: 0, other: 0, p_solids: 31.8 },
+      { id: "sucrose", name: "Sucrose", quantity: 118, fat: 0, msnf: 0, sugar: 100, other: 0, p_solids: 100 },
+      { id: "dextrose", name: "Dextrose", quantity: 18, fat: 0, msnf: 0, sugar: 92, other: 0, p_solids: 92 },
+      { id: "glucose_syrup", name: "Glucose Syrup", quantity: 42, fat: 0, msnf: 0, sugar: 80, other: 0, p_solids: 80 },
+      { id: "smp", name: "Skimmed Milk Powder", quantity: 44, fat: 1.0, msnf: 95.0, sugar: 0, other: 0, p_solids: 96.0 },
+      { id: "stab", name: "Stabilizer", quantity: 6, fat: 0, msnf: 0, sugar: 0, other: 100, p_solids: 100 },
+      { id: "condensed", name: "Condensed Milk", quantity: 18, fat: 3.9, msnf: 8.5, sugar: 58.3, other: 0, p_solids: 70.7 }
+    ],
+    expected: {
+      totalWeight: 1000,
+      totalFat: 60.06,    // Target: 60.062
+      totalMSNF: 104.62,  // Target: 104.615
+      totalSugar: 178.65, // Target: 178.654
+      totalSolids: 349.33 // Target: 349.331
+    }
+  },
+  {
+    name: "Butter Consistency Check",
+    inputs: [
+      { id: "butter_test", name: "Butter", quantity: 40, fat: 80.0, msnf: 1.0, sugar: 0, other: 18.0, p_solids: 99.0 }
+    ],
+    expected: {
+      totalWeight: 40,
+      totalFat: 32.0,
+      totalMSNF: 0.4,
+      totalSugar: 0,
+      totalSolids: 39.6
+    }
+  }
+];
+Step 2: Create the Runner Script
+Create src/scripts/run-golden.ts.
+
+Import: Retrieve the calculator function from src/lib/calc.v2.ts. Note: You may need to adapt the input object structure if calc.v2.ts expects different field names than the test data above.
+
+Comparison Helper:
+
+TypeScript
+
+const isClose = (actual: number, expected: number, tolerance = 0.05) => {
+   return Math.abs(actual - expected) <= tolerance;
+};
+Logging: Provide clear console output. Example:
+
+[PASS] Excel Master Validation - Fat: 60.06g (Diff: 0.00) [FAIL] Excel Master Validation - Solids: Expected 349.33, Got 320.00
+
+Step 3: Package Config
+Update package.json to include:
+
+JSON
+
+"scripts": {
+  "test:golden": "ts-node src/scripts/run-golden.ts"
+}
+4. Definition of Done
+Running npm run test:golden in the terminal executes successfully.
+
+The script reports PASS for the "Excel Master Validation" case (proving our math matches the Excel sheet).
+
+The script reports PASS for the "Butter" case.

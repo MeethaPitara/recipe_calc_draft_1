@@ -31,6 +31,11 @@ import FooterBuildTag from "@/components/FooterBuildTag";
 import AIFlavourEngine from "@/pages/AIFlavourEngine";
 import { QuickAccessPanel } from "@/components/QuickAccessPanel";
 import { isAdvancedMode } from "@/utils/feature-flags";
+import { RecipeLibrary } from "@/components/RecipeLibrary";
+import { SaveRecipeModal } from "@/components/SaveRecipeModal";
+import { recipeService } from "@/services/recipeService";
+import { IngredientRow } from "@/types/calculator";
+import { Save, FolderOpen } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -44,6 +49,10 @@ const Index = () => {
   const [calculatorRecipe, setCalculatorRecipe] = useState<any[]>([]);
   const [calculatorMetrics, setCalculatorMetrics] = useState<any>(null);
   const [calculatorProductType, setCalculatorProductType] = useState('ice_cream');
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [currentRecipeId, setCurrentRecipeId] = useState<string | null>(null);
+  const [loadedRecipeData, setLoadedRecipeData] = useState<{ rows: IngredientRow[], name: string, type: string, id: string } | null>(null);
   const showAdvanced = isAdvancedMode();
 
   useEffect(() => {
@@ -162,6 +171,60 @@ const Index = () => {
         description: e?.message || "Backend not ready",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleSaveRecipe = async (name: string, type: string) => {
+    try {
+      // Map to service input
+      // calculatorRecipe contains { ingredient: string, quantity_g: number, ingredientData: IngredientData }
+      const rowsForService = calculatorRecipe
+        .filter(r => r.ingredientData)
+        .map(r => ({
+          ing: r.ingredientData,
+          grams: r.quantity_g
+        }));
+
+      if (rowsForService.length === 0) {
+        toast({ title: "Nothing to save", description: "Add ingredients first.", variant: "destructive" });
+        return;
+      }
+
+      const id = await recipeService.saveRecipe(name, type, rowsForService, calculatorMetrics, currentRecipeId || undefined);
+      setCurrentRecipeId(id);
+
+      toast({ title: "Recipe Saved", description: "Your recipe has been saved to the library." });
+    } catch (error: any) {
+      console.error("Save failed:", error);
+      toast({ title: "Save Failed", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleLoadRecipe = async (id: string) => {
+    try {
+      const data = await recipeService.getRecipeById(id);
+      if (data) {
+        // Map DB rows -> simplified IngredientRow (hydration happens in RecipeCalculatorV2)
+        const rows: IngredientRow[] = data.rows.map((r: any) => ({
+          ingredient: r.ingredient,
+          quantity_g: r.quantity_g,
+          // Defaults
+          sugars_g: 0, fat_g: 0, msnf_g: 0, other_solids_g: 0, total_solids_g: 0,
+          id: r.id
+        }));
+
+        setLoadedRecipeData({
+          rows,
+          name: data.recipe_name,
+          type: data.product_type,
+          id: data.id
+        });
+        // currentRecipeId will be set by effect in RecipeCalculatorV2 or we can set here too
+        setCurrentRecipeId(data.id);
+      }
+    } catch (error: any) {
+      console.error("Load failed:", error);
+      toast({ title: "Load Failed", description: "Could not load recipe.", variant: "destructive" });
     }
   };
 
@@ -404,12 +467,25 @@ const Index = () => {
                     onNavigate={(tab) => setCurrentTab(tab)}
                     hasRecipe={calculatorRecipe.length > 0}
                   />
+
+                  {/* Recipe Management Toolbar */}
+                  {backendReady && user && (
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1 gap-2 border-primary/20 hover:bg-primary/5" onClick={() => setIsLibraryOpen(true)}>
+                        <FolderOpen className="h-4 w-4" /> Load Recipe
+                      </Button>
+                      <Button variant="outline" className="flex-1 gap-2 border-primary/20 hover:bg-primary/5" onClick={() => setIsSaveModalOpen(true)}>
+                        <Save className="h-4 w-4" /> {currentRecipeId ? "Update Recipe" : "Save Recipe"}
+                      </Button>
+                    </div>
+                  )}
                   <RecipeCalculatorV2
                     onRecipeChange={(recipe, metrics, productType) => {
                       setCalculatorRecipe(recipe);
                       setCalculatorMetrics(metrics);
                       setCalculatorProductType(productType);
                     }}
+                    externalRecipe={loadedRecipeData}
                   />
                 </div>
                 {showAdvanced && (
@@ -527,6 +603,20 @@ const Index = () => {
 
         {/* Build SHA & Cache Bust Footer */}
         <FooterBuildTag />
+        <SaveRecipeModal
+          isOpen={isSaveModalOpen}
+          onClose={() => setIsSaveModalOpen(false)}
+          onSave={handleSaveRecipe}
+          initialName={loadedRecipeData?.name}
+          initialType={loadedRecipeData?.type || calculatorProductType}
+          isUpdate={!!currentRecipeId}
+        />
+
+        <RecipeLibrary
+          isOpen={isLibraryOpen}
+          onClose={() => setIsLibraryOpen(false)}
+          onLoadRecipe={handleLoadRecipe}
+        />
       </div>
     </ErrorBoundary>
   );

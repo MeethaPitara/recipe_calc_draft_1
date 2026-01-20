@@ -36,6 +36,8 @@ This is a Vite + React + TypeScript application for the Meetha Pitara Recipe Cal
     -   `VITE_ENABLE_ADVANCED`: Set to `true` to enable advanced calculator features.
     -   `NEXT_PUBLIC_DEBUG_MODE`: Set to `true` for debug logging.
 
+    have sent this on whatsapp
+
 ### Running the App
 
 Start the development server:
@@ -46,19 +48,8 @@ npm run dev
 
 The application will be available at `http://localhost:8080` (or the port shown in your terminal).
 
-### Building for Production
 
-Build the project for production:
 
-```bash
-npm run build
-```
-
-Preview the production build:
-
-```bash
-npm run preview
-```
 
 ## Technologies
 
