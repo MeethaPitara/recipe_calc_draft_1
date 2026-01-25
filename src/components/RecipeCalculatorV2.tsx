@@ -56,6 +56,7 @@ import type { IngredientRow, BalancingSuggestion } from '@/types/calculator';
 import { BalancingSuggestionsDialog } from '@/components/recipe/BalancingSuggestionsDialog';
 
 // Local productKey helper that uses the centralized resolver
+import { getTargets } from './TargetPresets';
 function productKey(mode: Mode, rows: IngredientRow[]): string {
   const hasFruit = rows.some(r => r.ingredientData?.category === 'fruit');
   return resolveProductKey(mode, hasFruit);
@@ -240,43 +241,74 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: R
     });
   };
 
-  // Helper to render core metrics with color-coded status
-  const renderCoreMetric = (label: string, value: number, range: [number, number]) => {
-    const [min, max] = range;
-    const isInRange = value >= min && value <= max;
-    const isClose = !isInRange && ((value >= min - 2 && value < min) || (value > max && value <= max + 2));
+  // Helper to render core metrics with dynamic targets
+  const renderCoreMetric = (label: string, value: number, metricKeyOrRange: 'fat' | 'msnf' | 'sugar' | 'solids' | number[]) => {
+    let targetValue: number;
+    let min: number;
+    let max: number;
+    let tolerance: number;
 
-    let statusColor = 'text-green-600 dark:text-green-400';
-    let bgColor = 'bg-green-500/10 border-green-500/20';
-
-    if (!isInRange) {
-      if (isClose) {
-        statusColor = 'text-amber-600 dark:text-amber-400';
-        bgColor = 'bg-amber-500/10 border-amber-500/20';
-      } else {
-        statusColor = 'text-red-600 dark:text-red-400';
-        bgColor = 'bg-red-500/10 border-red-500/20';
-      }
+    if (Array.isArray(metricKeyOrRange)) {
+      min = metricKeyOrRange[0];
+      max = metricKeyOrRange[1];
+      targetValue = (min + max) / 2;
+      tolerance = (max - min) / 2;
+    } else {
+      // Get active targets based on product type
+      const targets = getTargets(productType);
+      targetValue = targets[metricKeyOrRange];
+      tolerance = targets.tolerance;
+      min = targetValue - tolerance;
+      max = targetValue + tolerance;
     }
 
-    const explanation = getMetricExplanation(label, value, [min, max]);
+    // Status Logic
+    const delta = value - targetValue;
+    const isPerfect = Math.abs(delta) < 0.1;
+    const isGood = value >= min && value <= max;
+
+    let statusColor = 'text-red-500';
+    let bgColor = 'bg-red-500/10 border-red-500/20';
+    let icon = null;
+
+    if (isPerfect) {
+      statusColor = 'text-green-600 dark:text-green-400';
+      bgColor = 'bg-green-500/10 border-green-500/20';
+      icon = <CheckCircle className="w-3 h-3 inline mr-1" />;
+    } else if (isGood) {
+      statusColor = 'text-emerald-600 dark:text-emerald-400';
+      bgColor = 'bg-emerald-500/10 border-emerald-500/20';
+    } else {
+      // Keep Red
+    }
+
+    const deltaSign = delta > 0 ? '+' : '';
+    const deltaStr = `${deltaSign}${delta.toFixed(1)}%`;
 
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={`border rounded-lg p-3 ${bgColor} cursor-help`}>
-              <div className="text-xs text-muted-foreground mb-1">{label}</div>
+            <div className={`border rounded-lg p-3 ${bgColor} cursor-help transition-all duration-200 hover:shadow-sm`}>
+              <div className="flex justify-between items-center mb-1">
+                <div className="text-xs text-muted-foreground">{label}</div>
+                {icon}
+              </div>
               <div className={`text-lg font-bold ${statusColor}`}>
                 {value.toFixed(1)}%
               </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Target: {min}–{max}%
+              <div className="flex justify-between items-center mt-1 text-xs text-muted-foreground">
+                <span>Target: {targetValue}%</span>
+                <span className={`${isGood ? 'text-muted-foreground' : 'text-red-500 font-medium'}`}>
+                  {deltaStr}
+                </span>
               </div>
             </div>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
-            <p className="text-sm">{explanation}</p>
+            <p className="font-semibold mb-1">{productType.replace('_', ' ').toUpperCase()} Standard:</p>
+            <p className="text-sm">Target: {targetValue}% ±{tolerance}%</p>
+            <p className="text-sm text-muted-foreground">Range: {min.toFixed(1)}% - {max.toFixed(1)}%</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -2611,38 +2643,9 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: R
                 <p className="text-sm text-muted-foreground">Total Batch</p>
                 <p className="text-2xl font-bold">{metrics.total_g.toFixed(1)}g</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Sugars</p>
-                <Badge variant="outline">{metrics.totalSugars_pct.toFixed(1)}%</Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Fat</p>
-                <Badge variant={
-                  metrics.fat_pct >= getConstraints().fat.optimal[0] &&
-                    metrics.fat_pct <= getConstraints().fat.optimal[1]
-                    ? 'default'
-                    : metrics.fat_pct >= getConstraints().fat.acceptable[0] &&
-                      metrics.fat_pct <= getConstraints().fat.acceptable[1]
-                      ? 'secondary'
-                      : 'destructive'
-                }>
-                  {metrics.fat_pct.toFixed(1)}%
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">MSNF</p>
-                <Badge variant={
-                  metrics.msnf_pct >= getConstraints().msnf.optimal[0] &&
-                    metrics.msnf_pct <= getConstraints().msnf.optimal[1]
-                    ? 'default'
-                    : metrics.msnf_pct >= getConstraints().msnf.acceptable[0] &&
-                      metrics.msnf_pct <= getConstraints().msnf.acceptable[1]
-                      ? 'secondary'
-                      : 'destructive'
-                }>
-                  {metrics.msnf_pct.toFixed(1)}%
-                </Badge>
-              </div>
+              {renderCoreMetric('Total Sugars', metrics.totalSugars_pct, 'sugar')}
+              {renderCoreMetric('Fat', metrics.fat_pct, 'fat')}
+              {renderCoreMetric('MSNF', metrics.msnf_pct, 'msnf')}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -2655,24 +2658,13 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: R
                 <Badge variant="outline">{metrics.lactose_pct.toFixed(1)}%</Badge>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Solids</p>
-                <div className="flex items-center gap-2">
-                  <Badge variant={
-                    metrics.ts_pct >= getConstraints().totalSolids.optimal[0] &&
-                      metrics.ts_pct <= getConstraints().totalSolids.optimal[1]
-                      ? 'default'
-                      : metrics.ts_pct >= getConstraints().totalSolids.acceptable[0] &&
-                        metrics.ts_pct <= getConstraints().totalSolids.acceptable[1]
-                        ? 'secondary'
-                        : 'destructive'
-                  }>
-                    {metrics.ts_pct.toFixed(1)}%
-                  </Badge>
-                  {metrics.overrunPrediction && (
+                {renderCoreMetric('Total Solids', metrics.ts_pct, 'solids')}
+                {metrics.overrunPrediction && (
+                  <div className="mt-1">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs w-full justify-center">
                             ~{metrics.overrunPrediction.estimatedPct.toFixed(0)}% overrun
                           </Badge>
                         </TooltipTrigger>
@@ -2685,8 +2677,8 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: R
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Water</p>
