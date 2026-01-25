@@ -178,8 +178,11 @@ export function calcMetricsV2(
   const protein_g = msnf_g * 0.36;
   const lactose_g = msnf_g * 0.545;
 
-  // 4. Total sugars (incl. lactose)
-  const totalSugars_g = nonLactoseSugars_g + lactose_g;
+  // 4. Total sugars (incl. lactose) - for internal physics only
+  const totalSugarsWithLactose_g = nonLactoseSugars_g + lactose_g;
+
+  // User Requested: Display "Added Sugars" as the primary "Total Sugars" metric
+  const totalSugars_g = nonLactoseSugars_g;
 
   // 5. Total solids
   const ts_g = fat_g + msnf_g + nonLactoseSugars_g + other_g;
@@ -297,7 +300,8 @@ export function calcMetricsV2(
   // Add lactose contribution to POD
   pod_numerator += 16 * lactose_g;
 
-  const pod_index = totalSugars_g > 0 ? pod_numerator / totalSugars_g : 100;
+  // Use totalSugarsWithLactose_g for correct relative sweetness calculation
+  const pod_index = totalSugarsWithLactose_g > 0 ? pod_numerator / totalSugarsWithLactose_g : 100;
   trace('calc.v2.ts', 'calcMetricsV2', 'POD_CALC', { pod_numerator, totalSugars_g, pod_index });
 
   // 10. P2 Science: Fruit Acidity Analysis

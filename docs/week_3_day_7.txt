@@ -1,0 +1,90 @@
+PRD: Task 5 — Dynamic Target System
+1. Context
+Goal: Remove hardcoded nutritional standards (e.g., "Fat 6-10%") from the UI. New Behavior: The user defines a specific Target Point (e.g., "Target Fat: 8%"). The system automatically calculates a valid Acceptable Range (Target ± Margin) and displays the status based on these dynamic values. Margin Rule: The user specified a default margin of ±2% (absolute percentage points) for the validation range.
+
+2. Technical Specifications
+A. Data Structure (State Update)
+We need to extend the Recipe State to include user-defined targets.
+
+New Object: RecipeTargets
+
+TypeScript
+
+interface RecipeTargets {
+  fat: number;        // e.g., 8.0
+  solids: number;     // e.g., 36.0
+  msnf: number;       // e.g., 8.5
+  sugar: number;      // e.g., 18.0
+  // Margin allows us to change the ±2% rule globally or per recipe later
+  toleranceMargin: number; // Default: 2.0
+}
+B. Logic: The Validator Function
+Create a helper function checkStatus(currentValue, targetValue, margin) that returns:
+
+Status: 'Perfect' | 'Good' (In range) | 'Low' | 'High'
+
+Delta: currentValue - targetValue (e.g., +1.5)
+
+Range: [target - margin, target + margin]
+
+C. UI Components
+1. Target Configuration Panel
+Location: A new section in the Sidebar or a "Target Settings" Modal.
+
+Inputs: Number fields for Fat, MSNF, Sugar, Total Solids.
+
+Defaults: When a new recipe is created, pre-fill with standard Gelato values (Fat 8, MSNF 8.5, etc.) so the user isn't starting from zero.
+
+2. The Dynamic Status Display (The Dashboard)
+Old Way: if (fat < 6) return "Low" (Hardcoded)
+
+New Way:
+
+Display the Target (e.g., "Target: 8.0%").
+
+Display the Range (e.g., "Range: 6.0% - 10.0%").
+
+Display the Delta with color:
+
+If Delta is 0: Green check.
+
+If Delta is within ±Margin: Green text.
+
+If Delta is outside: Red text with arrow (e.g., "▼ -3.2%").
+
+3. Implementation Instructions for AI
+Step 1: State Management
+Locate the main Recipe State (in App.tsx or Context).
+
+Add a targets state object with the interface defined above.
+
+Set the default toleranceMargin to 2.0.
+
+Step 2: Create the "Target Editor" Component
+Create src/components/TargetEditor.tsx.
+
+Add input fields for the 4 key metrics.
+
+Add an input field for "Tolerance (±)" so you can tweak the 2% rule if needed.
+
+Step 3: Refactor the Dashboard / Metrics Display
+Find the component displaying the current Fat/Sugar/MSNF.
+
+Delete the hardcoded logic (e.g., value > 10 ? 'High' : 'Normal').
+
+Inject the new comparison logic:
+
+TypeScript
+
+const min = targets.fat - targets.toleranceMargin;
+const max = targets.fat + targets.toleranceMargin;
+const delta = (currentFat - targets.fat).toFixed(1);
+const isGood = currentFat >= min && currentFat <= max;
+Render the feedback: "Actual: 8.5% (Target: 8.0% | +0.5%)"
+
+4. Success Criteria
+[ ] I can change the "Target Fat" from 8% to 15% in the UI.
+
+[ ] The status indicator immediately changes from "High" (Red) to "Perfect" (Green) because 15% is now the new goal.
+
+[ ] No file in the UI contains hardcoded numbers like if (fat > 10).
