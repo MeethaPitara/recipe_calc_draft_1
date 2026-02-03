@@ -466,6 +466,7 @@ const Index = () => {
                   <QuickAccessPanel
                     onNavigate={(tab) => setCurrentTab(tab)}
                     hasRecipe={calculatorRecipe.length > 0}
+                    currentRecipe={calculatorRecipe}
                   />
 
                   {/* Recipe Management Toolbar */}

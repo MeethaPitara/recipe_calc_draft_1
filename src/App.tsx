@@ -21,6 +21,7 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const ReverseEngineer = lazy(() => import("./components/ReverseEngineer"));
 const Glossary = lazy(() => import("./pages/Glossary"));
 const Database = lazy(() => import("./pages/Database"));
+const QuickProductionPlan = lazy(() => import("./pages/QuickProductionPlan"));
 
 // Protected Route wrapper component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -86,6 +87,7 @@ const App = () => {
                     <Route path="/reverse-engineer" element={<ProtectedRoute>{isAdvancedMode() ? <ReverseEngineer /> : <Navigate to="/" replace />}</ProtectedRoute>} />
                     <Route path="/help/glossary" element={<ProtectedRoute><Glossary /></ProtectedRoute>} />
                     <Route path="/database" element={<ProtectedRoute>{isAdvancedMode() ? <Database /> : <Navigate to="/" replace />}</ProtectedRoute>} />
+                    <Route path="/production/quick-plan" element={<ProtectedRoute><QuickProductionPlan /></ProtectedRoute>} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

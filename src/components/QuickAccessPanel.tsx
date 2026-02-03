@@ -2,13 +2,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Beaker, DollarSign, Sparkles, Candy } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface QuickAccessPanelProps {
   onNavigate: (tab: string) => void;
   hasRecipe: boolean;
+  currentRecipe?: any[];
 }
 
-export function QuickAccessPanel({ onNavigate, hasRecipe }: QuickAccessPanelProps) {
+export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe }: QuickAccessPanelProps) {
+  const navigate = useNavigate();
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
       <CardHeader>
@@ -81,6 +84,18 @@ export function QuickAccessPanel({ onNavigate, hasRecipe }: QuickAccessPanelProp
           <div className="text-center">
             <div className="font-medium text-xs">Sugar Blend</div>
             <div className="text-xs text-muted-foreground">Optimize Spectrum</div>
+          </div>
+        </Button>
+
+        <Button
+          variant="outline"
+          className="h-auto py-3 flex flex-col items-center gap-2"
+          onClick={() => navigate('/production/quick-plan', { state: { recipe: currentRecipe } })}
+        >
+          <div className="h-5 w-5 flex items-center justify-center">🏭</div>
+          <div className="text-center">
+            <div className="font-medium text-xs">Production</div>
+            <div className="text-xs text-muted-foreground">Quick Plan</div>
           </div>
         </Button>
       </CardContent>
