@@ -76,6 +76,31 @@ export function calculateProductionRun(input: ProductionInput): ProductionOutput
         quantity_g: item.quantity_g * scalingFactor,
     }));
 
+    // --- LOGGING START ---
+    console.group("Level 1 Calculation Debug:");
+    console.log("1. Inputs:");
+    console.log(`   - Target Volume: ${targetVolumeLiters} L`);
+    console.log(`   - SKU Size: ${skuSizeLiters} L`);
+
+    console.log("2. Phase A (Buckets):");
+    console.log(`   - Total Units (Ceiled): ${totalUnits}`);
+    console.log(`   - Planned Frozen Volume: ${plannedVolume.toFixed(3)} L`);
+
+    console.log("3. Phase B (Physics):");
+    console.log(`   - Overrun: ${overrunPct}% (Factor: ${expansionFactor.toFixed(3)})`);
+    console.log(`   - Mix Volume (No Air): ${mixVolumeLiters.toFixed(3)} L`);
+    console.log(`   - Loss: ${lossPct}% (Multiplier: ${lossMultiplier.toFixed(3)})`);
+    console.log(`   - Buffered Mix Volume: ${bufferedMixVolumeLiters.toFixed(3)} L`);
+    console.log(`   - Mix Density: ${mixDensity}`);
+    console.log(`   - Mix Required Mass (kg): ${mixRequiredKg.toFixed(3)} kg`);
+
+    console.log("4. Phase E (Scaling):");
+    console.log(`   - Original Recipe Total: ${currentTotalWeightG.toFixed(3)} g`);
+    console.log(`   - Required Total Weight: ${requiredTotalWeightG.toFixed(3)} g`);
+    console.log(`   - Scaling Factor: ${scalingFactor.toFixed(6)}`);
+    console.groupEnd();
+    // --- LOGGING END ---
+
     return {
         skuStats: {
             totalUnits,

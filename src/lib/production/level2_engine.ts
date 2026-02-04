@@ -108,8 +108,27 @@ export function calculateAllocations(request: AllocationRequest): AllocationResu
 
         // Formulas
         const allowedBaseKg = supply.totalAvailableMassKg * (allocation.allocationPercent / 100);
+
+        // --- LOGGING START ---
+        console.group(`Values for Recipe: ${allocation.recipeName || allocation.recipeId}`);
+        console.log(`Allocation: ${allocation.allocationPercent}% (${allowedBaseKg.toFixed(3)} kg)`);
+        console.log("--------------------------------------------------");
+        console.log("1. Base Fraction Math:");
+        console.log(`   - Recipe Total Mass: ${recipeTotalMass.toFixed(3)}g`);
+        console.log(`   - Base Ingredient Mass: ${baseItem.massGrams.toFixed(3)}g`);
+        console.log(`   - Base Fraction: ${baseFraction.toFixed(6)}`);
+
+        console.log("2. Theoretical Limits:");
+        console.log(`   - Overrun (O): ${O}`);
+        console.log(`   - Loss (L): ${L}`);
+        console.log(`   - Density (D): ${D}`);
+        console.log(`   - Allowed Base (kg): ${allowedBaseKg.toFixed(3)}`);
+
         const allowedMixKg = allowedBaseKg / baseFraction;
+        console.log(`   - Allowed Mix (kg) [Allocated / Fraction]: ${allowedMixKg.toFixed(3)}`);
+
         const allowedMixLiters = allowedMixKg / D;
+        console.log(`   - Allowed Mix (L) [MixKg / Density]: ${allowedMixLiters.toFixed(3)}`);
 
         // Theoretical Frozen Liters = Mix Volume * (1 + Overrun) NOT just Mix Volume. 
         // Wait, PRD says: "TheoreticalFrozenLiters = AllowedMixLiters * (1 + O)"? 
@@ -118,23 +137,36 @@ export function calculateAllocations(request: AllocationRequest): AllocationResu
         // Theoretical Frozen Liters = Mix Volume * (1 + Overrun) * (1 - Loss)
         // We must account for loss in the forward pass to avoid over-producing
         const theoreticalFrozenLiters = allowedMixLiters * (1 - L) * (1 + O);
+        console.log(`   - Theoretical Frozen Liters [MixL * (1-L) * (1+O)]: ${theoreticalFrozenLiters.toFixed(3)}`);
 
         // Step 3: Discrete Unit Calculation
         // Floor of theoretical capacity divided by SKU size
         const producedUnits = Math.floor(theoreticalFrozenLiters / allocation.targetSkuSizeLiters);
+        console.log("3. Discrete Units:");
+        console.log(`   - Target SKU Size: ${allocation.targetSkuSizeLiters} L`);
+        console.log(`   - Produced Units (Floored): ${producedUnits}`);
 
         // Step 4: Recompute Actuals (Backward Pass)
         const actualPackedFrozenLiters = producedUnits * allocation.targetSkuSizeLiters;
+        console.log("4. Backward Calculation (Actuals):");
+        console.log(`   - Actual Packed Frozen (L): ${actualPackedFrozenLiters.toFixed(3)}`);
 
         // Packed Mix Liters (Liquid in the tubs)
         const packedMixLiters = actualPackedFrozenLiters / (1 + O);
+        console.log(`   - Packed Mix (L) [Frozen / (1+O)]: ${packedMixLiters.toFixed(3)}`);
 
         // Required Mix Liters (Liquid brewed including loss)
         // Required = Packed / (1 - Loss)
         const requiredMixLiters = packedMixLiters / (1 - L);
+        console.log(`   - Required Mix (L) [Packed / (1-L)]: ${requiredMixLiters.toFixed(3)}`);
 
         const actualMixRequiredKg = requiredMixLiters * D;
+        console.log(`   - Actual Mix Required (kg) [ReqL * D]: ${actualMixRequiredKg.toFixed(3)}`);
+
         const actualBaseConsumedKg = actualMixRequiredKg * baseFraction;
+        console.log(`   - Actual Base Consumed (kg) [MixKg * Fraction]: ${actualBaseConsumedKg.toFixed(3)}`);
+        console.groupEnd();
+        // --- LOGGING END ---
 
         // Step 5: Calculate Add-ins
         const complementaryIngredients = allocation.recipeItems
