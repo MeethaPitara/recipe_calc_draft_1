@@ -84,7 +84,7 @@ export const ProductionSummary = () => {
                                                     
                                                     I need to get the name. The easiest way is probably to find the matching input row.
                                                  */}
-                                                <TableCell className="font-medium truncate max-w-[140px]" title={r.recipeId}>{r.recipeId}</TableCell>
+                                                <TableCell className="font-medium truncate max-w-[140px]" title={r.recipeName}>{r.recipeName}</TableCell>
                                                 <TableCell className="text-right">{r.actualBaseConsumedKg.toFixed(1)}</TableCell>
                                                 <TableCell className="text-right text-muted-foreground">{r.actualMixRequiredKg.toFixed(1)}</TableCell>
                                                 <TableCell className="text-right font-bold text-lg">{r.producedUnits}</TableCell>

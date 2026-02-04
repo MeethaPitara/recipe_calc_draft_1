@@ -32,6 +32,7 @@ export interface AllocationResult {
 
     rows: {
         recipeId: string;
+        recipeName: string;
         isValid: boolean;
         error?: string;
 
@@ -83,6 +84,7 @@ export function calculateAllocations(request: AllocationRequest): AllocationResu
         if (!baseItem || recipeTotalMass <= 0) {
             return {
                 recipeId: allocation.recipeId,
+                recipeName: allocation.recipeName || "Unknown Recipe",
                 isValid: false,
                 error: "Base not found or invalid recipe mass",
                 baseFraction: 0,
@@ -113,7 +115,9 @@ export function calculateAllocations(request: AllocationRequest): AllocationResu
         // Wait, PRD says: "TheoreticalFrozenLiters = AllowedMixLiters * (1 + O)"? 
         // CHECK PRD TEXT: "TheoreticalFrozenLiters = AllowedMixLiters * (1 + O)" 
         // Yes, usually Mix expands.
-        const theoreticalFrozenLiters = allowedMixLiters * (1 + O);
+        // Theoretical Frozen Liters = Mix Volume * (1 + Overrun) * (1 - Loss)
+        // We must account for loss in the forward pass to avoid over-producing
+        const theoreticalFrozenLiters = allowedMixLiters * (1 - L) * (1 + O);
 
         // Step 3: Discrete Unit Calculation
         // Floor of theoretical capacity divided by SKU size
@@ -150,6 +154,7 @@ export function calculateAllocations(request: AllocationRequest): AllocationResu
 
         return {
             recipeId: allocation.recipeId,
+            recipeName: allocation.recipeName || "Unknown Recipe",
             isValid: true,
             baseFraction,
             theoreticalBaseAllocatedKg: allowedBaseKg,
