@@ -98,6 +98,18 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe }: Quick
             <div className="text-xs text-muted-foreground">Quick Plan</div>
           </div>
         </Button>
+
+        <Button
+          variant="outline"
+          className="h-auto py-3 flex flex-col items-center gap-2"
+          onClick={() => navigate('/production/base-planner')}
+        >
+          <div className="h-5 w-5 flex items-center justify-center">🏭</div>
+          <div className="text-center">
+            <div className="font-medium text-xs">Level 2</div>
+            <div className="text-xs text-muted-foreground">Base Planner</div>
+          </div>
+        </Button>
       </CardContent>
     </Card>
   );
