@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Smartphone, Monitor, LogOut, User as UserIcon, HelpCircle, Wrench, Package } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { migratePinProfiles } from "@/lib/migratePinProfiles";
-import { mlScheduler } from "@/lib/mlTrainingScheduler";
+
 import { useToast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import FooterBuildTag from "@/components/FooterBuildTag";
@@ -114,8 +114,7 @@ const Index = () => {
     // Initialize migrations
     migratePinProfiles();
 
-    // Start ML training scheduler
-    mlScheduler.start();
+
 
     // Show one-time notification about AI Engine consolidation
     const hasSeenNotice = localStorage.getItem('ai-engine-consolidation-notice');
@@ -139,7 +138,6 @@ const Index = () => {
 
     return () => {
       window.removeEventListener('resize', checkMobile);
-      mlScheduler.stop();
     };
   }, [toast]);
 

@@ -31,23 +31,46 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
 
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
+    const initAuth = async () => {
       try {
         const supabase = await getSupabase();
+
+        if (!mounted) return;
+
         const { data: { session } } = await supabase.auth.getSession();
-        setIsAuthenticated(!!session);
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (mounted) {
           setIsAuthenticated(!!session);
-        });
+        }
 
-        return () => subscription.unsubscribe();
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (mounted) {
+            setIsAuthenticated(!!session);
+          }
+        });
+        authSubscription = data.subscription;
+
+        if (!mounted && authSubscription) {
+          authSubscription.unsubscribe();
+        }
       } catch (error) {
         console.error("Auth check failed:", error);
-        setIsAuthenticated(false);
+        if (mounted) {
+          setIsAuthenticated(false);
+        }
       }
-    })();
+    };
+
+    initAuth();
+
+    return () => {
+      mounted = false;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+    };
   }, []);
 
   if (isAuthenticated === null) {

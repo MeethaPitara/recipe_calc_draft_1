@@ -49,8 +49,9 @@ export function calculateProductionRun(input: ProductionInput): ProductionOutput
 
     // 2. Add the Waste Buffer (Process Loss)
     // We need extra mix to account for loss in pipes/freezers.
-    const lossMultiplier = 1 + (lossPct / 100);
-    const bufferedMixVolumeLiters = mixVolumeLiters * lossMultiplier;
+    // Logic: mixVolume / (1 - loss%) to ensure we have enough even after losing some.
+    const lossDivisor = 1 - (lossPct / 100);
+    const bufferedMixVolumeLiters = mixVolumeLiters / lossDivisor;
 
     // 3. Convert to Weight (Density)
     // Mass = Volume * Density
@@ -89,7 +90,7 @@ export function calculateProductionRun(input: ProductionInput): ProductionOutput
     console.log("3. Phase B (Physics):");
     console.log(`   - Overrun: ${overrunPct}% (Factor: ${expansionFactor.toFixed(3)})`);
     console.log(`   - Mix Volume (No Air): ${mixVolumeLiters.toFixed(3)} L`);
-    console.log(`   - Loss: ${lossPct}% (Multiplier: ${lossMultiplier.toFixed(3)})`);
+    console.log(`   - Loss: ${lossPct}% (Divisor: ${lossDivisor.toFixed(3)})`);
     console.log(`   - Buffered Mix Volume: ${bufferedMixVolumeLiters.toFixed(3)} L`);
     console.log(`   - Mix Density: ${mixDensity}`);
     console.log(`   - Mix Required Mass (kg): ${mixRequiredKg.toFixed(3)} kg`);
