@@ -1,0 +1,296 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { recipeService } from '@/services/recipeService';
+import { useIngredients } from '@/contexts/IngredientsContext';
+import { calculateDemandRun, Level3Input, Level3Output } from '@/lib/production/level3_engine';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Printer, Calculator, ArrowRight, Beaker } from 'lucide-react';
+import { toast } from "sonner";
+
+const ExactPlan = () => {
+    const { ingredients } = useIngredients();
+
+    // --- State ---
+    const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
+    const [targetUnits, setTargetUnits] = useState<number>(500);
+    const [skuSizeLiters, setSkuSizeLiters] = useState<number>(0.5);
+    const [overrunPercent, setOverrunPercent] = useState<number>(30);
+    const [lossPercent, setLossPercent] = useState<number>(5);
+    const [density, setDensity] = useState<number>(1.1);
+
+    const [calculationResult, setCalculationResult] = useState<Level3Output | null>(null);
+
+    // --- Data Fetching ---
+    const { data: savedRecipes, isLoading: isLoadingRecipes } = useQuery({
+        queryKey: ['savedRecipes'],
+        queryFn: () => recipeService.getRecipes(),
+    });
+
+    const { data: fullRecipe, isLoading: isLoadingFullRecipe } = useQuery({
+        queryKey: ['recipe', selectedRecipeId],
+        queryFn: () => recipeService.getRecipeById(selectedRecipeId),
+        enabled: !!selectedRecipeId,
+    });
+
+    // --- Calculation Effect ---
+    useEffect(() => {
+        if (!fullRecipe || !fullRecipe.rows || !selectedRecipeId) {
+            setCalculationResult(null);
+            return;
+        }
+
+        try {
+            // Map recipe rows to engine input format
+            const recipeItems = fullRecipe.rows.map((r: any) => ({
+                ingredientId: ingredients.find(i => i.name === r.ingredient)?.id || r.ingredient,
+                name: r.ingredient,
+                massGrams: r.quantity_g
+            }));
+
+            const input: Level3Input = {
+                recipeItems,
+                targetUnits,
+                skuSizeLiters,
+                overrunPercent,
+                lossPercent,
+                density
+            };
+
+            const output = calculateDemandRun(input);
+            setCalculationResult(output);
+
+        } catch (error) {
+            console.error("Calculation failed:", error);
+            toast.error("Calculation failed. Please check inputs.");
+        }
+
+    }, [fullRecipe, targetUnits, skuSizeLiters, overrunPercent, lossPercent, density, ingredients, selectedRecipeId]);
+
+
+    // --- Handlers ---
+    const handlePrint = () => {
+        window.print();
+    };
+
+    return (
+        <div className="container mx-auto p-6 max-w-[1600px] animate-in fade-in duration-500 min-h-screen space-y-8">
+
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <Calculator className="w-8 h-8 text-indigo-600" />
+                        Exact Batch Calculator
+                    </h1>
+                    <p className="text-muted-foreground mt-1">
+                        Calculate exact raw material requirements for a specific production target.
+                    </p>
+                </div>
+                {calculationResult && (
+                    <Button variant="outline" onClick={handlePrint} className="gap-2">
+                        <Printer className="w-4 h-4" />
+                        Print Batch Sheet
+                    </Button>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                {/* --- Zone 1: Configuration (Left) --- */}
+                <div className="lg:col-span-4 space-y-6">
+
+                    {/* Recipe Selection & Targets */}
+                    <Card className="shadow-md border-indigo-100 dark:border-indigo-900">
+                        <CardHeader className="bg-slate-50 dark:bg-slate-900/50 pb-4 border-b">
+                            <CardTitle className="text-lg">1. Production Order</CardTitle>
+                            <CardDescription>Select what and how much to make</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-6">
+
+                            <div className="space-y-2">
+                                <Label>Select Recipe</Label>
+                                <Select value={selectedRecipeId} onValueChange={setSelectedRecipeId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Choose a recipe..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {isLoadingRecipes ? (
+                                            <SelectItem value="loading" disabled>Loading...</SelectItem>
+                                        ) : (
+                                            savedRecipes?.map((r: any) => (
+                                                <SelectItem key={r.id} value={r.id}>{r.recipe_name}</SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-blue-600 font-semibold">Target Units</Label>
+                                    <Input
+                                        type="number"
+                                        value={targetUnits}
+                                        onChange={e => setTargetUnits(parseInt(e.target.value) || 0)}
+                                        className="font-mono text-lg"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">Tubs / Cups</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>SKU Size (L)</Label>
+                                    <Input
+                                        type="number" step={0.1}
+                                        value={skuSizeLiters}
+                                        onChange={e => setSkuSizeLiters(parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Process Settings */}
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg">2. Process Settings</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-3 gap-3">
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase text-muted-foreground">Overrun %</Label>
+                                <Input
+                                    type="number"
+                                    value={overrunPercent}
+                                    onChange={e => setOverrunPercent(parseFloat(e.target.value) || 0)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase text-muted-foreground">Loss %</Label>
+                                <Input
+                                    type="number"
+                                    value={lossPercent}
+                                    onChange={e => setLossPercent(parseFloat(e.target.value) || 0)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase text-muted-foreground">Density</Label>
+                                <Input
+                                    type="number" step={0.01}
+                                    value={density}
+                                    onChange={e => setDensity(parseFloat(e.target.value) || 0)}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Summary Card */}
+                    {calculationResult && (
+                        <Card className="bg-indigo-600 text-white border-0 shadow-lg ring-1 ring-white/20">
+                            <CardContent className="pt-6 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-10">
+                                    <Beaker className="w-24 h-24" />
+                                </div>
+                                <div className="relative z-10">
+                                    <p className="text-indigo-100 text-sm font-medium mb-1">Total Mix Required</p>
+                                    <div className="text-4xl font-bold tracking-tighter mb-4">
+                                        {calculationResult.stats.requiredMixKg.toFixed(1)} <span className="text-xl font-normal opacity-80">kg</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 text-sm border-t border-indigo-500/30 pt-4">
+                                        <div>
+                                            <span className="block opacity-70 text-xs uppercase">Volume</span>
+                                            <span className="font-semibold text-lg">{calculationResult.stats.requiredMixLiters.toFixed(1)} L</span>
+                                        </div>
+                                        <div>
+                                            <span className="block opacity-70 text-xs uppercase">Pack Volume</span>
+                                            <span className="font-semibold text-lg">{calculationResult.stats.packedFrozenLiters.toFixed(1)} L</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+
+                {/* --- Zone 2: Batch Sheet (Right) --- */}
+                <div className="lg:col-span-8">
+                    <Card className="h-full min-h-[600px] shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+                            <div>
+                                <CardTitle className="text-xl">Manufacturing Instructions</CardTitle>
+                                <CardDescription className="mt-1">
+                                    Recipe: <span className="font-medium text-foreground">{fullRecipe?.recipe_name || "..."}</span>
+                                </CardDescription>
+                            </div>
+                            <div className="text-right hidden sm:block">
+                                <div className="text-2xl font-bold">{calculationResult?.stats.targetUnits}</div>
+                                <div className="text-xs text-muted-foreground uppercase tracking-wider">Units to Produce</div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {!calculationResult ? (
+                                <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground">
+                                    <ArrowRight className="w-12 h-12 mb-2 opacity-20" />
+                                    <p>Select a recipe and set targets to generate the plan.</p>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="text-xs text-muted-foreground uppercase bg-muted/30 border-b">
+                                                <tr>
+                                                    <th className="px-6 py-3 font-medium">Ingredient</th>
+                                                    <th className="px-6 py-3 font-medium text-right">Percentage</th>
+                                                    <th className="px-6 py-3 font-medium text-right">Quantity (kg)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border">
+                                                {calculationResult.scaledRecipe.map((item) => (
+                                                    <tr key={item.ingredientId} className="hover:bg-muted/50 transition-colors">
+                                                        <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">
+                                                            {item.name}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right text-muted-foreground font-mono">
+                                                            {item.percentage.toFixed(2)}%
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                                                                {item.requiredMassKg.toFixed(3)}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t-2 border-slate-200 dark:border-slate-800">
+                                                    <td className="px-6 py-4">Total</td>
+                                                    <td className="px-6 py-4 text-right font-mono">100.00%</td>
+                                                    <td className="px-6 py-4 text-right text-indigo-700 dark:text-indigo-300">
+                                                        {calculationResult.totalMassKg.toFixed(3)} kg
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className="p-6 bg-yellow-50 dark:bg-yellow-900/10 border-t border-yellow-100 dark:border-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm flex gap-3">
+                                        <div className="shrink-0 pt-0.5">⚠️</div>
+                                        <div>
+                                            <strong>Production Note:</strong> Ensure all ingredients are weighed precisely.
+                                            This batch includes a {lossPercent}% buffer for process loss.
+                                            Expected yield: ~{calculationResult.stats.packedFrozenLiters.toFixed(1)} Liters of frozen product.
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
+export default ExactPlan;

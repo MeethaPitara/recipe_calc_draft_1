@@ -23,6 +23,7 @@ const Glossary = lazy(() => import("./pages/Glossary"));
 const Database = lazy(() => import("./pages/Database"));
 const QuickProductionPlan = lazy(() => import("./pages/QuickProductionPlan"));
 const BasePlanner = lazy(() => import("./pages/production/BasePlanner"));
+const ExactPlan = lazy(() => import("./pages/production/ExactPlan"));
 
 // Protected Route wrapper component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -90,6 +91,7 @@ const App = () => {
                     <Route path="/database" element={<ProtectedRoute>{isAdvancedMode() ? <Database /> : <Navigate to="/" replace />}</ProtectedRoute>} />
                     <Route path="/production/quick-plan" element={<ProtectedRoute><QuickProductionPlan /></ProtectedRoute>} />
                     <Route path="/production/base-planner" element={<ProtectedRoute><BasePlanner /></ProtectedRoute>} />
+                    <Route path="/production/exact-plan" element={<ProtectedRoute><ExactPlan /></ProtectedRoute>} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

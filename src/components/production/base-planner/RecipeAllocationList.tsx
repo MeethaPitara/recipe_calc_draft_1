@@ -42,9 +42,9 @@ export const RecipeAllocationList = () => {
 
             // Map rows to ProductionIngredient format (needs ID)
             const recipeItems = fullRecipe.rows.map((r: any) => ({
-                id: ingredients.find(i => i.name === r.ingredient)?.id || r.ingredient,
+                ingredientId: ingredients.find(i => i.name === r.ingredient)?.id || r.ingredient,
                 name: r.ingredient,
-                quantity: r.quantity_g
+                massGrams: r.quantity_g
             }));
 
             const newRow: IAllocationRow = {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ interface RecipeAllocation {
 
 export default function ProductionPlanner() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [allocations, setAllocations] = useState<RecipeAllocation[]>([]);
   const [totalLiters, setTotalLiters] = useState(100);
@@ -38,7 +40,7 @@ export default function ProductionPlanner() {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setIsAuthenticated(!!session);
-      
+
       if (session) {
         loadRecipes();
       }
@@ -120,7 +122,7 @@ export default function ProductionPlanner() {
 
   const exportProcurementList = () => {
     const procurement = calculateProcurement();
-    
+
     const data = Object.entries(procurement).map(([ingredient, amount]) => ({
       'Ingredient': ingredient,
       'Total Amount (g)': amount.toFixed(0),
@@ -154,6 +156,33 @@ export default function ProductionPlanner() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Navigation to Advanced Tools */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 border-blue-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/production/base-planner')}>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-full">
+              <Calculator className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg text-blue-900 dark:text-blue-100">Supply-Driven Allocator</h3>
+              <p className="text-sm text-blue-700/80 dark:text-blue-300/70">Plan production based on available base mix supply.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-slate-900 dark:to-slate-800 border-purple-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/production/exact-plan')}>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-purple-100 dark:bg-purple-900/40 rounded-full">
+              <Calculator className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg text-purple-900 dark:text-purple-100">Exact Batch Calculator</h3>
+              <p className="text-sm text-purple-700/80 dark:text-purple-300/70">Calculate requirements for a specific target unit count.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-3 gap-4">
         <Card>
