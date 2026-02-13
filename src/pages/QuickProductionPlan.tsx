@@ -13,10 +13,29 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowLeft, Calculator, Variable } from "lucide-react";
+import { Loader2, ArrowLeft, Calculator, Variable, Save, History, Trash2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { calculateProductionRun, ProductionInput, ProductionOutput } from "@/lib/production/level1_engine";
 import { RecipeIngredient } from "@/types/recipe";
+import { savePlan, getPlans, deletePlan, Plan } from "@/lib/api/plans";
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Simplified recipe type from DB
 interface DbRecipe {
@@ -49,6 +68,120 @@ export default function QuickProductionPlan() {
 
     // -- State: Outputs --
     const [result, setResult] = useState<ProductionOutput | null>(null);
+
+    // -- State: Save/Load --
+    const [isSaving, setIsSaving] = useState(false);
+    const [planName, setPlanName] = useState("");
+    const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+    const [savedPlans, setSavedPlans] = useState<Plan[]>([]);
+    const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+    const handleSavePlan = async () => {
+        if (!result || !planName.trim()) return;
+
+        setIsSaving(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user?.email) throw new Error("No user email found");
+
+            const inputParams = {
+                targetVolumeLiters: targetVolume,
+                skuSizeLiters: skuSize,
+                overrunPct: overrun,
+                lossPct: loss,
+                mixDensity: density,
+            };
+
+            await savePlan({
+                user_email: user.email,
+                plan_name: planName,
+                input_params: inputParams as any, // Cast to JSON
+                recipe_snapshot: result.scaledRecipe as any,
+                output_summary: result.skuStats as any,
+                original_recipe_id: selectedRecipeId !== "manual" ? selectedRecipeId : null
+            });
+
+            toast({
+                title: "Plan Saved",
+                description: `"${planName}" has been saved to your history.`,
+            });
+            setIsSaveDialogOpen(false);
+            setPlanName("");
+        } catch (error: any) {
+            toast({
+                title: "Error saving plan",
+                description: error.message,
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const loadHistory = async () => {
+        if (!isHistoryOpen) return; // Only load when opening
+
+        setIsLoadingPlans(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user?.email) return;
+
+            const plans = await getPlans(user.email);
+            setSavedPlans(plans || []);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoadingPlans(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isHistoryOpen) {
+            loadHistory();
+        }
+    }, [isHistoryOpen]);
+
+
+    const handleDeletePlan = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            await deletePlan(id);
+            setSavedPlans(prev => prev.filter(p => p.id !== id));
+            toast({ title: "Plan deleted" });
+        } catch (error) {
+            toast({ title: "Failed to delete", variant: "destructive" });
+        }
+    }
+
+    const loadPlanIntoState = (plan: Plan) => {
+        const params = plan.input_params as any;
+
+        // Restore Inputs
+        setTargetVolume(params.targetVolumeLiters);
+        setSkuSize(params.skuSizeLiters);
+        setOverrun(params.overrunPct);
+        setLoss(params.lossPct);
+        setDensity(params.mixDensity);
+
+        // Restore Recipe
+        // Note: We can't easily restore "selectedRecipeId" if it was a DB recipe that might have changed or been deleted.
+        // So we treat loaded plans as "Manual" snapshot recipes for safety, OR try to match ID.
+        // For simplicity v1: Load as manual snapshot.
+
+        // We need to pass this to the effect. 
+        // Best implementation: Set a "manual override" state or just set the passedRecipe state via history replace?
+        // Let's set it as a manual recipe.
+
+        const snapshot = plan.recipe_snapshot as any[];
+        // We can use the route state mechanic or just a local state override.
+        // Let's use the browser history state to "simulate" coming from the calculator with this recipe.
+        // unique key to force effect re-run
+        navigate(".", { replace: true, state: { recipe: snapshot, timestamp: Date.now() } });
+
+        toast({ title: "Plan Loaded", description: `Configuration restored from "${plan.plan_name}"` });
+        setIsHistoryOpen(false);
+    };
 
     // -- Load Recipes on Mount --
     useEffect(() => {
@@ -152,6 +285,92 @@ export default function QuickProductionPlan() {
                         Quick Production Plan
                     </h1>
                     <p className="text-muted-foreground">Level-1 Production Mode: Calculate batch sizes and SKU counts.</p>
+                </div>
+
+                <div className="ml-auto flex gap-2">
+                    {/* HISTORY SHEET */}
+                    <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                        <SheetTrigger asChild>
+                            <Button variant="outline" className="gap-2">
+                                <History className="h-4 w-4" />
+                                History
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent>
+                            <SheetHeader>
+                                <SheetTitle>Saved Plans</SheetTitle>
+                                <SheetDescription>
+                                    Previous production runs. Click to load.
+                                </SheetDescription>
+                            </SheetHeader>
+                            <ScrollArea className="h-[calc(100vh-8rem)] mt-4 pr-4">
+                                {isLoadingPlans ? (
+                                    <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                                ) : savedPlans.length === 0 ? (
+                                    <p className="text-muted-foreground text-center py-8">No saved plans yet.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {savedPlans.map(plan => (
+                                            <div
+                                                key={plan.id}
+                                                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer group"
+                                                onClick={() => loadPlanIntoState(plan)}
+                                            >
+                                                <div className="space-y-1">
+                                                    <p className="font-medium leading-none">{plan.plan_name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {new Date(plan.created_at).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive"
+                                                    onClick={(e) => handleDeletePlan(plan.id, e)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </SheetContent>
+                    </Sheet>
+
+                    {/* SAVE DIALOG */}
+                    <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button disabled={!result} className="gap-2">
+                                <Save className="h-4 w-4" />
+                                Save Plan
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Save Production Plan</DialogTitle>
+                                <DialogDescription>
+                                    Save this configuration and result for later reference.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label>Plan Name</Label>
+                                    <Input
+                                        placeholder="e.g. Summer Strawberry Run"
+                                        value={planName}
+                                        onChange={e => setPlanName(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsSaveDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={handleSavePlan} disabled={isSaving || !planName.trim()}>
+                                    {isSaving ? "Saving..." : "Save Plan"}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
 

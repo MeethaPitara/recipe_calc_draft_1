@@ -22,7 +22,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
   const { toast } = useToast();
   const { refetch } = useIngredients();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : undefined;
 
@@ -31,7 +31,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
       externalOnOpenChange(newOpen);
     }
   };
-  
+
   const [formData, setFormData] = useState({
     name: prefilledData?.name || '',
     category: (prefilledData?.category || 'other') as IngredientData['category'],
@@ -44,7 +44,8 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
     pac_coeff: prefilledData?.pac_coeff,
     cost_per_kg: prefilledData?.cost_per_kg,
     notes: prefilledData?.notes || [] as string[],
-    tags: prefilledData?.tags || [] as string[]
+    tags: prefilledData?.tags || [] as string[],
+    lactose_pct: prefilledData?.lactose_pct || 0
   });
 
   // Update form when prefilledData changes
@@ -62,18 +63,19 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
         pac_coeff: prefilledData.pac_coeff,
         cost_per_kg: prefilledData.cost_per_kg,
         notes: prefilledData.notes || [],
-        tags: prefilledData.tags || []
+        tags: prefilledData.tags || [],
+        lactose_pct: prefilledData.lactose_pct || 0
       });
     }
   }, [prefilledData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate that composition adds up to ~100%
-    const total = formData.water_pct + formData.sugars_pct + formData.fat_pct + 
-                  formData.msnf_pct + formData.other_solids_pct;
-    
+    const total = formData.water_pct + formData.sugars_pct + formData.fat_pct +
+      formData.msnf_pct + formData.other_solids_pct;
+
     if (Math.abs(total - 100) > 5) {
       toast({
         title: "Composition Error",
@@ -86,19 +88,19 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
     setIsLoading(true);
     try {
       const newIngredient = await IngredientService.addIngredient(formData);
-      
+
       toast({
         title: "Success",
         description: `${formData.name} has been added to the database.`
       });
-      
+
       // Refresh global ingredients list
       await refetch();
-      
+
       if (onIngredientAdded) {
         onIngredientAdded(newIngredient);
       }
-      
+
       // Force a small delay to ensure the dialog closes smoothly
       setTimeout(() => {
         // Reset form
@@ -114,10 +116,11 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
           pac_coeff: undefined,
           cost_per_kg: undefined,
           notes: [],
-          tags: []
+          tags: [],
+          lactose_pct: 0
         });
       }, 100);
-      
+
       handleOpenChange(false);
     } catch (error) {
       console.error('Error adding ingredient:', error);
@@ -131,8 +134,8 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
     }
   };
 
-  const totalComposition = formData.water_pct + formData.sugars_pct + formData.fat_pct + 
-                           formData.msnf_pct + formData.other_solids_pct;
+  const totalComposition = formData.water_pct + formData.sugars_pct + formData.fat_pct +
+    formData.msnf_pct + formData.other_solids_pct;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -151,7 +154,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
             Create a new ingredient with its composition data. All percentages should add up to 100%.
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
@@ -227,6 +230,17 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
                 step="0.01"
                 value={formData.msnf_pct}
                 onChange={(e) => setFormData({ ...formData, msnf_pct: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="lactose">Lactose %</Label>
+              <Input
+                id="lactose"
+                type="number"
+                step="0.01"
+                value={formData.lactose_pct}
+                onChange={(e) => setFormData({ ...formData, lactose_pct: parseFloat(e.target.value) || 0 })}
               />
             </div>
 

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { recipeService } from '@/services/recipeService';
 import { useIngredients } from '@/contexts/IngredientsContext';
@@ -10,10 +11,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Printer, Calculator, ArrowRight, Beaker } from 'lucide-react';
+import { Printer, Calculator, ArrowRight, ArrowLeft, Beaker, Save, History, Trash2, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
+import { supabase } from '@/integrations/supabase/client';
+import { savePlanL3, getPlansL3, deletePlanL3 } from '@/lib/api/plans_l3';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const ExactPlan = () => {
+    const navigate = useNavigate();
     const { ingredients } = useIngredients();
 
     // --- State ---
@@ -73,7 +95,111 @@ const ExactPlan = () => {
     }, [fullRecipe, targetUnits, skuSizeLiters, overrunPercent, lossPercent, density, ingredients, selectedRecipeId]);
 
 
-    // --- Handlers ---
+    // --- State: Save/Load ---
+    const [isSaving, setIsSaving] = useState(false);
+    const [planName, setPlanName] = useState("");
+    const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+    const [savedPlans, setSavedPlans] = useState<any[]>([]);
+    const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+    // --- Imports for Save/Load ---
+    // (Ensure these are imported at the top, if not I will add them in a separate block)
+    // We need: supabase, savePlanL3, getPlansL3, deletePlanL3, etc.
+
+    const handleSavePlan = async () => {
+        if (!calculationResult || !fullRecipe || !planName.trim()) return;
+
+        setIsSaving(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user?.email) throw new Error("No user email found");
+
+            const inputParams = {
+                recipeId: selectedRecipeId,
+                targetUnits,
+                skuSizeLiters,
+                overrunPercent,
+                lossPercent,
+                density
+            };
+
+            // We store the full recipe as 'recipe_snapshot' to ensure we can load it even if the DB changes
+            // We store the calculation result as 'results_snapshot'
+            await savePlanL3({
+                user_email: user.email,
+                plan_name: planName,
+                input_params: inputParams as any,
+                recipe_snapshot: fullRecipe as any,
+                results_snapshot: calculationResult as any
+            });
+
+            toast.success(`"${planName}" has been saved.`);
+            setIsSaveDialogOpen(false);
+            setPlanName("");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to save plan");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const loadHistory = async () => {
+        if (!isHistoryOpen) return;
+
+        setIsLoadingPlans(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user?.email) return;
+
+            const plans = await getPlansL3(user.email);
+            setSavedPlans(plans || []);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoadingPlans(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isHistoryOpen) {
+            loadHistory();
+        }
+    }, [isHistoryOpen]);
+
+    const handleDeletePlan = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            await deletePlanL3(id);
+            setSavedPlans(prev => prev.filter(p => p.id !== id));
+            toast.success("Plan deleted");
+        } catch (error) {
+            toast.error("Failed to delete plan");
+        }
+    }
+
+    const loadPlanIntoState = (plan: any) => {
+        const inputs = plan.input_params;
+
+        // 1. Restore Inputs
+        setSelectedRecipeId(inputs.recipeId);
+        setTargetUnits(inputs.targetUnits);
+        setSkuSizeLiters(inputs.skuSizeLiters);
+        setOverrunPercent(inputs.overrunPercent);
+        setLossPercent(inputs.lossPercent);
+        setDensity(inputs.density);
+
+        // 2. Restore Result (Optional: The effect will re-calc, but we could set it directly if we wanted to be instant)
+        // Since we are setting the inputs, the useEffect will trigger.
+        // HOWEVER, if the recipe changed in the DB, the calculation might differ.
+        // For 'Exact Unit' it's usually safer to re-calculate based on current ingredients.
+        // We will stick to re-calc for now. 
+        // If we wanted strict snapshot loading, we'd need to bypass the effect.
+
+        toast.success(`Restored "${plan.plan_name}"`);
+        setIsHistoryOpen(false);
+    };
+
     const handlePrint = () => {
         window.print();
     };
@@ -82,21 +208,112 @@ const ExactPlan = () => {
         <div className="container mx-auto p-6 max-w-[1600px] animate-in fade-in duration-500 min-h-screen space-y-8">
 
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <Calculator className="w-8 h-8 text-indigo-600" />
-                        Exact Batch Calculator
-                    </h1>
-                    <p className="text-muted-foreground mt-1">
-                        Calculate exact raw material requirements for a specific production target.
-                    </p>
-                </div>
-                {calculationResult && (
-                    <Button variant="outline" onClick={handlePrint} className="gap-2">
-                        <Printer className="w-4 h-4" />
-                        Print Batch Sheet
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+                        <ArrowLeft className="w-6 h-6" />
                     </Button>
-                )}
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <Calculator className="w-8 h-8 text-indigo-600" />
+                            Exact Batch Calculator
+                        </h1>
+                        <p className="text-muted-foreground mt-1">
+                            Calculate exact raw material requirements for a specific production target.
+                        </p>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    {/* HISTORY */}
+                    <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                        <SheetTrigger asChild>
+                            <Button variant="outline" className="gap-2">
+                                <History className="w-4 h-4" />
+                                History
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent>
+                            <SheetHeader>
+                                <SheetTitle>Saved Exact Plans</SheetTitle>
+                                <SheetDescription>
+                                    Previous calculations.
+                                </SheetDescription>
+                            </SheetHeader>
+                            <ScrollArea className="h-[calc(100vh-8rem)] mt-4 pr-4">
+                                {isLoadingPlans ? (
+                                    <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                                ) : savedPlans.length === 0 ? (
+                                    <p className="text-muted-foreground text-center py-8">No saved plans yet.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {savedPlans.map(plan => (
+                                            <div
+                                                key={plan.id}
+                                                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer group"
+                                                onClick={() => loadPlanIntoState(plan)}
+                                            >
+                                                <div className="space-y-1">
+                                                    <p className="font-medium leading-none">{plan.plan_name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {new Date(plan.created_at).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive"
+                                                    onClick={(e) => handleDeletePlan(plan.id, e)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </SheetContent>
+                    </Sheet>
+
+                    {/* SAVE */}
+                    <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button disabled={!calculationResult} variant="outline" className="gap-2">
+                                <Save className="w-4 h-4" />
+                                Save
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Save Exact Plan</DialogTitle>
+                                <DialogDescription>
+                                    Save this calculation for later reference.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label>Plan Name</Label>
+                                    <Input
+                                        placeholder="e.g. 500 Tubs Strawberry"
+                                        value={planName}
+                                        onChange={e => setPlanName(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsSaveDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={handleSavePlan} disabled={isSaving || !planName.trim()}>
+                                    {isSaving ? "Saving..." : "Save Plan"}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {calculationResult && (
+                        <Button onClick={handlePrint} className="gap-2">
+                            <Printer className="w-4 h-4" />
+                            Print
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

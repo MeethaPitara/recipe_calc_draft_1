@@ -37,6 +37,8 @@ interface BasePlannerState {
     addRecipeRow: (row: AllocationRow) => void;
     removeRow: (id: string) => void;
     updateRow: (id: string, updates: Partial<AllocationRow>) => void;
+    setRows: (rows: AllocationRow[]) => void;
+    loadState: (baseIngredientId: string, totalBaseMassKg: number, rows: AllocationRow[]) => void;
 
     calculate: () => void;
     reset: () => void;
@@ -77,6 +79,20 @@ export const useBasePlannerStore = create<BasePlannerState>((set, get) => ({
         set((state) => ({
             rows: state.rows.map(r => r.id === id ? { ...r, ...updates } : r)
         }));
+        get().calculate();
+    },
+
+    setRows: (rows) => {
+        set({ rows });
+        get().calculate();
+    },
+
+    loadState: (baseIngredientId, totalBaseMassKg, rows) => {
+        set({
+            baseIngredientId,
+            totalBaseMassKg,
+            rows
+        });
         get().calculate();
     },
 

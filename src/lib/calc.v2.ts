@@ -121,7 +121,7 @@ export function calcMetricsV2(
 ): MetricsV2 {
   trace('calc.v2.ts', 'calcMetricsV2', 'INPUT_RECEIVED', {
     rowCount: rows.length,
-    rowsSample: rows.slice(0, 3).map(r => ({ name: r.ing.name, fat: r.ing.fat_pct, msnf: r.ing.msnf_pct, grams: r.grams }))
+    rowsSample: rows.slice(0, 3).map(r => ({ name: r.ing.name, fat: r.ing.fat_pct, msnf: r.ing.msnf_pct, lactose: r.ing.lactose_pct, grams: r.grams }))
   });
 
   const warnings: string[] = [];
@@ -143,7 +143,7 @@ export function calcMetricsV2(
   const total_g = guardResult(rows.reduce((a, r) => a + safeNumber(r.grams), 0), 0, 'total_g');
   trace('calc.v2.ts', 'calcMetricsV2', 'TOTAL_G_CALC', { total_g });
 
-  let water_g = 0, nonLactoseSugars_g = 0, fat_g = 0, msnf_g = 0, other_g = 0;
+  let water_g = 0, nonLactoseSugars_g = 0, fat_g = 0, msnf_g = 0, other_g = 0, lactose_g = 0;
   for (const { ing, grams } of rows) {
     const g = safeNumber(grams);
 
@@ -153,12 +153,14 @@ export function calcMetricsV2(
     const fat_pct = safeNumber(ing.fat_pct);
     const msnf_pct = safeNumber(ing.msnf_pct);
     const other_pct = safeNumber(ing.other_solids_pct);
+    const lactose_pct = safeNumber(ing.lactose_pct);
 
     water_g += g * water_pct / 100;
     nonLactoseSugars_g += g * sugars_pct / 100;
     fat_g += g * fat_pct / 100;
     msnf_g += g * msnf_pct / 100;
     other_g += g * other_pct / 100;
+    lactose_g += g * lactose_pct / 100;
   }
 
   // Guard accumulated values
@@ -167,6 +169,7 @@ export function calcMetricsV2(
   fat_g = guardResult(fat_g, 0, 'fat_g');
   msnf_g = guardResult(msnf_g, 0, 'msnf_g');
   other_g = guardResult(other_g, 0, 'other_g');
+  lactose_g = guardResult(lactose_g, 0, 'lactose_g');
 
   // 2. Apply evaporation
   const evap = Math.max(0, Math.min(100, opts.evaporation_pct ?? 0));
@@ -176,7 +179,7 @@ export function calcMetricsV2(
 
   // 3. Protein & Lactose from MSNF
   const protein_g = msnf_g * 0.36;
-  const lactose_g = msnf_g * 0.545;
+  // lactose_g calculated above from explicit ingredients
 
   // 4. Total sugars (incl. lactose) - for internal physics only
   const totalSugarsWithLactose_g = nonLactoseSugars_g + lactose_g;
@@ -201,7 +204,7 @@ export function calcMetricsV2(
   const ts_pct = pct(ts_g);
 
   trace('calc.v2.ts', 'calcMetricsV2', 'BASIC_METRICS_CALC', {
-    water_pct, fat_pct, msnf_pct, totalSugars_pct, ts_pct
+    water_pct, fat_pct, msnf_pct, totalSugars_pct, ts_pct, lactose_g, lactose_pct
   });
 
   // 7. Calculate Sucrose Equivalents (SE)
@@ -249,9 +252,9 @@ export function calcMetricsV2(
     }
   }
 
-  // Add lactose contribution to SE (0.545 from MSNF)
-  se_g += 0.545 * msnf_g;
-  trace('calc.v2.ts', 'calcMetricsV2', 'SE_CALC_DONE', { se_g, msnf_contribution: 0.545 * msnf_g });
+  // Add lactose contribution to SE (using explicit lactose grams)
+  se_g += lactose_g;
+  trace('calc.v2.ts', 'calcMetricsV2', 'SE_CALC_DONE', { se_g, lactose_contribution_g: lactose_g });
 
   // 8. Freezing Point Depression
   const sucrosePer100gWater = water_after_evap_g > 0 ? (se_g / water_after_evap_g) * 100 : 0;

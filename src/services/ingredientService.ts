@@ -19,6 +19,7 @@ const DbIngredientSchema = z.object({
   sp_coeff: z.number().nullable().optional(),
   pac_coeff: z.number().nullable().optional(),
   cost_per_kg: z.number().nullable().optional(),
+  lactose_pct: z.number().nullable().optional(),
 });
 
 // Validate ingredient composition (should sum to ~100%)
@@ -72,6 +73,7 @@ function transformToIngredientData(dbRow: z.infer<typeof DbIngredientSchema>): I
     sp_coeff: dbRow.sp_coeff ?? undefined,
     pac_coeff: dbRow.pac_coeff ?? undefined,
     cost_per_kg: dbRow.cost_per_kg ?? undefined,
+    lactose_pct: safeNumber(dbRow.lactose_pct) || undefined,
   };
 }
 
@@ -162,6 +164,7 @@ export const IngredientService = {
         notes: ingredient.notes?.[0] || null,
         tags: ingredient.tags && ingredient.tags.length > 0 ? ingredient.tags : null,
         sugar_split: ingredient.sugar_split as any,
+        lactose_pct: ingredient.lactose_pct || null,
       })
       .select()
       .single();
@@ -187,6 +190,7 @@ export const IngredientService = {
         notes: updates.notes?.[0],
         tags: updates.tags,
         sugar_split: updates.sugar_split as any,
+        lactose_pct: updates.lactose_pct,
       })
       .eq("id", id)
       .select()
