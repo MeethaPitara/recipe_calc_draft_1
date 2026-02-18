@@ -12,6 +12,9 @@ interface IngredientSearchProps {
   onOpenChange?: (open: boolean) => void;
 }
 
+import { User, Plus } from "lucide-react";
+import { AddIngredientDialog } from "./AddIngredientDialog";
+
 const RECENT_KEY = "recentIngredients";
 const FREQUENTLY_TOGETHER = [
   { names: ["Guar Gum", "Locust Bean Gum"], label: "Guar + LBG" },
@@ -45,7 +48,7 @@ export function useIngredientSearch(ingredients: IngredientData[]) {
   );
 
   const [q, setQ] = useState("");
-  
+
   const results = useMemo(() => {
     if (!q) return ingredients.slice(0, 5);
     return fuse.search(q).slice(0, 8).map(r => r.item);
@@ -62,6 +65,7 @@ export function useIngredientSearch(ingredients: IngredientData[]) {
 export function IngredientSearch({ ingredients, onSelect, open, onOpenChange }: IngredientSearchProps) {
   const { q, setQ, results, nearMatches } = useIngredientSearch(ingredients);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const recentIds = getRecent();
   const recentIngredients = ingredients.filter(i => recentIds.includes(i.id));
@@ -112,8 +116,14 @@ export function IngredientSearch({ ingredients, onSelect, open, onOpenChange }: 
           <CommandEmpty>
             <div className="flex flex-col gap-4 p-6">
               <p className="text-sm text-muted-foreground">No ingredients found</p>
-              <Button variant="outline" size="sm" className="transition-all duration-200 ease-in-out">
-                Request addition
+              <Button
+                variant="outline"
+                size="sm"
+                className="transition-all duration-200 ease-in-out"
+                onClick={() => setIsAddDialogOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Ingredient
               </Button>
               {nearMatches.length > 0 && (
                 <div className="mt-2">
@@ -151,6 +161,7 @@ export function IngredientSearch({ ingredients, onSelect, open, onOpenChange }: 
               >
                 <div className="flex items-center gap-2 flex-1">
                   <span className="font-medium text-base">{ing.name}</span>
+                  {ing.is_custom && <User className="h-3 w-3 text-muted-foreground" />}
                 </div>
                 <Badge variant="secondary" className="ml-auto text-xs">
                   {ing.category}
@@ -171,6 +182,7 @@ export function IngredientSearch({ ingredients, onSelect, open, onOpenChange }: 
               >
                 <div className="flex items-center gap-2 flex-1">
                   <span className="font-medium text-base">{ing.name}</span>
+                  {ing.is_custom && <User className="h-3 w-3 text-muted-foreground" />}
                 </div>
                 <Badge variant="secondary" className="ml-auto text-xs">
                   {ing.category}
@@ -231,6 +243,15 @@ export function IngredientSearch({ ingredients, onSelect, open, onOpenChange }: 
           </>
         )}
       </CommandList>
-    </Command>
+
+      <AddIngredientDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        prefilledData={{ name: q }}
+        onIngredientAdded={(newIng) => {
+          handleSelect(newIng);
+        }}
+      />
+    </Command >
   );
 }

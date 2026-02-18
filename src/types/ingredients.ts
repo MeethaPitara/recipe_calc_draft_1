@@ -43,6 +43,8 @@ export type IngredientData = {
   veg_flag?: 'veg' | 'non-veg';
   notes?: string[];
   tags?: string[];
+  user_email?: string;
+  is_custom?: boolean;
 };
 
 export interface Ingredient {

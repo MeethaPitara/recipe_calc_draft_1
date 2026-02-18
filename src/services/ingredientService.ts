@@ -20,6 +20,7 @@ const DbIngredientSchema = z.object({
   pac_coeff: z.number().nullable().optional(),
   cost_per_kg: z.number().nullable().optional(),
   lactose_pct: z.number().nullable().optional(),
+  user_email: z.string().nullable().optional(),
 });
 
 // Validate ingredient composition (should sum to ~100%)
@@ -74,14 +75,30 @@ function transformToIngredientData(dbRow: z.infer<typeof DbIngredientSchema>): I
     pac_coeff: dbRow.pac_coeff ?? undefined,
     cost_per_kg: dbRow.cost_per_kg ?? undefined,
     lactose_pct: safeNumber(dbRow.lactose_pct) || undefined,
+    user_email: dbRow.user_email || undefined,
+    is_custom: !!dbRow.user_email,
   };
 }
 
 
 
-export async function getAllIngredients(): Promise<IngredientData[]> {
+export async function getSessionEmail(): Promise<string | undefined> {
   const supabase = await getSupabase();
-  const { data, error } = await supabase.from("ingredients").select("*").order("category").order("name");
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user?.email;
+}
+
+export async function getAllIngredients(userEmail?: string): Promise<IngredientData[]> {
+  const supabase = await getSupabase();
+  const email = userEmail || await getSessionEmail();
+  let query = supabase.from("ingredients").select("*").order("category").order("name");
+
+  if (email) {
+    query = query.or(`user_email.is.null,user_email.eq.${email}`);
+  } else {
+    query = query.is("user_email", null);
+  }
+  const { data, error } = await query;
 
   if (data) {
     trace('ingredientService.ts', 'getAllIngredients', 'RAW_FETCH_FROM_DB', { count: data.length, sample: data[0] });
@@ -137,8 +154,8 @@ export async function searchIngredients(q: string): Promise<IngredientData[]> {
 
 // Service wrapper for tests
 export const IngredientService = {
-  async getIngredients(): Promise<IngredientData[]> {
-    return getAllIngredients();
+  async getIngredients(userEmail?: string): Promise<IngredientData[]> {
+    return getAllIngredients(userEmail);
   },
   async getIngredientById(id: string): Promise<IngredientData | null> {
     return getById(id);
@@ -146,7 +163,8 @@ export const IngredientService = {
   async searchIngredients(query: string): Promise<IngredientData[]> {
     return searchIngredients(query);
   },
-  async addIngredient(ingredient: Omit<IngredientData, 'id'>): Promise<IngredientData> {
+  async addIngredient(ingredient: Omit<IngredientData, 'id'>, userEmail?: string): Promise<IngredientData> {
+    const email = userEmail || await getSessionEmail();
     const supabase = await getSupabase();
     const { data, error } = await supabase
       .from("ingredients")
@@ -156,15 +174,16 @@ export const IngredientService = {
         water_pct: ingredient.water_pct,
         fat_pct: ingredient.fat_pct,
         msnf_pct: ingredient.msnf_pct || null,
-        sugars_pct: ingredient.sugars_pct || null,
+        // sugars_pct: ingredient.sugars_pct || null, // TODO: Enable when column 'sugars_pct' satisfies database schema
         other_solids_pct: ingredient.other_solids_pct || null,
-        sp_coeff: ingredient.sp_coeff || null,
-        pac_coeff: ingredient.pac_coeff || null,
-        cost_per_kg: ingredient.cost_per_kg || null,
+        // sp_coeff: ingredient.sp_coeff || null, // TODO: Enable when column 'sp_coeff' satisfies database schema
+        // pac_coeff: ingredient.pac_coeff || null, // TODO: Enable when column 'pac_coeff' satisfies database schema
+        // cost_per_kg: ingredient.cost_per_kg || null, // TODO: Enable when column 'cost_per_kg' satisfies database schema
         notes: ingredient.notes?.[0] || null,
         tags: ingredient.tags && ingredient.tags.length > 0 ? ingredient.tags : null,
         sugar_split: ingredient.sugar_split as any,
-        lactose_pct: ingredient.lactose_pct || null,
+        // lactose_pct: ingredient.lactose_pct || null, // TODO: Enable when column 'lactose_pct' satisfies database schema
+        user_email: email || null,
       })
       .select()
       .single();
@@ -182,15 +201,15 @@ export const IngredientService = {
         water_pct: updates.water_pct,
         fat_pct: updates.fat_pct,
         msnf_pct: updates.msnf_pct,
-        sugars_pct: updates.sugars_pct,
+        // sugars_pct: updates.sugars_pct, // TODO: Enable when column 'sugars_pct' satisfies database schema
         other_solids_pct: updates.other_solids_pct,
-        sp_coeff: updates.sp_coeff,
-        pac_coeff: updates.pac_coeff,
-        cost_per_kg: updates.cost_per_kg,
+        // sp_coeff: updates.sp_coeff, // TODO: Enable when column 'sp_coeff' satisfies database schema
+        // pac_coeff: updates.pac_coeff, // TODO: Enable when column 'pac_coeff' satisfies database schema
+        // cost_per_kg: updates.cost_per_kg, // TODO: Enable when column 'cost_per_kg' satisfies database schema
         notes: updates.notes?.[0],
         tags: updates.tags,
         sugar_split: updates.sugar_split as any,
-        lactose_pct: updates.lactose_pct,
+        // lactose_pct: updates.lactose_pct, // TODO: Enable when column 'lactose_pct' satisfies database schema
       })
       .eq("id", id)
       .select()
@@ -199,9 +218,19 @@ export const IngredientService = {
     if (error) throw new Error(`Failed to update ingredient: ${error.message}`);
     return transformToIngredientData(DbIngredientSchema.parse(data));
   },
-  async deleteIngredient(id: string): Promise<void> {
-    const supabase = await getSupabase();
-    const { error } = await supabase.from("ingredients").delete().eq("id", id);
+  async deleteIngredient(id: string, userEmail?: string): Promise<void> {
+    const email = userEmail || await getSessionEmail();
+    const supabase = await getSupabase() as any;
+
+    let error;
+    if (email) {
+      const res = await supabase.from("ingredients").delete().eq("id", id).eq("user_email", email);
+      error = res.error;
+    } else {
+      const res = await supabase.from("ingredients").delete().eq("id", id);
+      error = res.error;
+    }
+
     if (error) throw new Error(`Failed to delete ingredient: ${error.message}`);
   }
 };

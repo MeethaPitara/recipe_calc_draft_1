@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Save, Trash2, Calculator, Loader2, Search, Zap, BookOpen, Bug, History, HelpCircle, CheckCircle, AlertCircle, Wand2, Brain, Check, X, FileDown, GitCompare } from 'lucide-react';
+import { Plus, Save, Trash2, Calculator, Loader2, Search, Zap, BookOpen, Bug, History, HelpCircle, CheckCircle, AlertCircle, Wand2, Brain, Check, X, FileDown, GitCompare, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -46,6 +46,7 @@ import { DatabaseHealthIndicator } from '@/components/DatabaseHealthIndicator';
 import { BalancingDebugPanel } from '@/components/BalancingDebugPanel';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AIInsightsPanel } from '@/components/AIInsightsPanel';
+import { OptimizerPanel } from '@/components/calculator/OptimizerPanel';
 
 // Debounce utility for input stability
 // Debounce removed - using direct state updates for better input reliability
@@ -65,6 +66,8 @@ function productKey(mode: Mode, rows: IngredientRow[]): string {
 interface RecipeCalculatorV2Props {
   onRecipeChange?: (recipe: any[], metrics: MetricsV2 | null, productType: string) => void;
   externalRecipe?: { rows: IngredientRow[], name: string, type: string, id: string } | null;
+  openOptimizer?: boolean;
+  onOptimizerOpenChange?: (open: boolean) => void;
 }
 
 // PHASE 1: Simplified Quantity Input - Direct controlled input with no buffering
@@ -145,7 +148,7 @@ const QuantityInput = ({ value, onChange, step, rowIndex, className }: {
 };
 
 
-export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: RecipeCalculatorV2Props) {
+export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, openOptimizer, onOptimizerOpenChange }: RecipeCalculatorV2Props) {
   const { toast } = useToast();
   const [recipeName, setRecipeName] = useState('');
   const [productType, setProductType] = useState('ice_cream');
@@ -181,6 +184,15 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: R
   const [prefilledIngredientData, setPrefilledIngredientData] = React.useState<any>(null);
   const [showCompareDialog, setShowCompareDialog] = React.useState(false);
   const [highlightedRow, setHighlightedRow] = React.useState<number | null>(null);
+  const [showOptimizerPanel, setShowOptimizerPanel] = React.useState(false);
+
+  // Sync external optimizer trigger
+  React.useEffect(() => {
+    if (openOptimizer) {
+      setShowOptimizerPanel(true);
+      onOptimizerOpenChange?.(false);
+    }
+  }, [openOptimizer]);
 
   // Helper function to load base sets
   const loadBaseSet = (baseType: 'ice_cream' | 'gelato' | 'sorbet') => {
@@ -1805,6 +1817,16 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: R
 
   return (
     <div className="space-y-6">
+      <OptimizerPanel
+        open={showOptimizerPanel}
+        onOpenChange={setShowOptimizerPanel}
+        rows={rows}
+        onApplyChanges={(newRows) => {
+          setRows(newRows);
+          // Trigger metrics recalculation
+          setTimeout(() => calculateMetrics(), 100);
+        }}
+      />
       <AddIngredientDialog
         open={addIngredientIndex !== null || showAddIngredientDialog}
         onOpenChange={(open) => {
@@ -2326,6 +2348,16 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe }: R
                       >
                         {isOptimizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
                         Balance Recipe
+                      </Button>
+                      <Button
+                        onClick={() => setShowOptimizerPanel(true)}
+                        disabled={rows.length === 0}
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        ✨ Optimize
                       </Button>
                       <Tooltip>
                         <TooltipTrigger asChild>

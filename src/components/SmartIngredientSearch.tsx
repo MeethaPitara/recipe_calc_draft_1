@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import Fuse from "fuse.js";
-import { Search, Clock, Package } from "lucide-react";
+import { Search, Clock, Package, Plus, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AddIngredientDialog } from "@/components/AddIngredientDialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +40,7 @@ export function SmartIngredientSearch({
 }: SmartIngredientSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -143,6 +146,7 @@ export function SmartIngredientSearch({
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span className="font-medium truncate">{ing.name}</span>
+        {ing.is_custom && <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
       </div>
       <Badge variant="secondary" className="text-xs flex-shrink-0">
         {ing.category}
@@ -165,8 +169,17 @@ export function SmartIngredientSearch({
               setSearchQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            className="pl-9 bg-background"
+            className="pl-9 pr-9 bg-background"
           />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+            onClick={() => setIsAddDialogOpen(true)}
+            title="Create new custom ingredient"
+          >
+            <Plus className="h-4 w-4 text-primary" />
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           {filteredIngredients.length} ingredient{filteredIngredients.length !== 1 ? 's' : ''} available
@@ -205,6 +218,15 @@ export function SmartIngredientSearch({
                   <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No ingredients found</p>
                   <p className="text-xs mt-1">Try a different search term</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 mx-auto block"
+                    onClick={() => setIsAddDialogOpen(true)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create "{searchQuery}"
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -239,6 +261,15 @@ export function SmartIngredientSearch({
           Use ↑↓ to navigate, Enter to select, Esc to close
         </p>
       </div>
+
+      <AddIngredientDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        prefilledData={{ name: searchQuery }}
+        onIngredientAdded={(newIng) => {
+          handleSelect(newIng);
+        }}
+      />
     </div>
   );
 }

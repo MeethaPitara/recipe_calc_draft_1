@@ -53,6 +53,7 @@ const Index = () => {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [currentRecipeId, setCurrentRecipeId] = useState<string | null>(null);
   const [loadedRecipeData, setLoadedRecipeData] = useState<{ rows: IngredientRow[], name: string, type: string, id: string } | null>(null);
+  const [triggerOptimizer, setTriggerOptimizer] = useState(false);
   const showAdvanced = isAdvancedMode();
 
   useEffect(() => {
@@ -465,6 +466,7 @@ const Index = () => {
                     onNavigate={(tab) => setCurrentTab(tab)}
                     hasRecipe={calculatorRecipe.length > 0}
                     currentRecipe={calculatorRecipe}
+                    onOptimize={() => setTriggerOptimizer(true)}
                   />
 
                   {/* Recipe Management Toolbar */}
@@ -485,6 +487,8 @@ const Index = () => {
                       setCalculatorProductType(productType);
                     }}
                     externalRecipe={loadedRecipeData}
+                    openOptimizer={triggerOptimizer}
+                    onOptimizerOpenChange={setTriggerOptimizer}
                   />
                 </div>
                 {showAdvanced && (

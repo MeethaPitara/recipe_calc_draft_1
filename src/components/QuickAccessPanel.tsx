@@ -1,16 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Beaker, DollarSign, Sparkles, Candy } from 'lucide-react';
+import { Beaker, DollarSign, Sparkles, Candy, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface QuickAccessPanelProps {
   onNavigate: (tab: string) => void;
   hasRecipe: boolean;
   currentRecipe?: any[];
+  onOptimize?: () => void;
 }
 
-export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe }: QuickAccessPanelProps) {
+export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptimize }: QuickAccessPanelProps) {
   const navigate = useNavigate();
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
@@ -85,6 +86,24 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe }: Quick
             <div className="font-medium text-xs">Sugar Blend</div>
             <div className="text-xs text-muted-foreground">Optimize Spectrum</div>
           </div>
+        </Button>
+
+        <Button
+          variant="outline"
+          className="h-auto py-3 flex flex-col items-center gap-2 border-amber-500/30 hover:bg-amber-500/5"
+          onClick={() => onOptimize?.()}
+          disabled={!hasRecipe}
+        >
+          <Wand2 className="h-5 w-5 text-amber-500" />
+          <div className="text-center">
+            <div className="font-medium text-xs">✨ Optimizer</div>
+            <div className="text-xs text-muted-foreground">LP Solver</div>
+          </div>
+          {hasRecipe ? (
+            <Badge variant="default" className="text-xs bg-amber-500">Ready</Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs">Need Recipe</Badge>
+          )}
         </Button>
 
         <Button
