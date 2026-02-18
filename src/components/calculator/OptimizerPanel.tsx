@@ -27,6 +27,7 @@ interface OptimizerPanelProps {
     onOpenChange: (open: boolean) => void;
     rows: IngredientRow[];
     onApplyChanges: (optimizedRows: IngredientRow[]) => void;
+    productType?: string;
 }
 
 // Default lock: stabilizers, flavors, pastes, spices
@@ -47,7 +48,7 @@ const shouldDefaultLock = (ing: IngredientData): boolean => {
     );
 };
 
-export function OptimizerPanel({ open, onOpenChange, rows, onApplyChanges }: OptimizerPanelProps) {
+export function OptimizerPanel({ open, onOpenChange, rows, onApplyChanges, productType }: OptimizerPanelProps) {
     // Lock state — keyed by ingredient id
     const [lockedIds, setLockedIds] = useState<Set<string>>(() => {
         const defaults = new Set<string>();
@@ -105,6 +106,7 @@ export function OptimizerPanel({ open, onOpenChange, rows, onApplyChanges }: Opt
             freeIngredientIds: validRows
                 .filter((r) => !lockedIds.has(r.ingredientData!.id))
                 .map((r) => r.ingredientData!.id),
+            mode: productType || 'gelato',
         };
 
         // Run synchronously (LP solver is fast)

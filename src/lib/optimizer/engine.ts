@@ -47,6 +47,9 @@ export interface OptimizerRequest {
 
     /** IDs of ingredients that CAN change (milk, cream, sugar) */
     freeIngredientIds: string[];
+
+    /** Product type / mode (gelato, ice_cream, sorbet, kulfi) */
+    mode?: string;
 }
 
 export interface OptimizerChange {
@@ -105,7 +108,7 @@ function requestToTargets(request: OptimizerRequest): OptimizeTarget {
     return {
         fat_pct: request.targets.fat,
         msnf_pct: request.targets.msnf,
-        sugars_pct: request.targets.sugars,
+        totalSugars_pct: request.targets.sugars,
         ts_pct: request.targets.totalSolids,
     };
 }
@@ -183,8 +186,9 @@ export function runOptimizer(request: OptimizerRequest): OptimizerResult {
     // ── Strategy 1: LP Solver ──
     try {
         const lpResult = balanceRecipeLP(rows, targets, {
-            tolerance: 3.0,
-            weightFlexibility: 0.05,
+            tolerance: 2.0,
+            weightFlexibility: 0.10,
+            mode: (request.mode as any) || 'gelato',
         });
 
         if (lpResult.success) {
@@ -281,6 +285,8 @@ function scoreAgainstTargets(m: MetricsV2, t: OptimizeTarget): number {
     let score = 0;
     if (t.fat_pct != null) score += Math.abs(m.fat_pct - t.fat_pct);
     if (t.msnf_pct != null) score += Math.abs(m.msnf_pct - t.msnf_pct);
+    if (t.totalSugars_pct != null)
+        score += Math.abs(m.totalSugars_pct - t.totalSugars_pct);
     if (t.sugars_pct != null)
         score += Math.abs(m.nonLactoseSugars_pct - t.sugars_pct);
     if (t.ts_pct != null) score += Math.abs(m.ts_pct - t.ts_pct);

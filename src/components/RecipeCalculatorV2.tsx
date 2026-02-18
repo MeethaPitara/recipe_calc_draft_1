@@ -1821,6 +1821,7 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
         open={showOptimizerPanel}
         onOpenChange={setShowOptimizerPanel}
         rows={rows}
+        productType={productType}
         onApplyChanges={(newRows) => {
           setRows(newRows);
           // Trigger metrics recalculation

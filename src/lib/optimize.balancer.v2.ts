@@ -83,8 +83,8 @@ export function balanceRecipeLP(
     weightFlexibility?: number; // Allow ±X% weight variation (default 5%)
   } = {}
 ): LPSolverResult {
-  const tolerance = options.tolerance || 4.0; // Increased default tolerance to 4.0 percentage points
-  const weightFlexibility = options.weightFlexibility ?? 0.05; // Default ±5% weight flexibility
+  const tolerance = options.tolerance ?? 2.0; // Safety-rail tolerance in percentage points
+  const weightFlexibility = options.weightFlexibility ?? 0.10; // Default ±10% weight flexibility
 
   if (!initialRows || initialRows.length === 0) {
     return {
@@ -98,247 +98,245 @@ export function balanceRecipeLP(
   const originalMetrics = calcMetricsV2(initialRows, { mode: options.mode });
   const totalWeight = originalMetrics.total_g;
 
-  // ============ LP BOUNDS & MOVEMENT PENALTY ============
-  // Build LP model with category-specific bounds and movement penalties
+  // ============ LP MODEL WITH DEVIATION SLACK VARIABLES ============
+  // The objective minimizes:  10*(fat_over + fat_under + msnf_over + msnf_under + ...)
+  //                         + 0.01 * Σ(ingredient movement)
+  // Slack variables measure how far the solution is from each target.
   const model: any = {
-    optimize: 'deviation',
+    optimize: 'cost',
     opType: 'min',
     constraints: {},
     variables: {}
   };
 
-  const lambda = 0.01; // Movement penalty weight - discourages large changes
+  const DEVIATION_WEIGHT = 10.0;  // High weight — pull hard toward targets
+  const MOVEMENT_WEIGHT = 0.001; // Low weight — prefer minimal changes, but targets dominate
 
-  // Create variables for each ingredient (amount in grams)
+  // ── Ingredient variables ──
   initialRows.forEach((row, idx) => {
     const varName = `ing_${idx}`;
     const ing = row.ing;
     const initialAmount = row.grams;
     const mode = options.mode || 'gelato';
 
-    // PHASE 2: Calculate category-specific bounds with increased flexibility
-    let minGrams = 0; // Can reduce to zero by default
-    let maxGrams = Math.max(row.grams * 10, 2000); // Can increase up to 10x OR 2000g maximum
+    // Calculate category-specific bounds
+    let minGrams = 0;
+    let maxGrams = Math.max(row.grams * 5, 1500);
 
-    // PHASE 2: CORE INGREDIENT PROTECTION - only for TRUE core (fruits, flavors, stabilizers)
-    // Dairy ingredients are NEVER locked as 'core' for balancing purposes
-    const role = classifyIngredient(ing);
-    if (role === 'core') {
-      const isTrulyCore = ing.category === 'fruit' || 
-                          ing.category === 'flavor' || 
-                          ing.category === 'stabilizer';
-      
-      if (isTrulyCore && !options.allowCoreDairy) {
-        minGrams = initialAmount * 0.8; // Allow ±20% for true core ingredients
-        maxGrams = initialAmount * 1.2;
-      }
-      // Dairy ingredients (milk, cream, butter) are always flexible, no restrictions
-    }
+    // Respect lock flags from the optimizer adapter
+    if (row.lock) {
+      minGrams = row.min ?? initialAmount;
+      maxGrams = row.max ?? initialAmount;
+    } else {
+      // CORE INGREDIENT PROTECTION — only for TRUE core (fruits, flavors, stabilizers)
+      const role = classifyIngredient(ing);
+      if (role === 'core') {
+        const isTrulyCore = ing.category === 'fruit' ||
+          ing.category === 'flavor' ||
+          ing.category === 'stabilizer';
 
-    // Apply category-specific bounds
-    if (ing.category === 'other') {
-      maxGrams = Math.min(maxGrams, 50); // Max 50g stabilizer/emulsifier
-    }
-    
-    // Apply sugar bounds based on mode
-    if (ing.category === 'sugar' || (ing.sugars_pct || 0) >= 90) {
-      const sugarBounds = SUGAR_BOUNDS[mode] || SUGAR_BOUNDS.gelato;
-      
-      if (ing.name.toLowerCase().includes('sucrose')) {
-        maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).sucrose_max_pct / 100));
-      } else if (ing.name.toLowerCase().includes('dextrose')) {
-        maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).dextrose_max_pct / 100));
-      } else if (ing.name.toLowerCase().includes('glucose')) {
-        maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).glucose_max_pct / 100));
-      } else if (ing.name.toLowerCase().includes('invert')) {
-        maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).invert_max_pct || 8) / 100);
+        if (isTrulyCore && !options.allowCoreDairy) {
+          minGrams = initialAmount * 0.8;
+          maxGrams = initialAmount * 1.2;
+        }
       }
-    }
-    
-    // PHASE 1: Mode-aware butter bounds
-    if (ing.name.toLowerCase().includes('butter') && ing.fat_pct >= 75) {
-      const butterMax = mode === 'kulfi' ? 0.15 : 0.08; // Kulfi allows 15% butter, others 8%
-      maxGrams = Math.min(maxGrams, totalWeight * butterMax);
+
+      // Category-specific bounds
+      if (ing.category === 'other') {
+        maxGrams = Math.min(maxGrams, 50);
+      }
+
+      // Sugar bounds based on mode
+      if (ing.category === 'sugar' || (ing.sugars_pct || 0) >= 90) {
+        const sugarBounds = SUGAR_BOUNDS[mode] || SUGAR_BOUNDS.gelato;
+
+        if (ing.name.toLowerCase().includes('sucrose')) {
+          maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).sucrose_max_pct / 100));
+        } else if (ing.name.toLowerCase().includes('dextrose')) {
+          maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).dextrose_max_pct / 100));
+        } else if (ing.name.toLowerCase().includes('glucose')) {
+          maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).glucose_max_pct / 100));
+        } else if (ing.name.toLowerCase().includes('invert')) {
+          maxGrams = Math.min(maxGrams, totalWeight * ((sugarBounds as any).invert_max_pct || 8) / 100);
+        }
+      }
+
+      // Mode-aware butter bounds
+      if (ing.name.toLowerCase().includes('butter') && ing.fat_pct >= 75) {
+        const butterMax = mode === 'kulfi' ? 0.15 : 0.08;
+        maxGrams = Math.min(maxGrams, totalWeight * butterMax);
+      }
     }
 
     const variable: any = {
-      deviation: 0, // We'll minimize deviation from targets
-      movement: lambda, // Penalty for changing amounts (prefer minimal adjustments)
-      // Contribution to constraints
-      total_weight: 1, // Each gram contributes 1g to total weight
-      fat_contribution: ing.fat_pct / 100,
-      msnf_contribution: (ing.msnf_pct || 0) / 100,
-      sugars_contribution: (ing.sugars_pct || 0) / 100,
-      // Bounds
-      [`min_${idx}`]: 1,
-      [`max_${idx}`]: 1
+      cost: MOVEMENT_WEIGHT, // Small penalty for changing amounts
+      total_weight: 1,
+      fat_eq: ing.fat_pct / 100,
+      msnf_eq: (ing.msnf_pct || 0) / 100,
+      sugars_eq: (ing.sugars_pct || 0) / 100,
+      [`bound_min_${idx}`]: 1,
+      [`bound_max_${idx}`]: 1
     };
-    
-    model.variables[varName] = variable;
 
-    // Store bounds in constraints
-    model.constraints[`min_${idx}`] = { min: minGrams };
-    model.constraints[`max_${idx}`] = { max: maxGrams };
+    model.variables[varName] = variable;
+    model.constraints[`bound_min_${idx}`] = { min: minGrams };
+    model.constraints[`bound_max_${idx}`] = { max: maxGrams };
   });
 
-  // Constraint: Total weight can vary based on weightFlexibility setting
+  // ── Total weight constraint (safety rail) ──
   model.constraints.total_weight = {
     min: totalWeight * (1 - weightFlexibility),
     max: totalWeight * (1 + weightFlexibility)
   };
 
-  // Fat percentage target - WIDER tolerance
+  // ── Deviation slack variables for each target ──
+  // Equality: Σ(ing_i * coefficient_i) - slack_over + slack_under = targetGrams
+  // Objective: minimize DEVIATION_WEIGHT * (slack_over + slack_under)
+  // No hard caps on slacks — the objective naturally drives them to zero.
+
   if (targets.fat_pct !== undefined) {
-    const targetFatGrams = (targets.fat_pct / 100) * totalWeight;
-    const toleranceGrams = (tolerance / 100) * totalWeight;
-    model.constraints.fat_contribution = {
-      min: targetFatGrams - toleranceGrams * 1.5,
-      max: targetFatGrams + toleranceGrams * 1.5
+    const targetGrams = (targets.fat_pct / 100) * totalWeight;
+
+    model.variables['fat_over'] = {
+      cost: DEVIATION_WEIGHT,
+      fat_eq: -1,
     };
+    model.variables['fat_under'] = {
+      cost: DEVIATION_WEIGHT,
+      fat_eq: 1,
+    };
+    model.constraints.fat_eq = { equal: targetGrams };
   }
 
-  // MSNF percentage target - WIDER tolerance
   if (targets.msnf_pct !== undefined) {
-    const targetMSNFGrams = (targets.msnf_pct / 100) * totalWeight;
-    const toleranceGrams = (tolerance / 100) * totalWeight;
-    model.constraints.msnf_contribution = {
-      min: targetMSNFGrams - toleranceGrams * 1.5,
-      max: targetMSNFGrams + toleranceGrams * 1.5
+    const targetGrams = (targets.msnf_pct / 100) * totalWeight;
+
+    model.variables['msnf_over'] = {
+      cost: DEVIATION_WEIGHT,
+      msnf_eq: -1,
     };
+    model.variables['msnf_under'] = {
+      cost: DEVIATION_WEIGHT,
+      msnf_eq: 1,
+    };
+    model.constraints.msnf_eq = { equal: targetGrams };
   }
 
-  // Constraint 5: Sugars percentage target (check both property names)
   const sugarTarget = targets.totalSugars_pct ?? targets.sugars_pct;
   if (sugarTarget !== undefined) {
-    const targetSugarsGrams = (sugarTarget / 100) * totalWeight;
-    const toleranceGrams = (tolerance / 100) * totalWeight;
-    model.constraints.sugars_contribution = {
-      min: targetSugarsGrams - toleranceGrams * 1.5,
-      max: targetSugarsGrams + toleranceGrams * 1.5
+    const targetGrams = (sugarTarget / 100) * totalWeight;
+
+    model.variables['sugars_over'] = {
+      cost: DEVIATION_WEIGHT,
+      sugars_eq: -1,
     };
+    model.variables['sugars_under'] = {
+      cost: DEVIATION_WEIGHT,
+      sugars_eq: 1,
+    };
+    model.constraints.sugars_eq = { equal: targetGrams };
   }
 
   // PHASE 1: Sorbet sugar enforcement (26-31% total sugars, NO dairy)
   const mode = options.mode || 'gelato';
   if (mode === 'sorbet') {
-    // Enforce sorbet sugar range (overrides generic target if present)
-    model.constraints.sugars_contribution = {
+    // For sorbet, override sugar slack with hard range
+    delete model.variables['sugars_over'];
+    delete model.variables['sugars_under'];
+    delete model.constraints.sugars_eq;
+    model.constraints.sugars_eq = {
       min: 0.26 * totalWeight,
       max: 0.31 * totalWeight
     };
-    
-    // Block dairy additions by setting negative fat/MSNF coefficients to zero contribution
+    // Rename constraint key for ingredient sugars contribution
+    // (sugars_eq is used by ingredient variables with key sugars_eq)
+
+    // Block dairy for sorbet
     initialRows.forEach((row, idx) => {
-      const varName = `ing_${idx}`;
       if (row.ing.fat_pct > 1 || (row.ing.msnf_pct || 0) > 1) {
-        // Force dairy ingredients to zero for sorbet
-        model.constraints[`max_${idx}`] = { max: 0 };
+        model.constraints[`bound_max_${idx}`] = { max: 0 };
       }
     });
   }
 
   try {
-    // PHASE 2: Add LP Model debugging before solving
+    // Debug logging
     console.log('🔧 LP Model Summary:');
     console.log('  Variables:', Object.keys(model.variables).length);
     console.log('  Constraints:', Object.keys(model.constraints).length);
     console.log('  Ingredient bounds:', initialRows.map((row, idx) => ({
       name: row.ing.name,
+      locked: row.lock || false,
       initial: row.grams.toFixed(1) + 'g',
-      min: model.constraints[`min_${idx}`]?.min || 'none',
-      max: model.constraints[`max_${idx}`]?.max || 'none'
+      min: model.constraints[`bound_min_${idx}`]?.min ?? 'none',
+      max: model.constraints[`bound_max_${idx}`]?.max ?? 'none'
     })));
+    if (targets.fat_pct !== undefined) {
+      console.log('  Fat target:', targets.fat_pct + '%', '→', ((targets.fat_pct / 100) * totalWeight).toFixed(1) + 'g');
+    }
+    if (targets.msnf_pct !== undefined) {
+      console.log('  MSNF target:', targets.msnf_pct + '%', '→', ((targets.msnf_pct / 100) * totalWeight).toFixed(1) + 'g');
+    }
+    const sugarTargetLog = targets.totalSugars_pct ?? targets.sugars_pct;
+    if (sugarTargetLog !== undefined) {
+      console.log('  Sugars target:', sugarTargetLog + '%', '→', ((sugarTargetLog / 100) * totalWeight).toFixed(1) + 'g');
+    }
 
     // Solve the LP problem
     const result = solver.Solve(model);
 
-    // PHASE 3: Enhanced LP failure diagnostics
+    console.log('🔧 LP Result:', {
+      feasible: result?.feasible,
+      bounded: result?.bounded,
+      result: result?.result,
+      fat_over: result?.fat_over,
+      fat_under: result?.fat_under,
+      msnf_over: result?.msnf_over,
+      msnf_under: result?.msnf_under,
+      sugars_over: result?.sugars_over,
+      sugars_under: result?.sugars_under,
+    });
+
     if (!result || result.feasible === false) {
-      // Diagnose constraint conflicts
-      const diagnostics = {
-        conflictingConstraints: [] as string[]
-      };
-
-      // Check if fat target is achievable with available ingredients
-      const maxFatPossible = initialRows.reduce((sum, row) => 
-        sum + (row.grams * 5 * (row.ing.fat_pct / 100)), 0
-      );
-      const minFatPossible = initialRows.reduce((sum, row) => 
-        sum + (row.grams * 0 * (row.ing.fat_pct / 100)), 0
-      );
-      
-      const targetFatMin = (targets.fat_pct / 100 - tolerance / 100) * totalWeight;
-      const targetFatMax = (targets.fat_pct / 100 + tolerance / 100) * totalWeight;
-      
-      if (targetFatMin > maxFatPossible || targetFatMax < minFatPossible) {
-        diagnostics.conflictingConstraints.push(
-          `Fat target ${targets.fat_pct}% (${targetFatMin.toFixed(1)}-${targetFatMax.toFixed(1)}g) ` +
-          `is outside achievable range ${minFatPossible.toFixed(1)}-${maxFatPossible.toFixed(1)}g`
-        );
-      }
-
-      // Check MSNF achievability
-      const maxMSNFPossible = initialRows.reduce((sum, row) => 
-        sum + (row.grams * 5 * (row.ing.msnf_pct / 100)), 0
-      );
-      const targetMSNFMin = (targets.msnf_pct / 100 - tolerance / 100) * totalWeight;
-      const targetMSNFMax = (targets.msnf_pct / 100 + tolerance / 100) * totalWeight;
-      
-      if (targetMSNFMin > maxMSNFPossible) {
-        diagnostics.conflictingConstraints.push(
-          `MSNF target ${targets.msnf_pct}% (${targetMSNFMin.toFixed(1)}-${targetMSNFMax.toFixed(1)}g) ` +
-          `exceeds max achievable ${maxMSNFPossible.toFixed(1)}g`
-        );
-      }
-
-      // Check sugar achievability
-      const maxSugarPossible = initialRows.reduce((sum, row) => 
-        sum + (row.grams * 5 * (row.ing.sugars_pct / 100)), 0
-      );
-      const targetSugarMin = (targets.totalSugars_pct / 100 - tolerance / 100) * totalWeight;
-      const targetSugarMax = (targets.totalSugars_pct / 100 + tolerance / 100) * totalWeight;
-      
-      if (targetSugarMin > maxSugarPossible) {
-        diagnostics.conflictingConstraints.push(
-          `Sugar target ${targets.totalSugars_pct}% (${targetSugarMin.toFixed(1)}-${targetSugarMax.toFixed(1)}g) ` +
-          `exceeds max achievable ${maxSugarPossible.toFixed(1)}g`
-        );
-      }
-
       return {
         success: false,
         rows: initialRows,
-        message: diagnostics.conflictingConstraints.length > 0
-          ? `Cannot balance: ${diagnostics.conflictingConstraints[0]}`
-          : 'LP solver encountered numerical issues',
-        error: result?.feasible === false 
-          ? 'Infeasible constraints: ' + diagnostics.conflictingConstraints.join('; ')
-          : 'Solver failed to find solution'
+        message: 'LP solver could not find a feasible solution with the given targets and constraints. ' +
+          'Try relaxing targets or unlocking more ingredients.',
+        error: 'Infeasible'
       };
     }
 
-    // Extract solution and build new rows
+    // Extract solution — only pick ingredient variables (ing_0, ing_1, ...)
     const newRows: Row[] = initialRows.map((row, idx) => {
       const varName = `ing_${idx}`;
-      const newGrams = result[varName] || row.grams;
-      
+      // Use `in` check: solver may intentionally set an ingredient to 0
+      const newGrams = varName in result ? result[varName] : row.grams;
+
       return {
         ...row,
-        grams: Math.max(0, newGrams) // Ensure non-negative
+        grams: Math.max(0, newGrams)
       };
-    }).filter(row => row.grams > 0.1); // Remove ingredients with negligible amounts
+    }).filter(row => row.grams > 0.1);
 
     // Validate solution
     const newMetrics = calcMetricsV2(newRows, { mode: options.mode });
     const weightError = Math.abs(newMetrics.total_g - totalWeight);
 
     if (weightError > 1) {
-      // Normalize to preserve weight
       const scaleFactor = totalWeight / newMetrics.total_g;
       newRows.forEach(row => {
         row.grams *= scaleFactor;
       });
     }
+
+    console.log('🔧 LP Solution metrics:', {
+      fat: newMetrics.fat_pct.toFixed(2) + '%',
+      msnf: newMetrics.msnf_pct.toFixed(2) + '%',
+      sugars: newMetrics.nonLactoseSugars_pct.toFixed(2) + '%',
+      totalSolids: newMetrics.ts_pct.toFixed(2) + '%',
+      total_g: newMetrics.total_g.toFixed(1) + 'g'
+    });
 
     return {
       success: true,
@@ -381,23 +379,23 @@ export function checkTargetFeasibility(
   allIngredients: IngredientData[]
 ): FeasibilityReport {
   const suggestions: string[] = [];
-  
+
   // Calculate current metrics
   const currentMetrics = calcMetricsV2(rows);
-  
+
   // Find key ingredients in database for theoretical max calculations
   const hasSMP = allIngredients.some(ing => (ing.msnf_pct || 0) > 90); // Skim Milk Powder
   const hasButter = allIngredients.some(ing => ing.fat_pct > 80); // Butter/Anhydrous fat
   const hasHeavyCream = allIngredients.some(ing => ing.fat_pct > 30); // Heavy cream
   const hasWater = allIngredients.some(ing => ing.water_pct > 95);
-  
+
   // Calculate SMARTER achievable ranges considering available substitutions
   const achievableRanges = {
-    fat: { 
+    fat: {
       min: hasWater ? 0 : Math.max(0, currentMetrics.fat_pct * 0.3),
       max: hasButter ? 35 : (hasHeavyCream ? 20 : currentMetrics.fat_pct * 2)
     },
-    msnf: { 
+    msnf: {
       min: hasWater ? 0 : Math.max(0, currentMetrics.msnf_pct * 0.3),
       max: hasSMP ? 25 : currentMetrics.msnf_pct * 2  // SMP can achieve much higher MSNF!
     },
@@ -483,11 +481,11 @@ export interface ScienceValidation {
 }
 
 // Import from centralized productConstraints
-import { 
-  PRODUCT_CONSTRAINTS, 
+import {
+  PRODUCT_CONSTRAINTS,
   getConstraintsForMode,
   type ProductConstraint,
-  type ConstraintRange 
+  type ConstraintRange
 } from './productConstraints';
 
 // Re-export for backward compatibility
@@ -595,7 +593,7 @@ function validateParameter(
       message = `${name} is slightly high but acceptable`;
     }
   } else if (value < acceptable[0] || value > acceptable[1]) {
-    const diff = value < acceptable[0] 
+    const diff = value < acceptable[0]
       ? (acceptable[0] - value).toFixed(1)
       : (value - acceptable[1]).toFixed(1);
     severity = 'critical';
@@ -693,14 +691,14 @@ function scoreMetrics(metrics: MetricsV2, targets: OptimizeTarget): number {
     score += Math.abs(metrics.msnf_pct - targets.msnf_pct);
     count++;
   }
-  
+
   // Check both sugar property names
   const sugarTarget = targets.totalSugars_pct ?? targets.sugars_pct;
   if (sugarTarget !== undefined) {
     score += Math.abs(metrics.totalSugars_pct - sugarTarget);
     count++;
   }
-  
+
   if (targets.fpdt !== undefined) {
     score += Math.abs(metrics.fpdt - targets.fpdt) * 10; // Weight FPDT more heavily
     count++;
@@ -811,7 +809,7 @@ export function balanceRecipeV2(
 
   // Step 0: Diagnose ingredient availability FIRST
   const diagnosis = diagnoseBalancingFailure(initialRows, allIngredients, targets);
-  
+
   // If critical ingredients are missing from DATABASE, fail fast with helpful message
   if (diagnosis.missingIngredients.length > 0) {
     return {
@@ -835,50 +833,50 @@ export function balanceRecipeV2(
   // Step 0.5: Try LP Solver first with progressive tolerance relaxation
   if (useLPSolver && initialRows.length >= 2) {
     if (import.meta.env.DEV) console.log('🔧 Attempting LP Solver with progressive tolerance...');
-    
+
     // Progressive tolerance: try 3.0 → 4.0 → 5.0 before failing
     const toleranceLevels = [3.0, 4.0, 5.0];
     let lpSuccess = false;
     let bestLpResult: LPSolverResult | null = null;
     let bestLpScore = Infinity;
     let bestLpMetrics: MetricsV2 | null = null;
-    
+
     for (const tryTolerance of toleranceLevels) {
       if (import.meta.env.DEV) console.log(`  → Trying tolerance: ${tryTolerance}%`);
-      
-      const lpResult = balanceRecipeLP(initialRows, targets, { 
-        tolerance: tryTolerance, 
+
+      const lpResult = balanceRecipeLP(initialRows, targets, {
+        tolerance: tryTolerance,
         mode: resolveMode(productType),
         allowCoreDairy: options.allowCoreDairy,
         weightFlexibility: 0.05 // Allow ±5% weight variation
       });
-      
+
       if (lpResult.success) {
         const lpMetrics = calcMetricsV2(lpResult.rows);
         const lpScore = scoreMetrics(lpMetrics, targets);
-        
+
         if (import.meta.env.DEV) console.log(`  ✅ LP Solver succeeded at tolerance ${tryTolerance}% with score: ${(lpScore * 100).toFixed(2)}%`);
-        
+
         // Track best result
         if (lpScore < bestLpScore) {
           bestLpScore = lpScore;
           bestLpResult = lpResult;
           bestLpMetrics = lpMetrics;
         }
-        
+
         if (lpScore < tolerance) {
           lpSuccess = true;
           break; // Found a good solution, no need to try more
         }
       }
     }
-    
+
     // Use best LP result if it's good enough
     if (bestLpResult && bestLpMetrics && bestLpScore < tolerance * 1.5) {
-      const scienceValidation = enableScienceValidation 
+      const scienceValidation = enableScienceValidation
         ? validateRecipeScience(bestLpMetrics, productType)
         : undefined;
-      const qualityScore = scienceValidation 
+      const qualityScore = scienceValidation
         ? getRecipeQualityScore(scienceValidation)
         : undefined;
 
@@ -910,10 +908,10 @@ export function balanceRecipeV2(
   let feasibilityReport: FeasibilityReport | undefined;
   if (enableFeasibilityCheck) {
     feasibilityReport = checkTargetFeasibility(initialRows, targets, allIngredients);
-    
+
     // Only fail if it's a CRITICAL missing ingredient (not just difficult targets)
     const hasCriticalMissing = feasibilityReport.suggestions.some(s => s.includes('❌ CRITICAL'));
-    
+
     if (!feasibilityReport.feasible && hasCriticalMissing) {
       return {
         success: false,
@@ -954,10 +952,10 @@ export function balanceRecipeV2(
 
     // Check if we've achieved targets
     if (score < tolerance) {
-      const scienceValidation = enableScienceValidation 
+      const scienceValidation = enableScienceValidation
         ? validateRecipeScience(currentMetrics, productType)
         : undefined;
-      const qualityScore = scienceValidation 
+      const qualityScore = scienceValidation
         ? getRecipeQualityScore(scienceValidation)
         : undefined;
 
@@ -985,13 +983,13 @@ export function balanceRecipeV2(
 
     // Identify priority adjustment
     const { parameter, direction, delta } = identifyPriorityAdjustment(currentMetrics, targets);
-    
+
     if (!parameter || !direction) {
       break; // No more adjustments needed or possible
     }
 
     // Find applicable substitution rules
-    const rules = OptimizeEngineV2.findRules(parameter, direction, 
+    const rules = OptimizeEngineV2.findRules(parameter, direction,
       currentRows.map(r => r.ing));
 
     if (rules.length === 0) {
@@ -1002,11 +1000,11 @@ export function balanceRecipeV2(
 
     // Apply the highest priority rule
     const rule = rules[0];
-    
+
     // Calculate adjustment amount based on delta
     // Be conservative: adjust 20% of the needed change per iteration
     const adjustmentGrams = (delta / 100) * originalWeight * 0.2;
-    
+
     const newRows = OptimizeEngineV2.applySubstitution(
       currentRows,
       rule,
@@ -1017,7 +1015,7 @@ export function balanceRecipeV2(
     // Validate weight preservation
     const newMetrics = calcMetricsV2(newRows);
     const weightDiff = Math.abs(newMetrics.total_g - originalWeight);
-    
+
     if (weightDiff > 1) {
       // Weight changed too much, adjust to compensate
       const scaleFactor = originalWeight / newMetrics.total_g;
@@ -1029,7 +1027,7 @@ export function balanceRecipeV2(
     // Record adjustment
     const adjustmentMsg = `${rule.name}: ${parameter} ${direction} by ${delta.toFixed(2)}%`;
     adjustmentsSummary.push(adjustmentMsg);
-    
+
     if (progress[progress.length - 1]) {
       progress[progress.length - 1].adjustments.push(adjustmentMsg);
     }
@@ -1038,11 +1036,11 @@ export function balanceRecipeV2(
   // Return best result found
   const finalMetrics = calcMetricsV2(bestRows);
   const finalScore = scoreMetrics(finalMetrics, targets);
-  
-  const scienceValidation = enableScienceValidation 
+
+  const scienceValidation = enableScienceValidation
     ? validateRecipeScience(finalMetrics, productType)
     : undefined;
-  const qualityScore = scienceValidation 
+  const qualityScore = scienceValidation
     ? getRecipeQualityScore(scienceValidation)
     : undefined;
 
@@ -1054,7 +1052,7 @@ export function balanceRecipeV2(
     iterations: maxIterations,
     progress,
     strategy: 'Substitution Rules V2 (Max Iterations)',
-    message: finalScore < tolerance * 3 
+    message: finalScore < tolerance * 3
       ? `Recipe balanced within ${(finalScore * 100).toFixed(1)}% of targets`
       : `Could not fully balance recipe. Best score: ${finalScore.toFixed(2)}`,
     adjustmentsSummary,
