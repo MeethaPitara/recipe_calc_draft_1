@@ -3,11 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Beaker, Candy, Info, Sparkles } from 'lucide-react';
+import { Beaker, Candy, Info, Sparkles, Wand2, PlusCircle } from 'lucide-react';
 import { ChemistryDashboard } from '@/components/ChemistryDashboard';
 import SugarBlendOptimizer from '@/components/flavour-engine/SugarBlendOptimizer';
+import AiOptimizerDemo from '@/components/AiOptimizerDemo';
+import AiRecipeCreator from '@/components/AiRecipeCreator';
 import { RecipeIngredient } from '@/types/recipe';
 import { MetricsV2 } from '@/lib/calc.v2';
+import { isAdvancedMode } from '@/utils/feature-flags';
 
 interface AIFlavourEngineProps {
   initialRecipe?: RecipeIngredient[];
@@ -15,12 +18,13 @@ interface AIFlavourEngineProps {
   initialProductType?: string;
 }
 
-export default function AIFlavourEngine({ 
-  initialRecipe = [], 
+export default function AIFlavourEngine({
+  initialRecipe = [],
   initialMetrics = null,
   initialProductType = 'ice_cream'
 }: AIFlavourEngineProps) {
-  const [activeTab, setActiveTab] = useState('chemistry');
+  const showAdvanced = isAdvancedMode();
+  const [activeTab, setActiveTab] = useState('level1');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -73,31 +77,71 @@ export default function AIFlavourEngine({
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="chemistry" className="flex items-center gap-2">
-            <Beaker className="h-4 w-4" />
-            <span className="hidden sm:inline">Chemistry</span>
+        <TabsList className={`grid w-full ${showAdvanced ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
+          <TabsTrigger value="level1" className="flex items-center gap-2">
+            <Wand2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Level 1 (Modify)</span>
           </TabsTrigger>
-          <TabsTrigger value="sugar" className="flex items-center gap-2">
-            <Candy className="h-4 w-4" />
-            <span className="hidden sm:inline">Sugar Blend</span>
+          <TabsTrigger value="level2" className="flex items-center gap-2">
+            <PlusCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Level 2 (Create)</span>
           </TabsTrigger>
+          {showAdvanced && (
+            <>
+              <TabsTrigger value="chemistry" className="flex items-center gap-2">
+                <Beaker className="h-4 w-4" />
+                <span className="hidden sm:inline">Chemistry</span>
+              </TabsTrigger>
+              <TabsTrigger value="sugar" className="flex items-center gap-2">
+                <Candy className="h-4 w-4" />
+                <span className="hidden sm:inline">Sugar Blend</span>
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
-        <TabsContent value="chemistry" className="mt-6">
-          <ChemistryDashboard 
-            recipe={initialRecipe}
-            metrics={initialMetrics}
-          />
+        <TabsContent value="level1" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Level 1: Modify Existing Recipe</CardTitle>
+              <CardDescription>Use AI to optimize and balance your loaded recipe based on specific targets.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AiOptimizerDemo />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="sugar" className="mt-6">
-          <SugarBlendOptimizer 
-            productType={initialProductType as any}
-            totalSugarAmount={initialMetrics?.totalSugars_g || 200}
-            onOptimizedBlend={(blend) => console.log('Optimized blend:', blend)}
-          />
+        <TabsContent value="level2" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Level 2: Create from Scratch</CardTitle>
+              <CardDescription>Generate an entirely new recipe using AI.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AiRecipeCreator />
+            </CardContent>
+          </Card>
         </TabsContent>
+
+        {showAdvanced && (
+          <>
+            <TabsContent value="chemistry" className="mt-6">
+              <ChemistryDashboard
+                recipe={initialRecipe}
+                metrics={initialMetrics}
+              />
+            </TabsContent>
+
+            <TabsContent value="sugar" className="mt-6">
+              <SugarBlendOptimizer
+                productType={initialProductType as any}
+                totalSugarAmount={initialMetrics?.totalSugars_g || 200}
+                onOptimizedBlend={(blend) => console.log('Optimized blend:', blend)}
+              />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
 
       {/* Feature Status */}

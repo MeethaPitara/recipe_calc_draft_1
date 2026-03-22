@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { getSupabase, isBackendReady } from '@/integrations/supabase/safeClient';
+import { authService } from '@/lib/auth/authService';
 
 interface DiagnosticResult {
   name: string;
@@ -23,15 +24,15 @@ export function DiagnosticsPanel() {
     let supabase: any = null;
     try {
       supabase = await getSupabase();
-      
+
       // Test actual connection with a simple query
       const { error: connectionError } = await supabase
         .from('ingredients')
         .select('id')
         .limit(1);
-      
+
       if (connectionError) throw connectionError;
-      
+
       diagnostics.push({
         name: 'Backend Connection',
         status: 'pass',
@@ -40,12 +41,12 @@ export function DiagnosticsPanel() {
 
       // Check 3: Authentication Status
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const session = await authService.getSession();
         diagnostics.push({
           name: 'Authentication',
           status: session ? 'pass' : 'warning',
-          message: session 
-            ? `Logged in as ${session.user.email}` 
+          message: session
+            ? `Logged in as ${session.user.email}`
             : 'Not authenticated - some features may be limited'
         });
       } catch (authError: any) {
@@ -62,9 +63,9 @@ export function DiagnosticsPanel() {
           .from('ingredients')
           .select('count')
           .limit(1);
-        
+
         if (error) throw error;
-        
+
         diagnostics.push({
           name: 'Database Access',
           status: 'pass',
@@ -133,11 +134,11 @@ export function DiagnosticsPanel() {
     }
   };
 
-  const overallStatus = results.every(r => r.status === 'pass') 
-    ? 'pass' 
-    : results.some(r => r.status === 'fail') 
-    ? 'fail' 
-    : 'warning';
+  const overallStatus = results.every(r => r.status === 'pass')
+    ? 'pass'
+    : results.some(r => r.status === 'fail')
+      ? 'fail'
+      : 'warning';
 
   return (
     <Card>
@@ -147,8 +148,8 @@ export function DiagnosticsPanel() {
             {getStatusIcon(overallStatus)}
             System Diagnostics
           </span>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={runDiagnostics}
             disabled={isRunning}
@@ -167,7 +168,7 @@ export function DiagnosticsPanel() {
         ) : (
           <>
             {results.map((result, index) => (
-              <div 
+              <div
                 key={index}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card"
               >

@@ -13,6 +13,8 @@ interface QuickAccessPanelProps {
 
 export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptimize }: QuickAccessPanelProps) {
   const navigate = useNavigate();
+  const isAdvancedMode = import.meta.env.VITE_ENABLE_ADVANCED === 'true';
+
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
       <CardHeader>
@@ -22,41 +24,45 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptim
         </CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-3">
-        <Button
-          variant="outline"
-          className="h-auto py-3 flex flex-col items-center gap-2"
-          onClick={() => onNavigate('chemistry')}
-          disabled={!hasRecipe}
-        >
-          <Beaker className="h-5 w-5" />
-          <div className="text-center">
-            <div className="font-medium text-xs">Chemistry</div>
-            <div className="text-xs text-muted-foreground">Ingredient Analysis</div>
-          </div>
-          {hasRecipe ? (
-            <Badge variant="default" className="text-xs bg-green-500">Ready</Badge>
-          ) : (
-            <Badge variant="secondary" className="text-xs">Need Recipe</Badge>
-          )}
-        </Button>
+        {isAdvancedMode && (
+          <Button
+            variant="outline"
+            className="h-auto py-3 flex flex-col items-center gap-2"
+            onClick={() => onNavigate('chemistry')}
+            disabled={!hasRecipe}
+          >
+            <Beaker className="h-5 w-5" />
+            <div className="text-center">
+              <div className="font-medium text-xs">Chemistry</div>
+              <div className="text-xs text-muted-foreground">Ingredient Analysis</div>
+            </div>
+            {hasRecipe ? (
+              <Badge variant="default" className="text-xs bg-green-500">Ready</Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">Need Recipe</Badge>
+            )}
+          </Button>
+        )}
 
-        <Button
-          variant="outline"
-          className="h-auto py-3 flex flex-col items-center gap-2"
-          onClick={() => onNavigate('costing')}
-          disabled={!hasRecipe}
-        >
-          <DollarSign className="h-5 w-5" />
-          <div className="text-center">
-            <div className="font-medium text-xs">Costs</div>
-            <div className="text-xs text-muted-foreground">Real-time Pricing</div>
-          </div>
-          {hasRecipe ? (
-            <Badge variant="default" className="text-xs bg-green-500">Ready</Badge>
-          ) : (
-            <Badge variant="secondary" className="text-xs">Need Recipe</Badge>
-          )}
-        </Button>
+        {isAdvancedMode && (
+          <Button
+            variant="outline"
+            className="h-auto py-3 flex flex-col items-center gap-2"
+            onClick={() => onNavigate('costing')}
+            disabled={!hasRecipe}
+          >
+            <DollarSign className="h-5 w-5" />
+            <div className="text-center">
+              <div className="font-medium text-xs">Costs</div>
+              <div className="text-xs text-muted-foreground">Real-time Pricing</div>
+            </div>
+            {hasRecipe ? (
+              <Badge variant="default" className="text-xs bg-green-500">Ready</Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">Need Recipe</Badge>
+            )}
+          </Button>
+        )}
 
         <Button
           variant="outline"
@@ -76,17 +82,19 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptim
           )}
         </Button>
 
-        <Button
-          variant="outline"
-          className="h-auto py-3 flex flex-col items-center gap-2"
-          onClick={() => onNavigate('sugar-blend')}
-        >
-          <Candy className="h-5 w-5" />
-          <div className="text-center">
-            <div className="font-medium text-xs">Sugar Blend</div>
-            <div className="text-xs text-muted-foreground">Optimize Spectrum</div>
-          </div>
-        </Button>
+        {isAdvancedMode && (
+          <Button
+            variant="outline"
+            className="h-auto py-3 flex flex-col items-center gap-2"
+            onClick={() => onNavigate('sugar-blend')}
+          >
+            <Candy className="h-5 w-5" />
+            <div className="text-center">
+              <div className="font-medium text-xs">Sugar Blend</div>
+              <div className="text-xs text-muted-foreground">Optimize Spectrum</div>
+            </div>
+          </Button>
+        )}
 
         <Button
           variant="outline"

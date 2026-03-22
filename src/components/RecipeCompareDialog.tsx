@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/lib/auth/authService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,7 +40,7 @@ export function RecipeCompareDialog({
   const loadSavedRecipes = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await authService.getUser();
       if (!user) return;
 
       const { data: recipes, error } = await supabase
@@ -109,13 +110,13 @@ export function RecipeCompareDialog({
 
   const renderMetricDiff = (label: string, current: number, compare: number | undefined) => {
     if (compare === undefined) return null;
-    
+
     const diff = current - compare;
     const absDiff = Math.abs(diff);
-    
+
     let icon = <Minus className="h-4 w-4" />;
     let color = "text-muted-foreground";
-    
+
     if (absDiff > 0.5) {
       if (diff > 0) {
         icon = <TrendingUp className="h-4 w-4" />;
@@ -125,7 +126,7 @@ export function RecipeCompareDialog({
         color = "text-red-600 dark:text-red-400";
       }
     }
-    
+
     return (
       <div className="flex items-center gap-2">
         <span className={cn("font-semibold", color)}>
@@ -142,7 +143,7 @@ export function RecipeCompareDialog({
         <DialogHeader>
           <DialogTitle>Compare Recipes</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* Recipe selector */}
           <Card>

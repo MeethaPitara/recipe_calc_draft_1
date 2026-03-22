@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 import { Search, Loader2, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -51,7 +52,7 @@ export function RecipeBrowserDrawer({
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await authService.getSession();
       setIsAuthenticated(!!session);
     };
     checkAuth();
@@ -108,14 +109,14 @@ export function RecipeBrowserDrawer({
     try {
       // CASCADE DELETE will automatically clean up related data (recipe_rows, calculated_metrics, recipe_outcomes)
       const { error } = await supabase.from('recipes').delete().eq('id', recipeId);
-      
+
       if (error) throw error;
-      
+
       toast({
         title: 'Recipe deleted',
         description: 'Recipe has been removed'
       });
-      
+
       loadRecipes();
     } catch (error: any) {
       toast({
@@ -136,7 +137,7 @@ export function RecipeBrowserDrawer({
         <SheetHeader>
           <SheetTitle>Recipe Browser</SheetTitle>
         </SheetHeader>
-        
+
         {!isAuthenticated ? (
           <Alert className="mt-4">
             <AlertDescription>

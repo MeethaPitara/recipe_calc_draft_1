@@ -11,6 +11,7 @@ import { IngredientService } from '@/services/ingredientService';
 import { matchIngredientName } from '@/lib/ingredientMapper';
 import type { IngredientData } from '@/types/ingredients';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 
 type ParsedRow = {
   name: string;
@@ -84,7 +85,7 @@ export function RecipeImporter() {
 
       // Match ingredient
       const matchedIngredient = matchIngredientName(ingredientName, ingredients);
-      
+
       // Calculate confidence
       let confidence: 'high' | 'medium' | 'low' | 'none' = 'none';
       if (matchedIngredient) {
@@ -125,7 +126,7 @@ export function RecipeImporter() {
     try {
       for (let i = 0; i < parsedRecipes.length; i++) {
         const recipe = parsedRecipes[i];
-        
+
         // Only import if all ingredients are matched
         const allMatched = recipe.rows.every(r => r.matchedIngredient);
         if (!allMatched) {
@@ -134,7 +135,7 @@ export function RecipeImporter() {
         }
 
         // Get user
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await authService.getUser();
         if (!user) throw new Error('User not authenticated');
 
         // Create recipe
@@ -154,7 +155,7 @@ export function RecipeImporter() {
         const rows = recipe.rows.map(r => {
           const ingData = r.matchedIngredient!;
           const qty = r.grams;
-          
+
           return {
             recipe_id: newRecipe.id,
             ingredient: ingData.name,
@@ -258,7 +259,7 @@ export function RecipeImporter() {
             <div className="text-sm text-muted-foreground">
               Found {parsedRecipes.length} recipe(s). Review ingredient mappings below:
             </div>
-            
+
             <div className="max-h-96 overflow-y-auto space-y-4">
               {parsedRecipes.map((recipe, idx) => (
                 <Card key={idx} className="border-muted">

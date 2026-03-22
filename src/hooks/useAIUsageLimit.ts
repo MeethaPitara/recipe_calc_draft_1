@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getSupabase } from '@/integrations/supabase/safeClient';
+import { authService } from '@/lib/auth/authService';
 
 interface AIUsageLimit {
   used: number;
@@ -25,16 +26,16 @@ export function useAIUsageLimit(limitPerHour: number = 10): AIUsageLimit {
       setError(null);
 
       const supabase = await getSupabase();
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const user = await authService.getUser();
 
-      if (userError || !userData?.user) {
+      if (!user) {
         // User not logged in - no usage tracking
         setUsed(0);
         setIsLoading(false);
         return;
       }
 
-      const userId = userData.user.id;
+      const userId = user.id;
       const since = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
 
       const { count, error: countError } = await supabase

@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 import { mlService } from '@/services/mlService';
 import Papa from 'papaparse';
 import { z } from 'zod';
@@ -47,30 +48,30 @@ const safeParseNumber = (value: any, defaultValue: number = 0): number => {
 // Detect CSV format type
 const detectFileFormat = (rows: any[][]): 'side-by-side' | 'simple' | 'unknown' => {
   if (rows.length < 2) return 'unknown';
-  
+
   // Check for multiple sections with "Ingredient" headers
   let ingredientCount = 0;
   for (let i = 0; i < Math.min(20, rows.length); i++) {
     const row = rows[i];
-    const hasIngredient = row.some((cell: any) => 
+    const hasIngredient = row.some((cell: any) =>
       cell && String(cell).toLowerCase() === 'ingredient'
     );
     if (hasIngredient) ingredientCount++;
   }
-  
+
   // Multiple ingredient headers means side-by-side format
   if (ingredientCount >= 2) return 'side-by-side';
-  
+
   // Single ingredient header means simple format
   if (ingredientCount === 1) return 'simple';
-  
+
   return 'unknown';
 };
 
 // Parse side-by-side recipe format (handles complex multi-column layouts)
 const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof ImportRowSchema>[]> => {
   const recipesMap = new Map<string, z.infer<typeof ImportRowSchema>[]>();
-  
+
   // Find rows that contain "Ingredient" header
   const ingredientRowIndices: number[] = [];
   rows.forEach((row, idx) => {
@@ -78,13 +79,13 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
       ingredientRowIndices.push(idx);
     }
   });
-  
+
   console.log(`Found ${ingredientRowIndices.length} recipe header sections`);
-  
+
   // Process each recipe table section
   for (const startIdx of ingredientRowIndices) {
     const headerRow = rows[startIdx];
-    
+
     // Find all "Ingredient" column positions
     const recipeColumns: number[] = [];
     headerRow.forEach((cell: any, colIdx: number) => {
@@ -92,23 +93,23 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
         recipeColumns.push(colIdx);
       }
     });
-    
+
     // For each recipe column, extract the recipe
     for (const colIdx of recipeColumns) {
       // Look backwards for recipe name (usually 1-3 rows above)
       let recipeName = `Recipe ${recipesMap.size + 1}`;
       for (let i = startIdx - 1; i >= Math.max(0, startIdx - 5); i--) {
         const potentialName = rows[i][colIdx];
-        if (potentialName && String(potentialName).trim() !== '' && 
-            !String(potentialName).toLowerCase().includes('ingredient') &&
-            !String(potentialName).toLowerCase().includes('quantity') &&
-            !String(potentialName).toLowerCase().includes('balancing') &&
-            !String(potentialName).toLowerCase().includes('total')) {
+        if (potentialName && String(potentialName).trim() !== '' &&
+          !String(potentialName).toLowerCase().includes('ingredient') &&
+          !String(potentialName).toLowerCase().includes('quantity') &&
+          !String(potentialName).toLowerCase().includes('balancing') &&
+          !String(potentialName).toLowerCase().includes('total')) {
           recipeName = String(potentialName).trim();
           break;
         }
       }
-      
+
       // Map header to column indices for this recipe
       const columnMap: { [key: string]: number } = { 'ingredient': colIdx };
       headerRow.forEach((cell: any, idx: number) => {
@@ -121,32 +122,32 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
         if (header.includes('other') && header.includes('solid')) columnMap['other_solids'] = idx;
         if (header.includes('total') && header.includes('solid')) columnMap['total_solids'] = idx;
       });
-      
+
       // If no quantity column found, assume it's next to ingredient
       if (!columnMap['quantity']) {
         columnMap['quantity'] = colIdx + 1;
       }
-      
+
       console.log(`📍 Recipe "${recipeName}" column map:`, columnMap);
-      
+
       // Extract ingredient rows
       const ingredients: z.infer<typeof ImportRowSchema>[] = [];
       for (let rowIdx = startIdx + 1; rowIdx < rows.length && rowIdx < startIdx + 100; rowIdx++) {
         const row = rows[rowIdx];
         const ingredient = row[columnMap['ingredient']];
         const quantity = row[columnMap['quantity']];
-        
+
         // Stop if ingredient is empty, numeric, or looks like a total/header
         if (!ingredient || String(ingredient).trim() === '' ||
-            /^\d+$/.test(String(ingredient).trim()) ||
-            String(ingredient).toLowerCase().includes('total') ||
-            String(ingredient).toLowerCase() === 'ingredient') {
+          /^\d+$/.test(String(ingredient).trim()) ||
+          String(ingredient).toLowerCase().includes('total') ||
+          String(ingredient).toLowerCase() === 'ingredient') {
           continue;
         }
-        
+
         const parsedQty = safeParseNumber(quantity);
         if (parsedQty <= 0) continue;
-        
+
         try {
           const validated = ImportRowSchema.parse({
             'Ingredient': String(ingredient).trim(),
@@ -157,13 +158,13 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
             'Other Solids (g)': columnMap['other_solids'] ? safeParseNumber(row[columnMap['other_solids']]) : 0,
             'Total Solids (g)': columnMap['total_solids'] ? safeParseNumber(row[columnMap['total_solids']]) : 0
           });
-          
+
           ingredients.push(validated);
         } catch (e) {
           // Skip invalid rows silently
         }
       }
-      
+
       if (ingredients.length > 0) {
         const uniqueName = recipeName + (recipesMap.has(recipeName) ? ` (${Date.now()})` : '');
         recipesMap.set(uniqueName, ingredients);
@@ -171,14 +172,14 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
       }
     }
   }
-  
+
   return recipesMap;
 };
 
 // Parse simple row-by-row format
 const parseSimpleFormat = (rows: any[][]): Map<string, z.infer<typeof ImportRowSchema>[]> => {
   const recipesMap = new Map<string, z.infer<typeof ImportRowSchema>[]>();
-  
+
   // Find header row
   let headerRowIdx = 0;
   for (let i = 0; i < Math.min(5, rows.length); i++) {
@@ -187,9 +188,9 @@ const parseSimpleFormat = (rows: any[][]): Map<string, z.infer<typeof ImportRowS
       break;
     }
   }
-  
+
   const headers = rows[headerRowIdx].map((h: any) => String(h || '').trim().toLowerCase());
-  
+
   // Find column indices
   const getColIdx = (...names: string[]) => {
     for (const name of names) {
@@ -198,31 +199,31 @@ const parseSimpleFormat = (rows: any[][]): Map<string, z.infer<typeof ImportRowS
     }
     return -1;
   };
-  
+
   const recipeNameIdx = getColIdx('recipe', 'name');
   const ingredientIdx = getColIdx('ingredient');
   const quantityIdx = getColIdx('quantity', 'grams', 'qty');
-  
+
   if (ingredientIdx < 0 || quantityIdx < 0) {
     throw new Error('Could not find Ingredient and Quantity columns');
   }
-  
+
   let currentRecipeName = 'Unnamed Recipe';
-  
+
   // Process data rows
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.every((cell: any) => !cell || String(cell).trim() === '')) continue;
-    
+
     try {
       if (recipeNameIdx >= 0 && row[recipeNameIdx]) {
         currentRecipeName = String(row[recipeNameIdx]).trim();
       }
-      
+
       const ingredient = String(row[ingredientIdx] || '').trim();
-      
+
       if (!ingredient || ingredient === '') continue;
-      
+
       const validated = ImportRowSchema.parse({
         'Ingredient': ingredient,
         'Quantity (g)': safeParseNumber(row[quantityIdx]),
@@ -232,7 +233,7 @@ const parseSimpleFormat = (rows: any[][]): Map<string, z.infer<typeof ImportRowS
         'Other Solids (g)': safeParseNumber(row[getColIdx('other')]),
         'Total Solids (g)': safeParseNumber(row[getColIdx('total', 'solids')])
       });
-      
+
       if (validated['Quantity (g)'] > 0) {
         if (!recipesMap.has(currentRecipeName)) {
           recipesMap.set(currentRecipeName, []);
@@ -243,7 +244,7 @@ const parseSimpleFormat = (rows: any[][]): Map<string, z.infer<typeof ImportRowS
       // Skip invalid rows
     }
   }
-  
+
   return recipesMap;
 };
 
@@ -259,17 +260,17 @@ export default function Database() {
   // Check authentication
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await authService.getSession();
       setIsAuthenticated(!!session);
       setIsCheckingAuth(false);
     };
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { unsubscribe } = authService.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   // Fetch database stats
@@ -415,7 +416,7 @@ export default function Database() {
             }
 
             // Import recipes
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getUser();
             if (!user) throw new Error('User not authenticated');
 
             let imported = 0;
@@ -750,8 +751,8 @@ export default function Database() {
                   {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                   Import CSV
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     const sampleData = [
                       {
@@ -868,7 +869,7 @@ export default function Database() {
                   </Badge>
                 </div>
               </div>
-              
+
               <Button onClick={handleTrainModel} disabled={!stats?.mlReady || isTraining} className="w-full">
                 {isTraining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
                 Train Model Now
@@ -890,7 +891,7 @@ export default function Database() {
                         variant="outline"
                         onClick={async () => {
                           try {
-                            const { data: { user } } = await supabase.auth.getUser();
+                            const user = await authService.getUser();
                             await supabase.from('recipe_outcomes').insert({
                               recipe_id: recipe.id,
                               user_id: user!.id,

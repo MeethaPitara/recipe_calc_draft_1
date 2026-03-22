@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 import { Calculator, Download, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Papa from 'papaparse';
@@ -38,7 +39,7 @@ export default function ProductionPlanner() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await authService.getSession();
       setIsAuthenticated(!!session);
 
       if (session) {
@@ -158,15 +159,27 @@ export default function ProductionPlanner() {
       )}
 
       {/* Navigation to Advanced Tools */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-slate-900 dark:to-slate-800 border-emerald-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/production/quick-plan')}>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 rounded-full">
+              <Calculator className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg text-emerald-900 dark:text-emerald-100">Level 1: Quick Plan</h3>
+              <p className="text-sm text-emerald-700/80 dark:text-emerald-300/70">Calculate batch sizes and SKU counts.</p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 border-blue-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/production/base-planner')}>
           <CardContent className="p-6 flex items-center gap-4">
             <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-full">
               <Calculator className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg text-blue-900 dark:text-blue-100">Supply-Driven Allocator</h3>
-              <p className="text-sm text-blue-700/80 dark:text-blue-300/70">Plan production based on available base mix supply.</p>
+              <h3 className="font-semibold text-lg text-blue-900 dark:text-blue-100">Level 2: Supply Allocator</h3>
+              <p className="text-sm text-blue-700/80 dark:text-blue-300/70">Plan production based on available base supply.</p>
             </div>
           </CardContent>
         </Card>
@@ -177,8 +190,8 @@ export default function ProductionPlanner() {
               <Calculator className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg text-purple-900 dark:text-purple-100">Exact Batch Calculator</h3>
-              <p className="text-sm text-purple-700/80 dark:text-purple-300/70">Calculate requirements for a specific target unit count.</p>
+              <h3 className="font-semibold text-lg text-purple-900 dark:text-purple-100">Level 3: Exact Batch</h3>
+              <p className="text-sm text-purple-700/80 dark:text-purple-300/70">Requirements for a specific target unit count.</p>
             </div>
           </CardContent>
         </Card>

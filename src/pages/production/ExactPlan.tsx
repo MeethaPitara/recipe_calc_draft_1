@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Printer, Calculator, ArrowRight, ArrowLeft, Beaker, Save, History, Trash2, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 import { savePlanL3, getPlansL3, deletePlanL3 } from '@/lib/api/plans_l3';
 import {
     Sheet,
@@ -112,7 +113,7 @@ const ExactPlan = () => {
 
         setIsSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getUser();
             if (!user?.email) throw new Error("No user email found");
 
             const inputParams = {
@@ -149,7 +150,7 @@ const ExactPlan = () => {
 
         setIsLoadingPlans(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getUser();
             if (!user?.email) return;
 
             const plans = await getPlansL3(user.email);

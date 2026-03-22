@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/lib/auth/authService";
 import { Loader2, ArrowLeft, Calculator, Variable, Save, History, Trash2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { calculateProductionRun, ProductionInput, ProductionOutput } from "@/lib/production/level1_engine";
@@ -82,7 +83,7 @@ export default function QuickProductionPlan() {
 
         setIsSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getUser();
             if (!user?.email) throw new Error("No user email found");
 
             const inputParams = {
@@ -124,7 +125,7 @@ export default function QuickProductionPlan() {
 
         setIsLoadingPlans(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getUser();
             if (!user?.email) return;
 
             const plans = await getPlans(user.email);

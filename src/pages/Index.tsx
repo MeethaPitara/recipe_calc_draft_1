@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSupabase, isBackendReady } from "@/integrations/supabase/safeClient";
-import { Session, User } from "@supabase/supabase-js";
+import { useAuth } from "@/lib/auth/AuthContext";
+import type { AppUser } from "@/lib/auth/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import RecipeCalculatorV2 from "@/components/RecipeCalculatorV2";
@@ -40,11 +40,9 @@ import { Save, FolderOpen } from "lucide-react";
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading, signOut } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [backendReady, setBackendReady] = useState(false);
+  const backendReady = !!user; // backend is ready if user is authenticated
   const [currentTab, setCurrentTab] = useState("calculator");
   const [calculatorRecipe, setCalculatorRecipe] = useState<any[]>([]);
   const [calculatorMetrics, setCalculatorMetrics] = useState<any>(null);
@@ -56,60 +54,12 @@ const Index = () => {
   const [triggerOptimizer, setTriggerOptimizer] = useState(false);
   const showAdvanced = isAdvancedMode();
 
+  // Redirect to auth if not logged in (handled by ProtectedRoute, but just in case)
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
-    (async () => {
-      // Check if backend is ready before attempting connection
-      if (!isBackendReady()) {
-        console.log("⚠️ Backend env vars not configured - running in offline mode");
-        setBackendReady(false);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        console.log('🚀 Initializing Supabase connection...');
-        const supabase = await getSupabase();
-        console.log('✅ Supabase connection established');
-        setBackendReady(true);
-
-        // Set up auth state listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          console.log('🔐 Auth state changed:', event, session ? 'User logged in' : 'No session');
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
-        });
-        unsubscribe = () => subscription.unsubscribe();
-
-        // Check for existing session
-        console.log('🔍 Checking for existing session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('❌ Error getting session:', error);
-        }
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-
-        // Redirect to auth if not logged in
-        if (!session) {
-          console.log('⚠️ No session found, redirecting to auth...');
-          navigate("/auth");
-        } else {
-          console.log('✅ User authenticated:', session.user.email);
-        }
-      } catch (e: any) {
-        console.error('❌ Backend initialization failed:', e);
-        console.log("Running in offline mode - backend features disabled");
-        setBackendReady(false);
-        setLoading(false);
-      }
-    })();
-
-    return () => { if (unsubscribe) unsubscribe(); };
-  }, [navigate]);
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [loading, user, navigate]);
 
   useEffect(() => {
     // Initialize migrations
@@ -147,30 +97,13 @@ const Index = () => {
     // Here you could switch to the calculator tab and populate it with the recipe
   };
 
-  const handleSignOut = async () => {
-    try {
-      const supabase = await getSupabase();
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast({
-          title: "Sign out failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Signed out",
-          description: "You have been successfully signed out.",
-        });
-        navigate("/auth");
-      }
-    } catch (e: any) {
-      toast({
-        title: "Sign out failed",
-        description: e?.message || "Backend not ready",
-        variant: "destructive",
-      });
-    }
+  const handleSignOut = () => {
+    signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been successfully signed out.",
+    });
+    navigate("/auth");
   };
 
   const handleSaveRecipe = async (name: string, type: string) => {
@@ -357,6 +290,28 @@ const Index = () => {
               >
                 📊 Calculator
               </TabsTrigger>
+              {!showAdvanced && (
+                <>
+                  <TabsTrigger
+                    value="production"
+                    className={isMobile
+                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
+                      : 'flex-1 min-w-[140px] font-medium'}
+                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
+                  >
+                    🏭 Production
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="ai-flavour-engine"
+                    className={isMobile
+                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
+                      : 'flex-1 min-w-[140px] font-medium'}
+                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
+                  >
+                    🧪 AI
+                  </TabsTrigger>
+                </>
+              )}
               {showAdvanced && (
                 <>
                   <TabsTrigger
@@ -377,57 +332,51 @@ const Index = () => {
                   >
                     ✨ Paste Studio
                   </TabsTrigger>
-                </>
-              )}
-              <TabsTrigger
-                value="costing"
-                className={isMobile
-                  ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                  : 'flex-1 min-w-[140px] font-medium'}
-                style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-              >
-                💰 Costing
-              </TabsTrigger>
-              <TabsTrigger
-                value="converter"
-                className={isMobile
-                  ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                  : 'flex-1 min-w-[140px] font-medium'}
-                style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-              >
-                🔄 Converter
-              </TabsTrigger>
-              <TabsTrigger
-                value="cost"
-                className={isMobile
-                  ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                  : 'flex-1 min-w-[140px] font-medium'}
-                style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-              >
-                💵 Cost Calc
-              </TabsTrigger>
-              {showAdvanced && (
-                <TabsTrigger
-                  value="production"
-                  className={isMobile
-                    ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                    : 'flex-1 min-w-[140px] font-medium'}
-                  style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                >
-                  🏭 Production
-                </TabsTrigger>
-              )}
-              <TabsTrigger
-                value="import"
-                className={isMobile
-                  ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                  : 'flex-1 min-w-[140px] font-medium'}
-                style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-              >
-                📥 Import
-              </TabsTrigger>
-              {showAdvanced && (
-                <>
+                  <TabsTrigger
+                    value="costing"
+                    className={isMobile
+                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
+                      : 'flex-1 min-w-[140px] font-medium'}
+                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
+                  >
+                    💰 Costing
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="converter"
+                    className={isMobile
+                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
+                      : 'flex-1 min-w-[140px] font-medium'}
+                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
+                  >
+                    🔄 Converter
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="cost"
+                    className={isMobile
+                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
+                      : 'flex-1 min-w-[140px] font-medium'}
+                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
+                  >
+                    💵 Cost Calc
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="production"
+                    className={isMobile
+                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
+                      : 'flex-1 min-w-[140px] font-medium'}
+                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
+                  >
+                    🏭 Production
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="import"
+                    className={isMobile
+                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
+                      : 'flex-1 min-w-[140px] font-medium'}
+                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
+                  >
+                    📥 Import
+                  </TabsTrigger>
                   <TabsTrigger
                     value="ml-training"
                     className={isMobile
@@ -506,20 +455,18 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            {showAdvanced && (
-              <>
-                <TabsContent value="ai-flavour-engine" className="mt-4 md:mt-6">
-                  <AIFlavourEngine
-                    initialRecipe={calculatorRecipe}
-                    initialMetrics={calculatorMetrics}
-                    initialProductType={calculatorProductType}
-                  />
-                </TabsContent>
+            <TabsContent value="ai-flavour-engine" className="mt-4 md:mt-6">
+              <AIFlavourEngine
+                initialRecipe={calculatorRecipe}
+                initialMetrics={calculatorMetrics}
+                initialProductType={calculatorProductType}
+              />
+            </TabsContent>
 
-                <TabsContent value="paste-studio" className="mt-4 md:mt-6">
-                  <PasteStudio />
-                </TabsContent>
-              </>
+            {showAdvanced && (
+              <TabsContent value="paste-studio" className="mt-4 md:mt-6">
+                <PasteStudio />
+              </TabsContent>
             )}
 
             <TabsContent value="costing" className="mt-4 md:mt-6">
@@ -547,11 +494,9 @@ const Index = () => {
               <CostCalculator />
             </TabsContent>
 
-            {showAdvanced && (
-              <TabsContent value="production" className="mt-4 md:mt-6">
-                <ProductionPlanner />
-              </TabsContent>
-            )}
+            <TabsContent value="production" className="mt-4 md:mt-6">
+              <ProductionPlanner />
+            </TabsContent>
 
             <TabsContent value="import" className="mt-4 md:mt-6">
               <RecipeImporter />

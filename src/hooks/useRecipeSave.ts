@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 import { useToast } from '@/hooks/use-toast';
 import type { IngredientRow } from '@/types/calculator';
 import type { MetricsV2 } from '@/lib/calc.v2';
@@ -71,13 +72,13 @@ export function useRecipeSave({
     }
 
     setIsSaving(true);
-    
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
+      const user = await authService.getUser();
+      if (!user) {
         throw new Error('Not authenticated');
       }
-      const userId = session.user.id;
+      const userId = user.id;
 
       // Use upsert pattern - update if exists, create if not
       let recipeId = currentRecipeId;

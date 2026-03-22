@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 import { Plus, Save, Trash2, Calculator, Loader2, Search, Zap, BookOpen, Bug, History, HelpCircle, CheckCircle, AlertCircle, Wand2, Brain, Check, X, FileDown, GitCompare, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -350,12 +351,12 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
+      const user = await authService.getUser();
+      setIsAuthenticated(!!user);
     };
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { unsubscribe } = authService.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
       // Auto-refetch ingredients after authentication
       if (session && availableIngredients.length === 0) {
@@ -364,7 +365,7 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, [availableIngredients.length, refetchIngredients]);
 
   // Show Advanced Tools tutorial for first-time users
@@ -1615,7 +1616,7 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
     setIsSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await authService.getUser();
       if (!user) throw new Error('Not authenticated');
 
       // Calculate metrics if not already done

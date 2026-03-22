@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/lib/auth/authService";
 import { MetricsV2 } from "@/lib/calc.v2";
 import { IngredientData } from "@/types/ingredients";
 
@@ -20,8 +21,8 @@ export const recipeService = {
    * Check for active session. Throws if not authenticated.
    */
   async requireAuth() {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
+    const user = await authService.getUser();
+    if (!user) {
       throw new Error("User not authenticated. Please log in to save recipes.");
     }
     return user;
@@ -175,5 +176,47 @@ export const recipeService = {
       .eq("id", id);
 
     if (error) throw error;
+  },
+
+  /**
+   * Helper specifically for saving recipes generated or optimized by AI.
+   * Maps AI result format (Record<string, quantity>) to DB format.
+   */
+  async saveAiRecipe(
+    name: string,
+    type: string,
+    optimizedRecipe: Record<string, number>,
+    ingredientDb: any, // passed from INGREDIENT_DB
+    existingId?: string
+  ) {
+    // Map Record<string, number> to the { ing: IngredientData; grams: number }[] format
+    // needed by the main saveRecipe method.
+    const rows = Object.entries(optimizedRecipe)
+      .filter(([_, qty]) => Number(qty) > 0.01)
+      .map(([ingName, qty]) => {
+        // Find ingredient props from DB (or fallback to empty if somehow missing)
+        const props = ingredientDb[ingName] || {
+          fat_pct: 0,
+          msnf_pct: 0,
+          sugars_pct: 0,
+          other_solids_pct: 0,
+        };
+
+        return {
+          ing: {
+            name: ingName,
+            ...props,
+          } as IngredientData,
+          grams: Number(qty)
+        };
+      });
+
+    // Mock metrics for compatibility with saveRecipe (it mostly needs them for history)
+    // Here we pass a minimal mock because saveRecipe re-calculates row-level contribution anyway.
+    const mockMetrics = {
+      totalMass: Object.values(optimizedRecipe).reduce((s, q) => s + q, 0),
+    } as any;
+
+    return this.saveRecipe(name, type, rows, mockMetrics, existingId);
   }
 };

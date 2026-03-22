@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/lib/auth/authService";
 
 interface SaveRecipeModalProps {
     isOpen: boolean;
@@ -49,7 +50,7 @@ export function SaveRecipeModal({
 
         setIsLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getUser();
             if (!user) {
                 setError("You must be logged in to save.");
                 setIsLoading(false);

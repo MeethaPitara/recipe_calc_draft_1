@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { recipeService } from "@/services/recipeService";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/lib/auth/authService";
 import { Trash2, Loader2, BookOpen } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +37,7 @@ export function RecipeLibrary({ isOpen, onClose, onLoadRecipe }: RecipeLibraryPr
     useEffect(() => {
         // Check auth status on mount/open
         const checkAuth = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getUser();
             setIsAuthenticated(!!user);
             if (user && isOpen) {
                 fetchRecipes();

@@ -1,4 +1,5 @@
 import { getSupabase } from "@/integrations/supabase/safeClient";
+import { authService } from "@/lib/auth/authService";
 import { z } from "zod";
 import type { IngredientData } from "@/types/ingredients";
 import { trace } from "@/utils/tracer";
@@ -83,9 +84,8 @@ function transformToIngredientData(dbRow: z.infer<typeof DbIngredientSchema>): I
 
 
 export async function getSessionEmail(): Promise<string | undefined> {
-  const supabase = await getSupabase();
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.user?.email;
+  const user = await authService.getUser();
+  return user?.email;
 }
 
 export async function getAllIngredients(userEmail?: string): Promise<IngredientData[]> {

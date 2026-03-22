@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSupabase, isBackendReady } from "@/integrations/supabase/safeClient";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, UserCircle } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -18,44 +19,22 @@ const passwordSchema = z.string().min(6, "Password must be at least 6 characters
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signIn, signUp, continueAsGuest } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
+  // Redirect if already logged in
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
-    (async () => {
-      try {
-        const supabase = await getSupabase();
-        // Check if user is already logged in
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          navigate("/");
-        }
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          if (session) {
-            navigate("/");
-          }
-        });
-        unsubscribe = () => subscription.unsubscribe();
-      } catch (e) {
-        // ENV missing: stay on auth screen and let App's guard handle messaging
-        console.warn("Backend not ready yet; auth screen in offline mode.");
-      }
-    })();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [navigate]);
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const validateInputs = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
-    
+
     try {
       emailSchema.parse(email);
     } catch (error) {
@@ -78,26 +57,18 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateInputs()) return;
 
     setLoading(true);
     setErrors({});
 
-    const redirectUrl = `${window.location.origin}/`;
-    const supabase = await getSupabase();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-      },
-    });
+    const { error } = await signUp(email, password);
 
     setLoading(false);
 
     if (error) {
-      if (error.message.includes("already registered")) {
+      if (error.includes("already registered")) {
         toast({
           title: "Account exists",
           description: "This email is already registered. Please sign in instead.",
@@ -106,49 +77,37 @@ const Auth = () => {
       } else {
         toast({
           title: "Sign up failed",
-          description: error.message,
+          description: error,
           variant: "destructive",
         });
       }
     } else {
       toast({
         title: "Success!",
-        description: "Your account has been created. You can now sign in.",
+        description: "Your account has been created. You are now signed in.",
       });
-      setPassword("");
+      navigate("/");
     }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateInputs()) return;
 
     setLoading(true);
     setErrors({});
 
-    const supabase = await getSupabase();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await signIn(email, password);
 
     setLoading(false);
 
     if (error) {
-      if (error.message.includes("Invalid login credentials")) {
-        toast({
-          title: "Sign in failed",
-          description: "Invalid email or password. Please try again.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Sign in failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Sign in failed",
+        description: error,
+        variant: "destructive",
+      });
     } else {
       toast({
         title: "Welcome back!",
@@ -266,6 +225,37 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
+
+          {/* Guest Mode */}
+          <div className="mt-4 space-y-3">
+            <div className="relative">
+              <Separator />
+              <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                or
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={loading}
+              onClick={async () => {
+                setLoading(true);
+                await continueAsGuest();
+                setLoading(false);
+                toast({
+                  title: "Welcome, Guest!",
+                  description: "You can explore the app. Sign up anytime to save your work.",
+                });
+                navigate("/");
+              }}
+            >
+              <UserCircle className="mr-2 h-4 w-4" />
+              Continue as Guest
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              No account needed — recipes will be saved under a shared guest profile.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

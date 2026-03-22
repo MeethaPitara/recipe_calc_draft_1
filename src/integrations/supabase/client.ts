@@ -8,11 +8,25 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY |
 
 // Lazy-initialized client to avoid errors when env vars aren't loaded yet
 let _supabaseClient: ReturnType<typeof createClient<Database>> | null = null;
+let _lastToken: string | null = null;
 
 function getClient() {
+  const currentToken = localStorage.getItem('mp_auth_token');
+
+  // Re-initialize if mismatch (e.g., login changed)
+  if (_supabaseClient && currentToken !== _lastToken) {
+    _supabaseClient = null;
+  }
+
   if (!_supabaseClient) {
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       throw new Error('Supabase environment variables are not configured. Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are set.');
+    }
+
+    _lastToken = currentToken;
+    const headers: Record<string, string> = {};
+    if (currentToken) {
+      headers.Authorization = `Bearer ${currentToken}`;
     }
 
     _supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -20,19 +34,32 @@ function getClient() {
         storage: localStorage,
         persistSession: true,
         autoRefreshToken: true,
-      }
+      },
+      global: {
+        headers
+      },
     });
   }
   return _supabaseClient;
 }
 
-// Export a proxy that lazily initializes the client
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+// Export a proxy that lazily initializes the client and ensures headers stay in sync
 export const supabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
   get(_, prop) {
+    const currentToken = localStorage.getItem('mp_auth_token') || '';
     const client = getClient();
+
+    // Re-configheaders if token changed (simple check)
+    // Supabase JS doesn't have an easy public 'updateHeaders' method for everything yet,
+    // so we can use the bypass by recreating the client or using the .rest.headers property
+    // if we want to be sneaky. But let's just use the proxy to wrap the actual calls.
+
     const value = (client as any)[prop];
+
+    // If we're calling a table, the Postgrest call might need the header.
+    // However, createClient's internal Postgrest instance is already configured.
+    // The most robust way is to recreate the client if the token changed.
+
     return typeof value === 'function' ? value.bind(client) : value;
   }
 });

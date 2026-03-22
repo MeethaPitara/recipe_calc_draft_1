@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/lib/auth/authService';
 import { IngredientService } from '@/services/ingredientService';
 import type { IngredientData } from '@/types/ingredients';
 
@@ -58,7 +59,7 @@ export function IntelligentCSVImporter() {
       Papa.parse(file, {
         complete: async (results) => {
           const preview = results.data.slice(0, 15); // First 15 rows for analysis
-          
+
           // Call AI analysis edge function
           const { data, error } = await supabase.functions.invoke('analyze-csv', {
             body: {
@@ -100,7 +101,7 @@ export function IntelligentCSVImporter() {
     setImportProgress(0);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await authService.getUser();
       if (!user) throw new Error('User not authenticated');
 
       // Fetch all ingredients once for efficiency
@@ -113,7 +114,7 @@ export function IntelligentCSVImporter() {
         const recipe = analysis.recipes[i];
 
         // Get full ingredient data for calculations using pre-fetched map
-        const ingredientData = recipe.ingredients.map(ing => 
+        const ingredientData = recipe.ingredients.map(ing =>
           ingredientMap.get(ing.matched_id)
         );
 
@@ -134,7 +135,7 @@ export function IntelligentCSVImporter() {
         const rows = recipe.ingredients.map((ing, idx) => {
           const ingredientData = ingredientMap.get(ing.matched_id);
           const qty = ing.quantity;
-          
+
           return {
             recipe_id: newRecipe.id,
             ingredient: ing.matched_name,
@@ -269,7 +270,7 @@ export function IntelligentCSVImporter() {
             <Alert>
               <Check className="h-4 w-4" />
               <AlertDescription>
-                <strong>Format detected:</strong> {analysis.format_type} | 
+                <strong>Format detected:</strong> {analysis.format_type} |
                 <strong> Recipes found:</strong> {analysis.recipes.length}
                 {analysis.parsing_notes && <div className="mt-2 text-sm">{analysis.parsing_notes}</div>}
               </AlertDescription>
@@ -312,8 +313,8 @@ export function IntelligentCSVImporter() {
             </div>
 
             <div className="flex gap-2">
-              <Button 
-                onClick={() => { setStep('upload'); setAnalysis(null); setFile(null); }} 
+              <Button
+                onClick={() => { setStep('upload'); setAnalysis(null); setFile(null); }}
                 variant="outline"
               >
                 Cancel
