@@ -19,6 +19,7 @@ export const ProductionPlanPanel = () => {
         setTotalBaseMassKg,
         reset
     } = useBasePlannerStore();
+    const [totalMassStr, setTotalMassStr] = React.useState<string | null>(null);
 
     // Compute active base usage for warning
     const totalAllocatedPct = useMemo(() =>
@@ -66,8 +67,15 @@ export const ProductionPlanPanel = () => {
                             <Input
                                 type="number"
                                 min={0}
-                                value={totalBaseMassKg || ''}
-                                onChange={e => setTotalBaseMassKg(parseFloat(e.target.value) || 0)}
+                                value={totalMassStr !== null ? totalMassStr : (totalBaseMassKg || '')}
+                                onChange={e => {
+                                    let v = e.target.value;
+                                    if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                    setTotalMassStr(v);
+                                    const parsed = parseFloat(v);
+                                    if (!isNaN(parsed)) setTotalBaseMassKg(parsed);
+                                }}
+                                onBlur={() => setTotalMassStr(null)}
                                 className="pl-3 pr-10 font-mono text-lg bg-slate-50 dark:bg-slate-900 border-slate-200"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kg</span>

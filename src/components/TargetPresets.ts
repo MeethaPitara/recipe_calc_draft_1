@@ -1,55 +1,91 @@
-
 export interface RecipeTargets {
-    fat: number;
-    msnf: number;
-    sugar: number;
-    solids: number;
-    tolerance: number; // ±% tolerance
+    fat: [number, number];
+    msnf: [number, number];
+    sugar: [number, number];
+    solids: [number, number];
+    other_solids?: [number, number];
 }
 
-// "Golden Standard" presets defined by Developer
+// "Golden Standard" presets defined
 export const TARGET_PRESETS: Record<string, RecipeTargets> = {
+    'white_base': {
+        fat: [3, 7],
+        msnf: [7, 12],
+        sugar: [16, 19],
+        solids: [32, 37],
+        other_solids: [0.3, 0.6]
+    },
+    'gelato_white': {
+        fat: [3, 7],
+        msnf: [7, 12],
+        sugar: [16, 19],
+        solids: [32, 37],
+        other_solids: [0.3, 0.6]
+    },
+    'finished_gelato': {
+        fat: [7, 16],
+        msnf: [7, 12],
+        sugar: [18, 22],
+        solids: [37, 46],
+        other_solids: [0.2, 10]
+    },
+    'gelato_finished': {
+        fat: [7, 16],
+        msnf: [7, 12],
+        sugar: [18, 22],
+        solids: [37, 46],
+        other_solids: [0.2, 10]
+    },
+    'fruit_gelato': {
+        fat: [3, 10],
+        msnf: [3, 7],
+        sugar: [22, 24],
+        solids: [32, 42],
+        other_solids: [0.2, 7]
+    },
+    'gelato_fruit': {
+        fat: [3, 10],
+        msnf: [3, 7],
+        sugar: [22, 24],
+        solids: [32, 42],
+        other_solids: [0.2, 7]
+    },
     'gelato': {
-        fat: 1.0,
-        msnf: 8.5,
-        sugar: 18.0,
-        solids: 36.0,
-        tolerance: 2.0
+        fat: [3, 7],
+        msnf: [7, 12],
+        sugar: [16, 19],
+        solids: [32, 37],
+        other_solids: [0.3, 0.6]
     },
     'ice_cream': {
-        fat: 12.0,
-        msnf: 10.0,
-        sugar: 16.0,
-        solids: 40.0,
-        tolerance: 2.0
+        fat: [10, 16],
+        msnf: [9, 12],
+        sugar: [14, 18],
+        solids: [36, 40]
     },
     'sorbet': {
-        fat: 0.0,
-        msnf: 0.0,
-        sugar: 28.0,
-        solids: 30.0,
-        tolerance: 2.0
+        fat: [0, 0],
+        msnf: [0, 0],
+        sugar: [26, 31],
+        solids: [32, 42]
     },
     'sherbet': {
-        fat: 2.0,
-        msnf: 4.0,
-        sugar: 22.0,
-        solids: 32.0,
-        tolerance: 2.0
+        fat: [1, 2],
+        msnf: [2, 5],
+        sugar: [20, 24],
+        solids: [28, 32]
     },
     'kulfi': {
-        fat: 15.0,
-        msnf: 12.0,
-        sugar: 20.0,
-        solids: 48.0,
-        tolerance: 3.0 // Higher tolerance for traditional recipes
+        fat: [10, 15],
+        msnf: [15, 25],
+        sugar: [15, 20],
+        solids: [38, 45]
     },
     'soft_serve': {
-        fat: 6.0,
-        msnf: 11.0,
-        sugar: 18.0,
-        solids: 38.0,
-        tolerance: 2.0
+        fat: [4, 8],
+        msnf: [11, 14],
+        sugar: [15, 18],
+        solids: [33, 38]
     }
 };
 

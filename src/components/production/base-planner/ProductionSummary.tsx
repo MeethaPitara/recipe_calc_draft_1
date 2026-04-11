@@ -1,14 +1,18 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useBasePlannerStore } from '@/store/useBasePlannerStore';
+import { useIngredients } from '@/contexts/IngredientsContext';
+import AIRoundingPanel from '@/components/production/AIRoundingPanel';
+import type { ProductionIngredient } from '@/lib/production/productionValidator';
 
 export const ProductionSummary = () => {
-    const { engineOutput } = useBasePlannerStore();
+    const { engineOutput, rows: allocationRows } = useBasePlannerStore();
+    const { ingredients: availableIngredients } = useIngredients();
 
     if (!engineOutput) {
         return (
@@ -30,9 +34,10 @@ export const ProductionSummary = () => {
             <CardContent className="pt-4 p-0">
                 <Tabs defaultValue="plan" className="w-full">
                     <div className="px-4">
-                        <TabsList className="w-full grid grid-cols-2">
+                        <TabsList className="w-full grid grid-cols-3">
                             <TabsTrigger value="plan">Production Plan</TabsTrigger>
                             <TabsTrigger value="procurement">Procurement</TabsTrigger>
+                            <TabsTrigger value="ai-round">AI Round</TabsTrigger>
                         </TabsList>
                     </div>
 
@@ -122,6 +127,52 @@ export const ProductionSummary = () => {
                                     )}
                                 </div>
                             </div>
+                        </TabsContent>
+
+                        {/* --- TAB C: AI Rounding --- */}
+                        <TabsContent value="ai-round" className="mt-0 space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                            {engineOutput.rows.filter(r => r.isValid).map((row) => {
+                                // Build ProductionIngredient list from all ingredients for this allocation
+                                const allocationRow = allocationRows.find(a => a.recipeId === row.recipeId);
+                                if (!allocationRow) return null;
+
+                                // Combine base + complementary into a single recipe
+                                const productionIngredients: ProductionIngredient[] = [
+                                    // Base ingredient
+                                    ...allocationRow.recipeItems.map(item => {
+                                        const complementary = row.complementaryIngredients.find(
+                                            c => c.ingredientId === item.ingredientId
+                                        );
+                                        const ingData = availableIngredients.find(
+                                            a => a.id === item.ingredientId || a.name.toLowerCase() === item.name.toLowerCase()
+                                        );
+                                        return {
+                                            ingredientId: item.ingredientId,
+                                            name: item.name,
+                                            massGrams: complementary
+                                                ? complementary.requiredAmountKg * 1000
+                                                : (item.ingredientId === useBasePlannerStore.getState().baseIngredientId
+                                                    ? row.actualBaseConsumedKg * 1000
+                                                    : 0),
+                                            ingredientData: ingData,
+                                        };
+                                    }).filter(i => i.massGrams > 0)
+                                ];
+
+                                return (
+                                    <div key={row.recipeId} className="space-y-2">
+                                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                            {row.recipeName}
+                                        </Label>
+                                        <AIRoundingPanel
+                                            ingredients={productionIngredients}
+                                            productType="gelato"
+                                            availableIngredients={availableIngredients}
+                                            recipeName={row.recipeName}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </TabsContent>
                     </div>
                 </Tabs>

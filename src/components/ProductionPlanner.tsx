@@ -33,7 +33,9 @@ export default function ProductionPlanner() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [allocations, setAllocations] = useState<RecipeAllocation[]>([]);
   const [totalLiters, setTotalLiters] = useState(100);
+  const [totalLitersStr, setTotalLitersStr] = useState<string | null>(null);
   const [wasteFactor, setWasteFactor] = useState(5);
+  const [wasteFactorStr, setWasteFactorStr] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -93,7 +95,7 @@ export default function ProductionPlanner() {
 
   const updateBatches = (recipeId: string, batches: number) => {
     setAllocations(allocations.map(a =>
-      a.recipe.id === recipeId ? { ...a, batches: Math.max(1, batches) } : a
+      a.recipe.id === recipeId ? { ...a, batches: Math.max(0, batches) } : a
     ));
   };
 
@@ -271,16 +273,34 @@ export default function ProductionPlanner() {
                 <Label>Target Production (L)</Label>
                 <Input
                   type="number"
-                  value={totalLiters}
-                  onChange={(e) => setTotalLiters(parseFloat(e.target.value) || 0)}
+                  value={totalLitersStr !== null ? totalLitersStr : (totalLiters || '')}
+                  onChange={(e) => {
+                    let strVal = e.target.value;
+                    if (strVal.length > 1 && strVal.startsWith('0') && strVal[1] !== '.') {
+                      strVal = strVal.replace(/^0+/, '');
+                    }
+                    setTotalLitersStr(strVal);
+                    const val = parseFloat(strVal);
+                    if (!isNaN(val)) setTotalLiters(val);
+                  }}
+                  onBlur={() => setTotalLitersStr(null)}
                 />
               </div>
               <div>
                 <Label>Waste Factor (%)</Label>
                 <Input
                   type="number"
-                  value={wasteFactor}
-                  onChange={(e) => setWasteFactor(parseFloat(e.target.value) || 0)}
+                  value={wasteFactorStr !== null ? wasteFactorStr : (wasteFactor || '')}
+                  onChange={(e) => {
+                    let strVal = e.target.value;
+                    if (strVal.length > 1 && strVal.startsWith('0') && strVal[1] !== '.') {
+                      strVal = strVal.replace(/^0+/, '');
+                    }
+                    setWasteFactorStr(strVal);
+                    const val = parseFloat(strVal);
+                    if (!isNaN(val)) setWasteFactor(val);
+                  }}
+                  onBlur={() => setWasteFactorStr(null)}
                 />
               </div>
             </div>
@@ -293,8 +313,12 @@ export default function ProductionPlanner() {
                   </div>
                   <Input
                     type="number"
-                    value={batches}
-                    onChange={(e) => updateBatches(recipe.id, parseInt(e.target.value) || 1)}
+                    value={batches || ''}
+                    onChange={(e) => {
+                      const strVal = e.target.value;
+                      const cleaned = strVal.length > 1 && strVal.startsWith('0') ? strVal.replace(/^0+/, '') : strVal;
+                      updateBatches(recipe.id, cleaned === '' ? 0 : parseInt(cleaned) || 1);
+                    }}
                     className="w-20"
                   />
                   <span className="text-sm text-muted-foreground">batches</span>

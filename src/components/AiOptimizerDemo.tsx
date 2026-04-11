@@ -7,9 +7,8 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { runAgent } from '@/lib/ai';
-import type { AgentResult, RecipeItem, ProductionTargets } from '@/lib/ai';
-import { supabase } from '@/integrations/supabase/client';
+import { apiPost, apiGet } from '@/lib/apiClient';
+import type { AgentResult, RecipeItem, ProductionTargets, OptimizationTargets } from '@/lib/ai';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -43,15 +42,32 @@ const DEFAULT_TARGETS: ProductionTargets = {
     targetVolumeLiters: 1000,
 };
 
-export default function AiOptimizerDemo() {
+interface AiOptimizerDemoProps {
+    recipe?: RecipeItem[];
+    targetParams?: Partial<ProductionTargets>;
+    idealRanges?: OptimizationTargets;
+    currentMetrics?: any;
+    onApplyRecipe?: (optimizedRecipe: { [key: string]: number }) => void;
+}
+
+export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, currentMetrics, onApplyRecipe }: AiOptimizerDemoProps) {
     const [prompt, setPrompt] = useState('Make the texture more creamy');
-    const [targetFat, setTargetFat] = useState('');
-    const [targetMsnf, setTargetMsnf] = useState('');
-    const [targetSugar, setTargetSugar] = useState('');
+    const [targetFat, setTargetFat] = useState(idealRanges?.fat_pct?.toString() || '');
+    const [targetMsnf, setTargetMsnf] = useState(idealRanges?.msnf_pct?.toString() || '');
+    const [targetSugar, setTargetSugar] = useState(idealRanges?.sugars_pct?.toString() || '');
+
+    // Reset targets if idealRanges changes
+    useEffect(() => {
+        if (idealRanges) {
+            if (idealRanges.fat_pct !== undefined && idealRanges.fat_pct !== null) setTargetFat(idealRanges.fat_pct.toString());
+            if (idealRanges.msnf_pct !== undefined && idealRanges.msnf_pct !== null) setTargetMsnf(idealRanges.msnf_pct.toString());
+            if (idealRanges.sugars_pct !== undefined && idealRanges.sugars_pct !== null) setTargetSugar(idealRanges.sugars_pct.toString());
+        }
+    }, [idealRanges]);
 
     const [recipes, setRecipes] = useState<any[]>([]);
-    const [selectedRecipeId, setSelectedRecipeId] = useState<string>('default');
-    const [loadingRecipes, setLoadingRecipes] = useState(true);
+    const [selectedRecipeId, setSelectedRecipeId] = useState<string>('current');
+    const [loadingRecipes, setLoadingRecipes] = useState(false);
 
     const [saving, setSaving] = useState<'new' | 'update' | null>(null);
     const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -62,13 +78,11 @@ export default function AiOptimizerDemo() {
 
     const fetchRecipesList = async () => {
         setLoadingRecipes(true);
-        const { data, error } = await supabase
-            .from('recipes')
-            .select(`id, recipe_name, product_type, recipe_rows ( ingredient, quantity_g )`)
-            .order('created_at', { ascending: false });
-
-        if (!error && data) {
-            setRecipes(data);
+        try {
+            const data = await apiGet<any[]>('/api/recipes');
+            setRecipes(data || []);
+        } catch {
+            // Silently fail - user may not be authenticated
         }
         setLoadingRecipes(false);
     };
@@ -78,6 +92,7 @@ export default function AiOptimizerDemo() {
     }, []);
 
     const activeRecipe = useMemo(() => {
+        if (recipe) return recipe;
         if (selectedRecipeId === 'default') return DEFAULT_RECIPE;
         const found = recipes.find(r => r.id === selectedRecipeId);
         if (found && found.recipe_rows) {
@@ -87,7 +102,7 @@ export default function AiOptimizerDemo() {
             }));
         }
         return DEFAULT_RECIPE;
-    }, [selectedRecipeId, recipes]);
+    }, [selectedRecipeId, recipes, recipe]);
 
     const handleRun = async () => {
         setLoading(true);
@@ -107,7 +122,7 @@ export default function AiOptimizerDemo() {
                 (totalGrams * (1 + DEFAULT_TARGETS.overrunPct / 100) * (1 - DEFAULT_TARGETS.lossPct / 100)) /
                 (1000 * DEFAULT_TARGETS.mixDensity);
 
-            const res = await runAgent({
+            const res = await apiPost<AgentResult>('/api/ai/optimize', {
                 userPrompt: finalPrompt,
                 recipe: activeRecipe,
                 targetParams: {
@@ -115,6 +130,7 @@ export default function AiOptimizerDemo() {
                     targetVolumeLiters: dynamicTargetVolumeLiters
                 },
                 mode: 'gelato',
+                currentMetrics,
             });
             setResult(res);
         } catch (err) {
@@ -195,24 +211,18 @@ export default function AiOptimizerDemo() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-base">1. Select Base Recipe</CardTitle>
+                        <CardTitle className="text-base text-primary flex items-center gap-2">
+                            <Zap className="h-4 w-4" />
+                            1. Active Base Recipe (Locked)
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Select value={selectedRecipeId} onValueChange={setSelectedRecipeId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder={loadingRecipes ? "Loading recipes..." : "Select a recipe"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="default">Demo Recipe (Gelato Base)</SelectItem>
-                                {recipes.map(r => (
-                                    <SelectItem key={r.id} value={r.id}>{r.recipe_name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground mt-2 mb-3">
-                            Select a saved recipe from your database to optimize.
-                        </p>
-
+                        <Alert className="mb-4 bg-primary/5 border-primary/20">
+                            <CheckCircle className="h-4 w-4 text-primary" />
+                            <AlertDescription className="text-xs">
+                                Using the recipe currently in your calculator above.
+                            </AlertDescription>
+                        </Alert>
                         <div className="bg-muted/30 border rounded-md p-2 max-h-[140px] overflow-y-auto">
                             <table className="w-full text-xs">
                                 <thead>
@@ -225,7 +235,7 @@ export default function AiOptimizerDemo() {
                                     {activeRecipe.map((item, i) => (
                                         <tr key={i} className="border-b last:border-0 border-border/50">
                                             <td className="py-1">{item.ingredient}</td>
-                                            <td className="text-right py-1 text-muted-foreground">{Number(item.quantity_g).toLocaleString()}</td>
+                                            <td className="text-right py-1 text-muted-foreground font-mono">{Number(item.quantity_g).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -240,16 +250,16 @@ export default function AiOptimizerDemo() {
                     </CardHeader>
                     <CardContent className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Fat % *</Label>
-                            <Input placeholder="e.g. 8" value={targetFat} onChange={e => setTargetFat(e.target.value)} type="number" step="0.1" required />
+                            <Label className="text-xs">Fat %</Label>
+                            <Input placeholder="e.g. 8 (Optional)" value={targetFat} onChange={e => setTargetFat(e.target.value)} type="number" step="0.1" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">MSNF % *</Label>
-                            <Input placeholder="e.g. 10" value={targetMsnf} onChange={e => setTargetMsnf(e.target.value)} type="number" step="0.1" required />
+                            <Label className="text-xs">MSNF %</Label>
+                            <Input placeholder="e.g. 10 (Optional)" value={targetMsnf} onChange={e => setTargetMsnf(e.target.value)} type="number" step="0.1" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Sugar % *</Label>
-                            <Input placeholder="e.g. 15" value={targetSugar} onChange={e => setTargetSugar(e.target.value)} type="number" step="0.1" required />
+                            <Label className="text-xs">Sugar %</Label>
+                            <Input placeholder="e.g. 15 (Optional)" value={targetSugar} onChange={e => setTargetSugar(e.target.value)} type="number" step="0.1" />
                         </div>
                     </CardContent>
                 </Card>
@@ -269,7 +279,7 @@ export default function AiOptimizerDemo() {
                     />
                     <Button
                         onClick={handleRun}
-                        disabled={loading || !prompt.trim() || !targetFat.trim() || !targetMsnf.trim() || !targetSugar.trim()}
+                        disabled={loading || !prompt.trim()}
                         className="w-full gap-2"
                         size="lg"
                     >
@@ -397,13 +407,23 @@ export default function AiOptimizerDemo() {
                     <CardHeader className="py-3">
                         <CardTitle className="text-sm flex items-center gap-2">
                             <Save className="h-4 w-4" />
-                            Save Optimized Recipe
+                            Use Optimized Recipe
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-2">
+                        {onApplyRecipe && (
+                            <Button
+                                className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700"
+                                onClick={() => result.optimized_recipe && onApplyRecipe(result.optimized_recipe)}
+                                disabled={!result.optimized_recipe}
+                            >
+                                <Zap className="h-4 w-4" />
+                                Apply to Calculator
+                            </Button>
+                        )}
                         <Button
                             variant="outline"
-                            className="flex-1 gap-2"
+                            className={onApplyRecipe ? "flex-1 gap-2 border-primary/20" : "flex-1 gap-2"}
                             onClick={() => handleSaveClick(true)}
                             disabled={!!saving}
                         >

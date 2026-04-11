@@ -1,5 +1,9 @@
+/**
+ * useAIAnalysis — Refactored to call backend API instead of Supabase edge functions.
+ */
+
 import { useState, useCallback } from 'react';
-import { getSupabase } from '@/integrations/supabase/safeClient';
+import { apiPost } from '@/lib/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface AIAnalysis {
@@ -22,49 +26,43 @@ export function useAIAnalysis() {
     }
 
     setIsLoading(true);
-    
-    try {
-      const supabase = await getSupabase();
-      
-      console.log('🤖 Calling AI analysis for recipe...');
-      const { data, error } = await supabase.functions.invoke('analyze-recipe', {
-        body: { recipe, metrics, productType }
-      });
 
-      if (error) {
-        console.error('AI analysis error:', error);
-        if (error.message?.includes('rate limit') || error.message?.includes('Rate limit')) {
-          toast({
-            title: 'Rate limit reached',
-            description: 'You\'ve used all your AI analyses this hour. Try recipe validation or wait.',
-            variant: 'destructive',
-          });
-        } else if (error.message?.includes('ENV_MISSING')) {
-          toast({
-            title: 'Backend not available',
-            description: 'AI analysis requires backend connection. Using recipe validation.',
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'AI analysis failed',
-            description: error.message || 'Please try again',
-            variant: 'destructive',
-          });
-        }
-        setAnalysis(null);
-        return;
-      }
+    try {
+      console.log('🤖 Calling AI analysis via backend...');
+      const data = await apiPost<AIAnalysis>('/api/ai/optimize', {
+        userPrompt: `Analyze this ${productType} recipe for quality and suggest improvements`,
+        recipe: recipe.map(r => ({
+          ingredient: r.ingredient || r.ing?.name,
+          quantity_g: r.quantity_g || r.grams,
+        })),
+        targetParams: {
+          lossPct: 5,
+          mixDensity: 1.04,
+          overrunPct: 27,
+          skuSizeLiters: 0.75,
+          targetVolumeLiters: 1,
+        },
+        mode: productType === 'ice_cream' ? 'ice_cream' : 'gelato',
+        currentMetrics: metrics,
+      });
 
       console.log('✅ AI analysis complete:', data);
-      setAnalysis(data);
+      setAnalysis(data as any);
     } catch (error: any) {
       console.error('AI analysis error:', error);
-      toast({
-        title: 'AI analysis failed',
-        description: error.message || 'Using recipe validation instead',
-        variant: 'destructive',
-      });
+      if (error.message?.includes('rate limit') || error.message?.includes('Rate limit')) {
+        toast({
+          title: 'Rate limit reached',
+          description: 'You\'ve used all your AI analyses this hour. Try recipe validation or wait.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'AI analysis failed',
+          description: error.message || 'Please try again',
+          variant: 'destructive',
+        });
+      }
       setAnalysis(null);
     } finally {
       setIsLoading(false);

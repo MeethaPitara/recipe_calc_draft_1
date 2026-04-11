@@ -8,15 +8,9 @@ import { INGREDIENT_DB } from './ingredientDb';
 import type { OptimizationTargets, LPOptimizerResult, ProductMode } from './types';
 // @ts-ignore - javascript-lp-solver doesn't have types
 import solver from 'javascript-lp-solver';
+import { productParametersService, ProductType } from '@/services/productParametersService';
 
-// ── Sugar-type upper bounds per product mode ──
-
-const SUGAR_BOUNDS: Record<string, Record<string, number>> = {
-    gelato: { sucrose_max_pct: 22, dextrose_max_pct: 8, glucose_max_pct: 8 },
-    ice_cream: { sucrose_max_pct: 22, dextrose_max_pct: 8, glucose_max_pct: 8 },
-    kulfi: { sucrose_max_pct: 20, dextrose_max_pct: 6, glucose_max_pct: 6 },
-    sorbet: { sucrose_max_pct: 25, dextrose_max_pct: 15, glucose_max_pct: 12 },
-};
+// Removed SUGAR_BOUNDS as we now use Sugar Blend Optimizer post-processing
 
 const DEVIATION_WEIGHT = 10.0;
 const MOVEMENT_WEIGHT = 0.1;
@@ -40,7 +34,6 @@ export function runLpOptimizer(
     const totalW = initial.reduce((s, v) => s + v, 0);
     const n = names.length;
     const warnings: string[] = [];
-    const bounds = SUGAR_BOUNDS[mode] ?? SUGAR_BOUNDS.gelato;
 
     // ── Build the LP model in javascript-lp-solver's JSON format ──
 
@@ -73,14 +66,7 @@ export function runLpOptimizer(
             lo = 0;
             hi = Math.max(initial[i] * 5, 1500);
 
-            const nm = name.toLowerCase();
-            if (nm.includes('sucrose') || nm === 'sucrose/sugar') {
-                hi = Math.min(hi, totalW * bounds.sucrose_max_pct / 100);
-            } else if (nm.includes('dextrose')) {
-                hi = Math.min(hi, totalW * bounds.dextrose_max_pct / 100);
-            } else if (nm.includes('glucose')) {
-                hi = Math.min(hi, totalW * bounds.glucose_max_pct / 100);
-            }
+            // Sugar optimization is now handled dynamically without strict upper bounds per sugar
         }
 
         const varName = `x_${i}`;
@@ -93,14 +79,17 @@ export function runLpOptimizer(
             [`movement_eq_${i}`]: 1,  // distance constraint
         };
 
-        // Nutritional contributions
-        const fatCoeff = (ing?.fat_pct ?? 0) / 100;
-        const msnfCoeff = (ing?.msnf_pct ?? 0) / 100;
-        const sugCoeff = (ing?.sugars_pct ?? 0) / 100;
-
-        if (optTargets.fat_pct != null) variable.fat_eq = fatCoeff;
-        if (optTargets.msnf_pct != null) variable.msnf_eq = msnfCoeff;
-        if (optTargets.sugars_pct != null) variable.sug_eq = sugCoeff;
+        // Nutritional target equations use proportional difference
+        // This ensures the LP mathematically aims for the exact percentage of the proposed mix
+        if (optTargets.fat_pct != null) {
+            variable.fat_eq = ((ing?.fat_pct ?? 0) - optTargets.fat_pct) / 100;
+        }
+        if (optTargets.msnf_pct != null) {
+            variable.msnf_eq = ((ing?.msnf_pct ?? 0) - optTargets.msnf_pct) / 100;
+        }
+        if (optTargets.sugars_pct != null) {
+            variable.sug_eq = ((ing?.sugars_pct ?? 0) - optTargets.sugars_pct) / 100;
+        }
 
         model.variables[varName] = variable;
         model.constraints[`bnd_min_${i}`] = { min: lo };
@@ -120,26 +109,23 @@ export function runLpOptimizer(
     };
 
     // ── Deviation slack variables for each target ──
-
+    // Because variables use proportional difference (val - target), the exact target yields 0
     if (optTargets.fat_pct != null) {
-        const tg = (optTargets.fat_pct / 100) * totalW;
         model.variables['fat_over'] = { cost: DEVIATION_WEIGHT, fat_eq: -1 };
         model.variables['fat_under'] = { cost: DEVIATION_WEIGHT, fat_eq: 1 };
-        model.constraints.fat_eq = { equal: tg };
+        model.constraints.fat_eq = { equal: 0 };
     }
 
     if (optTargets.msnf_pct != null) {
-        const tg = (optTargets.msnf_pct / 100) * totalW;
         model.variables['msnf_over'] = { cost: DEVIATION_WEIGHT, msnf_eq: -1 };
         model.variables['msnf_under'] = { cost: DEVIATION_WEIGHT, msnf_eq: 1 };
-        model.constraints.msnf_eq = { equal: tg };
+        model.constraints.msnf_eq = { equal: 0 };
     }
 
     if (optTargets.sugars_pct != null) {
-        const tg = (optTargets.sugars_pct / 100) * totalW;
         model.variables['sug_over'] = { cost: DEVIATION_WEIGHT, sug_eq: -1 };
         model.variables['sug_under'] = { cost: DEVIATION_WEIGHT, sug_eq: 1 };
-        model.constraints.sug_eq = { equal: tg };
+        model.constraints.sug_eq = { equal: 0 };
     }
 
     // ── Solve ──
@@ -171,6 +157,30 @@ export function runLpOptimizer(
                 proposed[k] *= factor;
             }
             warnings.push(`Rescaled by ${factor.toFixed(6)} to correct drift`);
+        }
+
+        // ── AI Optimizer Back-Calculation: Apply Sugar Blend Optimizer ──
+        let totalSugarWeight = 0;
+        const mappedMode: ProductType = mode === 'ice_cream' ? 'ice-cream' : (mode as ProductType);
+
+        for (const [k, v] of Object.entries(proposed)) {
+            if (INGREDIENT_DB[k]?.category === 'sugar') {
+                totalSugarWeight += v;
+                delete proposed[k]; // Clear existing generic sugar logic distribution
+            }
+        }
+
+        if (totalSugarWeight > 0) {
+            const blend = productParametersService.calculateOptimalSugarBlend(
+                mappedMode,
+                totalSugarWeight,
+                'balanced'
+            );
+
+            proposed['Sucrose/sugar'] = (proposed['Sucrose/sugar'] || 0) + blend.sucrose;
+            proposed['Dextrose monohydrate'] = (proposed['Dextrose monohydrate'] || 0) + blend.dextrose;
+            proposed['Glucose Syrup (40-42DE)'] = (proposed['Glucose Syrup (40-42DE)'] || 0) + blend.glucose_syrup;
+            warnings.push('Applied Sugar Blend Optimizer logic to structure sugars');
         }
 
         return {

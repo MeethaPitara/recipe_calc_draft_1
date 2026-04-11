@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { runStage2Agent } from '@/lib/ai';
+import { apiPost } from '@/lib/apiClient';
 import type { Stage2AgentResult, ProductionTargets } from '@/lib/ai';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -65,19 +65,10 @@ export default function AiRecipeCreator() {
             const msnf = targetMsnf ? parseFloat(targetMsnf) : undefined;
             const sugar = targetSugar ? parseFloat(targetSugar) : undefined;
 
-            // Simulate step progression via console log interception
-            const origLog = console.log;
-            console.log = (...args: unknown[]) => {
-                const msg = String(args[0] ?? '');
-                if (msg.includes('Step 1/5')) setCurrentStep('search');
-                else if (msg.includes('Step 2/5')) setCurrentStep('engineer');
-                else if (msg.includes('Step 3/5')) setCurrentStep('scientist');
-                else if (msg.includes('Step 4/5')) setCurrentStep('optimizer');
-                else if (msg.includes('Step 5/5')) setCurrentStep('critique');
-                origLog(...args);
-            };
+            // Step progression is now server-side; just show loading
+            setCurrentStep('search');
 
-            const res = await runStage2Agent({
+            const res = await apiPost<Stage2AgentResult>('/api/ai/create', {
                 userPrompt: prompt,
                 targetParams: {
                     fat_pct: fat ?? null,
@@ -88,7 +79,6 @@ export default function AiRecipeCreator() {
                 mode: 'gelato',
             });
 
-            console.log = origLog;
             setResult(res);
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));

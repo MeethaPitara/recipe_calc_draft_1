@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { apiPost } from '@/lib/apiClient';
 import { calcMetricsV2, MetricsV2 } from '@/lib/calc.v2';
 import { OptimizeTarget, Row } from '@/lib/optimize';
 import { RecipeBalancerV2, ScienceValidation } from '@/lib/optimize.balancer.v2';
@@ -398,11 +398,13 @@ export function useRecipeBalance({
           other_solids_pct: defaults.other_solids_pct ?? 0
         };
 
-        const { data: newIng, error } = await supabase
-          .from('ingredients')
-          .insert(insertData)
-          .select()
-          .single();
+        let newIng: any = null;
+        let error: any = null;
+        try {
+          newIng = await apiPost('/api/ingredients', insertData);
+        } catch (e: any) {
+          error = { message: e.message };
+        }
 
         if (error || !newIng) {
           toast({

@@ -67,10 +67,10 @@ export async function loadIngredientsFromSupabase(): Promise<void> {
         return;
     }
 
-    // Clear out hardcoded values
-    for (const key in INGREDIENT_DB) {
-        delete INGREDIENT_DB[key];
-    }
+    // Do NOT clear hardcoded values!
+    // The AI and Sugar Optimizer explicitly use hardcoded keys like 'Sucrose/sugar' 
+    // and 'Glucose Syrup (40-42DE)'. If Supabase doesn't have an exact match, 
+    // the pipeline will lose their nutritional math and result in 0% sugar properties!
 
     // Populate with DB rows
     for (const row of data) {
@@ -82,6 +82,8 @@ export async function loadIngredientsFromSupabase(): Promise<void> {
             category: row.category || 'other',
             locked: row.category === 'stabilizer',
             note: row.notes ?? '',
+            sp_coeff: row.sp_coeff,
+            pac_coeff: row.pac_coeff,
         };
     }
 }

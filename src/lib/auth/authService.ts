@@ -1,15 +1,16 @@
 /**
- * authService — custom JWT authentication backed by Supabase DB table `app_users`.
+ * authService — Frontend auth client.
  *
- * Replaces supabase.auth.* with:
- *  - signUp / signIn / signOut
- *  - getSession / getUser (sync, from localStorage JWT)
- *  - onAuthStateChange (cross-tab via BroadcastChannel + storage event)
+ * All authentication logic (JWT signing, bcrypt hashing, DB queries) has been
+ * moved to the backend. This module now delegates to /api/auth/* endpoints.
+ *
+ * Local responsibilities:
+ *  - Token storage in localStorage
+ *  - Cross-tab auth state synchronization (BroadcastChannel)
+ *  - Sync user access via JWT payload decoding (no verification)
  */
 
-import { SignJWT, jwtVerify } from 'jose';
-import bcrypt from 'bcryptjs';
-import { supabase } from '@/integrations/supabase/client';
+import { apiPost, apiGet } from '@/lib/apiClient';
 import type { AppUser, AuthSession } from './types';
 
 // ---------------------------------------------------------------------------
@@ -17,33 +18,7 @@ import type { AppUser, AuthSession } from './types';
 // ---------------------------------------------------------------------------
 const TOKEN_KEY = 'mp_auth_token';
 const GUEST_KEY = 'mp_guest_mode';
-const GUEST_USER: AppUser = { id: '00000000-0000-0000-0000-000000000000', email: 'guest@meethapitara.app' };
-const JWT_SECRET_STR = import.meta.env.VITE_JWT_SECRET || 'meetha-pitara-default-dev-secret-change-me';
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STR);
-const TOKEN_EXPIRY = '7d'; // 7 days
-const BCRYPT_ROUNDS = 10;
 const CHANNEL_NAME = 'mp-auth';
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-async function createToken(user: AppUser): Promise<string> {
-    return new SignJWT({ sub: user.id, email: user.email })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime(TOKEN_EXPIRY)
-        .sign(JWT_SECRET);
-}
-
-async function verifyToken(token: string): Promise<AppUser | null> {
-    try {
-        const { payload } = await jwtVerify(token, JWT_SECRET);
-        if (!payload.sub || !payload.email) return null;
-        return { id: payload.sub, email: payload.email as string };
-    } catch {
-        return null;
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Auth state change listeners
@@ -78,66 +53,28 @@ function notifyListeners(event: 'SIGNED_IN' | 'SIGNED_OUT', session: AuthSession
 // ---------------------------------------------------------------------------
 export const authService = {
     /**
-     * Register a new user. Hashes password and stores in `app_users` table.
+     * Register a new user via backend API.
      */
     async signUp(email: string, password: string): Promise<{ session: AuthSession | null; error: string | null }> {
         try {
-            const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-            const { data, error } = await (supabase as any)
-                .from('app_users')
-                .insert({ email: email.toLowerCase().trim(), password_hash: hash })
-                .select('id, email')
-                .single();
-
-            if (error) {
-                if (error.code === '23505') {
-                    return { session: null, error: 'This email is already registered. Please sign in instead.' };
-                }
-                return { session: null, error: error.message };
-            }
-
-            const user: AppUser = { id: data.id, email: data.email };
-            const token = await createToken(user);
-            const session: AuthSession = { user, token };
-
-            localStorage.setItem(TOKEN_KEY, token);
-            notifyListeners('SIGNED_IN', session);
-
-            return { session, error: null };
+            const data = await apiPost<{ session: AuthSession }>('/api/auth/signup', { email, password });
+            localStorage.setItem(TOKEN_KEY, data.session.token);
+            notifyListeners('SIGNED_IN', data.session);
+            return { session: data.session, error: null };
         } catch (e: any) {
             return { session: null, error: e.message || 'Sign up failed' };
         }
     },
 
     /**
-     * Sign in with email + password. Validates against `app_users` table.
+     * Sign in via backend API.
      */
     async signIn(email: string, password: string): Promise<{ session: AuthSession | null; error: string | null }> {
         try {
-            const { data, error } = await (supabase as any)
-                .from('app_users')
-                .select('id, email, password_hash')
-                .eq('email', email.toLowerCase().trim())
-                .single();
-
-            if (error || !data) {
-                return { session: null, error: 'Invalid email or password. Please try again.' };
-            }
-
-            const match = await bcrypt.compare(password, data.password_hash);
-            if (!match) {
-                return { session: null, error: 'Invalid email or password. Please try again.' };
-            }
-
-            const user: AppUser = { id: data.id, email: data.email };
-            const token = await createToken(user);
-            const session: AuthSession = { user, token };
-
-            localStorage.setItem(TOKEN_KEY, token);
-            notifyListeners('SIGNED_IN', session);
-
-            return { session, error: null };
+            const data = await apiPost<{ session: AuthSession }>('/api/auth/signin', { email, password });
+            localStorage.setItem(TOKEN_KEY, data.session.token);
+            notifyListeners('SIGNED_IN', data.session);
+            return { session: data.session, error: null };
         } catch (e: any) {
             return { session: null, error: e.message || 'Sign in failed' };
         }
@@ -153,18 +90,14 @@ export const authService = {
     },
 
     /**
-     * Sign in as a guest — no database call, creates a synthetic session.
-     * Uses a fixed guest identity so features like recipe save use "guest@meethapitara.app".
+     * Sign in as a guest via backend API.
      */
     async signInAsGuest(): Promise<{ session: AuthSession }> {
-        const token = await createToken(GUEST_USER);
-        const session: AuthSession = { user: GUEST_USER, token };
-
-        localStorage.setItem(TOKEN_KEY, token);
+        const data = await apiPost<{ session: AuthSession }>('/api/auth/guest');
+        localStorage.setItem(TOKEN_KEY, data.session.token);
         localStorage.setItem(GUEST_KEY, 'true');
-        notifyListeners('SIGNED_IN', session);
-
-        return { session };
+        notifyListeners('SIGNED_IN', data.session);
+        return { session: data.session };
     },
 
     /**
@@ -175,13 +108,14 @@ export const authService = {
     },
 
     /**
-     * Get the current session from the stored JWT. Returns null if expired or absent.
+     * Get the current session from the stored JWT.
+     * Decodes locally (no network call) for speed.
      */
     async getSession(): Promise<AuthSession | null> {
         const token = localStorage.getItem(TOKEN_KEY);
         if (!token) return null;
 
-        const user = await verifyToken(token);
+        const user = this.getUserSync();
         if (!user) {
             localStorage.removeItem(TOKEN_KEY);
             return null;
@@ -190,7 +124,7 @@ export const authService = {
     },
 
     /**
-     * Convenience: get the current user (or null).
+     * Get the current user (or null).
      */
     async getUser(): Promise<AppUser | null> {
         const session = await this.getSession();
@@ -198,8 +132,7 @@ export const authService = {
     },
 
     /**
-     * Synchronous version for places that cannot be async.
-     * Decodes the JWT payload without full verification (expiry is still checked).
+     * Synchronous version — decodes JWT payload without verification.
      */
     getUserSync(): AppUser | null {
         const token = localStorage.getItem(TOKEN_KEY);
@@ -207,7 +140,6 @@ export const authService = {
         try {
             const [, payloadB64] = token.split('.');
             const payload = JSON.parse(atob(payloadB64));
-            // Check expiry
             if (payload.exp && payload.exp * 1000 < Date.now()) {
                 localStorage.removeItem(TOKEN_KEY);
                 return null;
@@ -220,12 +152,11 @@ export const authService = {
     },
 
     /**
-     * Subscribe to auth state changes (sign in / sign out).
-     * Returns an unsubscribe function.
+     * Subscribe to auth state changes.
      */
     onAuthStateChange(callback: AuthCallback): { unsubscribe: () => void } {
         listeners.add(callback);
-        getBroadcastChannel(); // ensure channel is set up
+        getBroadcastChannel();
         return {
             unsubscribe: () => {
                 listeners.delete(callback);

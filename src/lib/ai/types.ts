@@ -13,6 +13,8 @@ export interface IngredientEntry {
     category: string;
     locked: boolean;
     note: string;
+    sp_coeff?: number;
+    pac_coeff?: number;
 }
 
 export type IngredientDB = Record<string, IngredientEntry>;
@@ -127,6 +129,7 @@ export interface RunAgentOptions {
     recipe: RecipeItem[];
     targetParams: ProductionTargets;
     mode?: ProductMode;
+    currentMetrics?: any;
 }
 
 // ══════════════════════════════════════════════════

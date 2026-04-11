@@ -1,9 +1,10 @@
 /**
  * useRecipeSave - Recipe save/load operations hook
+ * Refactored to use recipeService (now API-backed) instead of direct Supabase.
  */
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { recipeService } from '@/services/recipeService';
 import { authService } from '@/lib/auth/authService';
 import { useToast } from '@/hooks/use-toast';
 import type { IngredientRow } from '@/types/calculator';
@@ -74,108 +75,36 @@ export function useRecipeSave({
     setIsSaving(true);
 
     try {
-      const user = await authService.getUser();
-      if (!user) {
-        throw new Error('Not authenticated');
-      }
-      const userId = user.id;
+      // Build rows in the format recipeService expects
+      const saveRows = rows
+        .filter(r => r.ingredient && r.quantity_g > 0)
+        .map(r => ({
+          ing: r.ingredientData || {
+            name: r.ingredient,
+            fat_pct: 0,
+            msnf_pct: 0,
+            sugars_pct: 0,
+            other_solids_pct: 0,
+          } as any,
+          grams: r.quantity_g,
+        }));
 
-      // Use upsert pattern - update if exists, create if not
-      let recipeId = currentRecipeId;
+      const recipeId = await recipeService.saveRecipe(
+        recipeName,
+        productType,
+        saveRows,
+        metrics as MetricsV2,
+        currentRecipeId || undefined
+      );
 
-      if (currentRecipeId) {
-        // Update existing recipe
-        const { error: updateError } = await supabase
-          .from('recipes')
-          .update({
-            recipe_name: recipeName,
-            product_type: productType,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', currentRecipeId);
-
-        if (updateError) throw updateError;
-
-        // Delete old rows
-        await supabase
-          .from('recipe_rows')
-          .delete()
-          .eq('recipe_id', currentRecipeId);
-      } else {
-        // Create new recipe
-        const { data: newRecipe, error: createError } = await supabase
-          .from('recipes')
-          .insert({
-            recipe_name: recipeName,
-            product_type: productType,
-            user_id: userId
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        recipeId = newRecipe.id;
+      if (!currentRecipeId && recipeId) {
         setCurrentRecipeId(recipeId);
       }
 
-      // Insert new rows
-      if (recipeId) {
-        const rowsToInsert = rows
-          .filter(r => r.ingredient && r.quantity_g > 0)
-          .map(r => ({
-            recipe_id: recipeId,
-            ingredient: r.ingredient,
-            quantity_g: r.quantity_g,
-            sugars_g: r.sugars_g,
-            fat_g: r.fat_g,
-            msnf_g: r.msnf_g,
-            other_solids_g: r.other_solids_g,
-            total_solids_g: r.total_solids_g
-          }));
-
-        const { error: rowsError } = await supabase
-          .from('recipe_rows')
-          .insert(rowsToInsert);
-
-        if (rowsError) throw rowsError;
-
-        // Delete old metrics
-        await supabase
-          .from('calculated_metrics')
-          .delete()
-          .eq('recipe_id', recipeId);
-
-        // Insert new metrics
-        if (metrics) {
-          const { error: metricsError } = await supabase
-            .from('calculated_metrics')
-            .insert({
-              recipe_id: recipeId,
-              total_quantity_g: metrics.total_g,
-              total_solids_g: metrics.ts_g,
-              total_solids_pct: metrics.ts_pct,
-              sugars_pct: metrics.totalSugars_pct,
-              fat_pct: metrics.fat_pct,
-              msnf_pct: metrics.msnf_pct,
-              other_solids_pct: metrics.other_pct,
-              total_sugars_g: metrics.totalSugars_g,
-              total_fat_g: metrics.fat_g,
-              total_msnf_g: metrics.msnf_g,
-              total_other_solids_g: metrics.other_g,
-              fpdt: metrics.fpdt,
-              sp: metrics.se_g, // Using SE (sucrose equivalents) as SP
-              pac: metrics.fpdse, // Using FPD from sugars as PAC
-              pod_index: metrics.pod_index
-            });
-
-          if (metricsError) throw metricsError;
-        }
-
-        toast({
-          title: currentRecipeId ? '✓ Recipe Updated' : '✓ Recipe Saved',
-          description: `"${recipeName}" saved successfully`
-        });
-      }
+      toast({
+        title: currentRecipeId ? '✓ Recipe Updated' : '✓ Recipe Saved',
+        description: `"${recipeName}" saved successfully`
+      });
     } catch (error: any) {
       toast({
         title: 'Save failed',

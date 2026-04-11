@@ -52,6 +52,9 @@ export type MetricsV2 = {
   // POD (normalized sweetness index)
   pod_index: number;
 
+  // AFP Index (Total recipe intensity)
+  afp_index: number;
+
   // Warnings
   warnings: string[];
   clampedLeighton?: boolean;
@@ -103,13 +106,58 @@ function leightonLookup(sucrosePer100gWater: number): { fpdse: number; clamped: 
 }
 
 /**
- * Calculate glucose syrup contribution by DE split
+ * Carpigiani Verified SP (Total) and AFP (Total) coefficients.
+ * Used for direct multiplication against total ingredient grams.
  */
-function calcGlucoseSyrupSE(solids_g: number, de: number): number {
-  trace('calc.v2.ts', 'calcGlucoseSyrupSE', 'START', { solids_g, de });
-  const dextrose_g = solids_g * (de / 100);
-  const oligo_g = solids_g - dextrose_g;
-  return 1.9 * dextrose_g + 1.0 * oligo_g;
+const CARPIGIANI_SUGARS: Record<string, { sp: number; afp: number }> = {
+  'sucrose': { sp: 1.00, afp: 1.00 },
+  'lactose': { sp: 0.16, afp: 1.00 },
+  'trehalose': { sp: 0.41, afp: 0.91 },
+  'maple_syrup': { sp: 0.67, afp: 0.67 },
+  'dextrose': { sp: 0.64, afp: 1.75 },
+  'fructose': { sp: 1.70, afp: 1.90 },
+  'invert': { sp: 0.94, afp: 1.43 },
+  'honey': { sp: 1.04, afp: 1.52 },
+  'agave': { sp: 1.06, afp: 1.44 },
+  'glucose_syrup_60': { sp: 0.51, afp: 0.96 },
+  'glucose_syrup_42': { sp: 0.42, afp: 0.74 },
+  'dry_glucose_38': { sp: 0.22, afp: 0.43 },
+  'maltodextrin': { sp: 0.09, afp: 0.22 }
+};
+
+/**
+ * Identify exact sweetener coefficients based on standard ingredient tags
+ */
+function getSweetenerCoefficients(id: string, name: string): { sp: number; afp: number } | null {
+  const normalizedStr = `${id} ${name}`.toLowerCase();
+
+  if (normalizedStr.includes('maple')) return CARPIGIANI_SUGARS['maple_syrup'];
+  if (normalizedStr.includes('dextrose')) return CARPIGIANI_SUGARS['dextrose'];
+  if (normalizedStr.includes('fructose')) return CARPIGIANI_SUGARS['fructose'];
+  if (normalizedStr.includes('invert')) return CARPIGIANI_SUGARS['invert'];
+  if (normalizedStr.includes('honey')) return CARPIGIANI_SUGARS['honey'];
+  if (normalizedStr.includes('agave')) return CARPIGIANI_SUGARS['agave'];
+  if (normalizedStr.includes('trehalose')) return CARPIGIANI_SUGARS['trehalose'];
+  if (normalizedStr.includes('maltodextrin')) return CARPIGIANI_SUGARS['maltodextrin'];
+
+  if (normalizedStr.includes('glucose')) {
+    const deMatch = normalizedStr.match(/de\s*(\d+)/i);
+    const de = deMatch ? parseInt(deMatch[1]) : 0;
+
+    if (normalizedStr.includes('dry') || (de >= 38 && de <= 40)) return CARPIGIANI_SUGARS['dry_glucose_38'];
+    if ((de >= 42 && de <= 44) || normalizedStr.includes('42') || normalizedStr.includes('43')) return CARPIGIANI_SUGARS['glucose_syrup_42'];
+    if (de >= 60 || normalizedStr.includes('60') || normalizedStr.includes('62')) return CARPIGIANI_SUGARS['glucose_syrup_60'];
+
+    // Default to 42DE if not specified (Standard liquid glucose)
+    return CARPIGIANI_SUGARS['glucose_syrup_42'];
+  }
+
+  // Explicit sucrose / table sugar
+  if (normalizedStr.includes('sucrose') || normalizedStr === 'sugar' || normalizedStr.includes('caster sugar') || normalizedStr.includes('granulated sugar')) {
+    return CARPIGIANI_SUGARS['sucrose'];
+  }
+
+  return null;
 }
 
 /**
@@ -214,9 +262,9 @@ export function calcMetricsV2(
     const g = grams || 0;
     const sug_g = g * (ing.sugars_pct || 0) / 100;
 
-    if (sug_g <= 0) continue;
+    if (g <= 0) continue;
 
-    // Handle fruit with sugar split
+    // Handle fruit with sugar split (using dry residue AFP multipliers for individual extracted sugars)
     if (ing.category === 'fruit' && ing.sugar_split) {
       const s = ing.sugar_split;
       const norm = (s.glucose ?? 0) + (s.fructose ?? 0) + (s.sucrose ?? 0) || 100;
@@ -224,31 +272,23 @@ export function calcMetricsV2(
       const g_fru = sug_g * ((s.fructose ?? 0) / norm);
       const g_suc = sug_g * ((s.sucrose ?? 0) / norm);
 
-      se_g += g_suc + 1.90 * g_glu + 1.90 * g_fru;
+      se_g += g_suc * 1.00 + g_glu * 1.90 + g_fru * 1.90;
       continue;
     }
 
-    // Handle glucose syrup with DE split
     const id = (ing.id || '').toLowerCase();
     const name = (ing.name || '').toLowerCase();
 
-    if (id.includes('glucose_syrup') || name.includes('glucose syrup')) {
-      // Extract DE from name/id (e.g., "glucose_de60" or "Glucose Syrup DE60")
-      const deMatch = (id + name).match(/de\s*(\d+)/i);
-      const de = deMatch ? parseInt(deMatch[1]) : 60; // default DE60
-      se_g += calcGlucoseSyrupSE(sug_g, de);
-      continue;
-    }
+    // Attempt lookup for recognized sweeteners (so we can apply coefficient against TOTAL grams, not just sugars)
+    const coeffs = getSweetenerCoefficients(id, name);
 
-    // Standard sugar types
-    if (id.includes('dextrose') || name.includes('dextrose') || id.includes('glucose') || name.includes('glucose')) {
-      se_g += 1.90 * sug_g;
-    } else if (id.includes('fructose') || name.includes('fructose')) {
-      se_g += 1.90 * sug_g;
-    } else if (id.includes('invert') || name.includes('invert')) {
-      se_g += 1.90 * sug_g; // Invert ~50/50 glucose/fructose
-    } else {
-      se_g += sug_g; // Default: sucrose (1.0)
+    if (coeffs && (ing.category === 'sugar' || ing.category === 'sweetener' || sug_g > (g * 0.4) || name.includes('maltodextrin'))) {
+      // If it's the pure sweetener itself, multiply its total weighed mass by the total AFP coefficient
+      se_g += g * coeffs.afp;
+    } else if (sug_g > 0) {
+      // For general ingredients (like chocolate, fruit without split, etc.), assume the resident sugar 
+      // behaves like sucrose if no specific data is available
+      se_g += sug_g * 1.00;
     }
   }
 
@@ -267,7 +307,11 @@ export function calcMetricsV2(
 
   const fpdsa = water_after_evap_g > 0 ? (msnf_g * 2.37) / water_after_evap_g : 0;
   const fpdt = fpdse + fpdsa;
-  trace('calc.v2.ts', 'calcMetricsV2', 'FPDT_CALC', { sucrosePer100gWater, fpdse, fpdsa, fpdt, clamped: leightonResult.clamped });
+
+  // 9. AFP Index (Total anti-freezing power per 100g of mix)
+  const afp_index = total_after_evap_g > 0 ? (se_g / total_after_evap_g) * 100 : 0;
+
+  trace('calc.v2.ts', 'calcMetricsV2', 'FPDT_CALC', { sucrosePer100gWater, fpdse, fpdsa, fpdt, afp_index, clamped: leightonResult.clamped });
 
   // 9. POD (normalized sweetness index per 100g total sugars)
   let pod_numerator = 0;
@@ -276,7 +320,7 @@ export function calcMetricsV2(
     const g = grams || 0;
     const sug_g = g * (ing.sugars_pct || 0) / 100;
 
-    if (sug_g <= 0) continue;
+    if (g <= 0) continue;
 
     if (ing.category === 'fruit' && ing.sugar_split) {
       const s = ing.sugar_split;
@@ -285,18 +329,21 @@ export function calcMetricsV2(
       const g_fru = sug_g * ((s.fructose ?? 0) / norm);
       const g_suc = sug_g * ((s.sucrose ?? 0) / norm);
 
-      pod_numerator += 70 * g_glu + 120 * g_fru + 100 * g_suc;
-    } else {
-      const id = (ing.id || '').toLowerCase();
-      const name = (ing.name || '').toLowerCase();
+      // Using Carpigiani Dry Residue SP equivalents * 100 for proper weighting
+      pod_numerator += 70 * g_glu + 170 * g_fru + 100 * g_suc;
+      continue;
+    }
 
-      if (id.includes('dextrose') || name.includes('dextrose') || id.includes('glucose')) {
-        pod_numerator += 70 * sug_g;
-      } else if (id.includes('fructose') || name.includes('fructose')) {
-        pod_numerator += 120 * sug_g;
-      } else {
-        pod_numerator += 100 * sug_g; // sucrose baseline
-      }
+    const id = (ing.id || '').toLowerCase();
+    const name = (ing.name || '').toLowerCase();
+
+    // Attempt lookup for recognized sweeteners (SP * 100 to map onto the 100-baseline scale)
+    const coeffs = getSweetenerCoefficients(id, name);
+
+    if (coeffs && (ing.category === 'sugar' || ing.category === 'sweetener' || sug_g > (g * 0.4) || name.includes('maltodextrin'))) {
+      pod_numerator += g * (coeffs.sp * 100);
+    } else if (sug_g > 0) {
+      pod_numerator += 100 * sug_g; // Default: sucrose Baseline
     }
   }
 
@@ -411,8 +458,8 @@ export function calcMetricsV2(
     if (totalSugars_pct < 26 || totalSugars_pct > 31) {
       warnings.push(`Total sugars ${totalSugars_pct.toFixed(1)}% outside sorbet range 26-31%`);
     }
-    if (fpdt > -2.0 || fpdt < -4.0) {
-      warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside sorbet target -4.0 to -2.0°C`);
+    if (fpdt < 4.0 || fpdt > 5.5) {
+      warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside sorbet target 4.0-5.5°C`);
     }
   } else {
     // Kulfi guardrails
@@ -573,6 +620,7 @@ export function calcMetricsV2(
     fpdse,
     fpdsa,
     fpdt,
+    afp_index,
 
     pod_index,
 

@@ -28,14 +28,12 @@ import { migratePinProfiles } from "@/lib/migratePinProfiles";
 import { useToast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import FooterBuildTag from "@/components/FooterBuildTag";
-import AIFlavourEngine from "@/pages/AIFlavourEngine";
-import { QuickAccessPanel } from "@/components/QuickAccessPanel";
 import { isAdvancedMode } from "@/utils/feature-flags";
 import { RecipeLibrary } from "@/components/RecipeLibrary";
 import { SaveRecipeModal } from "@/components/SaveRecipeModal";
 import { recipeService } from "@/services/recipeService";
 import { IngredientRow } from "@/types/calculator";
-import { Save, FolderOpen } from "lucide-react";
+import { Save, FolderOpen, MoreVertical, FilePlus } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -51,7 +49,6 @@ const Index = () => {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [currentRecipeId, setCurrentRecipeId] = useState<string | null>(null);
   const [loadedRecipeData, setLoadedRecipeData] = useState<{ rows: IngredientRow[], name: string, type: string, id: string } | null>(null);
-  const [triggerOptimizer, setTriggerOptimizer] = useState(false);
   const showAdvanced = isAdvancedMode();
 
   // Redirect to auth if not logged in (handled by ProtectedRoute, but just in case)
@@ -158,6 +155,20 @@ const Index = () => {
       console.error("Load failed:", error);
       toast({ title: "Load Failed", description: "Could not load recipe.", variant: "destructive" });
     }
+  };
+
+  const handleNewRecipe = () => {
+    setCurrentRecipeId(null);
+    setLoadedRecipeData({
+      rows: [],
+      name: "",
+      type: "ice_cream",
+      id: "new-" + Date.now()
+    });
+    toast({
+      title: "New Recipe Initiated",
+      description: "Calculator cleared. Start from scratch or select a template."
+    });
   };
 
   // Show loading state while checking authentication
@@ -301,28 +312,10 @@ const Index = () => {
                   >
                     🏭 Production
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="ai-flavour-engine"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    🧪 AI
-                  </TabsTrigger>
                 </>
               )}
               {showAdvanced && (
                 <>
-                  <TabsTrigger
-                    value="ai-flavour-engine"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    🧪 AI Engine
-                  </TabsTrigger>
                   <TabsTrigger
                     value="paste-studio"
                     className={isMobile
@@ -411,24 +404,6 @@ const Index = () => {
             <TabsContent value="calculator" className="mt-4 md:mt-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className={showAdvanced ? "lg:col-span-2 space-y-6" : "lg:col-span-3 space-y-6"}>
-                  <QuickAccessPanel
-                    onNavigate={(tab) => setCurrentTab(tab)}
-                    hasRecipe={calculatorRecipe.length > 0}
-                    currentRecipe={calculatorRecipe}
-                    onOptimize={() => setTriggerOptimizer(true)}
-                  />
-
-                  {/* Recipe Management Toolbar */}
-                  {backendReady && user && (
-                    <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1 gap-2 border-primary/20 hover:bg-primary/5" onClick={() => setIsLibraryOpen(true)}>
-                        <FolderOpen className="h-4 w-4" /> Load Recipe
-                      </Button>
-                      <Button variant="outline" className="flex-1 gap-2 border-primary/20 hover:bg-primary/5" onClick={() => setIsSaveModalOpen(true)}>
-                        <Save className="h-4 w-4" /> {currentRecipeId ? "Update Recipe" : "Save Recipe"}
-                      </Button>
-                    </div>
-                  )}
                   <RecipeCalculatorV2
                     onRecipeChange={(recipe, metrics, productType) => {
                       setCalculatorRecipe(recipe);
@@ -436,8 +411,9 @@ const Index = () => {
                       setCalculatorProductType(productType);
                     }}
                     externalRecipe={loadedRecipeData}
-                    openOptimizer={triggerOptimizer}
-                    onOptimizerOpenChange={setTriggerOptimizer}
+                    onOpenLibrary={() => setIsLibraryOpen(true)}
+                    onOpenSave={() => setIsSaveModalOpen(true)}
+                    onNewRecipe={handleNewRecipe}
                   />
                 </div>
                 {showAdvanced && (
@@ -455,13 +431,7 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="ai-flavour-engine" className="mt-4 md:mt-6">
-              <AIFlavourEngine
-                initialRecipe={calculatorRecipe}
-                initialMetrics={calculatorMetrics}
-                initialProductType={calculatorProductType}
-              />
-            </TabsContent>
+
 
             {showAdvanced && (
               <TabsContent value="paste-studio" className="mt-4 md:mt-6">
@@ -566,7 +536,7 @@ const Index = () => {
           onLoadRecipe={handleLoadRecipe}
         />
       </div>
-    </ErrorBoundary>
+    </ErrorBoundary >
   );
 };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,9 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIngredients } from "@/contexts/IngredientsContext";
+import AIRoundingPanel from "@/components/production/AIRoundingPanel";
+import type { ProductionIngredient } from "@/lib/production/productionValidator";
 
 // Simplified recipe type from DB
 interface DbRecipe {
@@ -54,6 +57,7 @@ export default function QuickProductionPlan() {
     const navigate = useNavigate();
     const location = useLocation();
     const passedRecipe = location.state?.recipe as any[];
+    const { ingredients: availableIngredients } = useIngredients();
 
     // -- State: Data Loading --
     const [recipes, setRecipes] = useState<DbRecipe[]>([]);
@@ -62,10 +66,15 @@ export default function QuickProductionPlan() {
     // -- State: Inputs --
     const [selectedRecipeId, setSelectedRecipeId] = useState<string>("manual");
     const [targetVolume, setTargetVolume] = useState<number>(100);
+    const [targetVolumeStr, setTargetVolumeStr] = useState<string | null>(null);
     const [skuSize, setSkuSize] = useState<number>(0.5);
+    const [skuSizeStr, setSkuSizeStr] = useState<string | null>(null);
     const [overrun, setOverrun] = useState<number>(30);
+    const [overrunStr, setOverrunStr] = useState<string | null>(null);
     const [loss, setLoss] = useState<number>(5);
+    const [lossStr, setLossStr] = useState<string | null>(null);
     const [density, setDensity] = useState<number>(1.1);
+    const [densityStr, setDensityStr] = useState<string | null>(null);
 
     // -- State: Outputs --
     const [result, setResult] = useState<ProductionOutput | null>(null);
@@ -268,6 +277,29 @@ export default function QuickProductionPlan() {
 
     }, [selectedRecipeId, targetVolume, skuSize, overrun, loss, density, recipes, passedRecipe]);
 
+    // -- Convert scaled recipe to ProductionIngredient format for AI Rounding --
+    const productionIngredients: ProductionIngredient[] = useMemo(() => {
+        if (!result?.scaledRecipe) return [];
+        return result.scaledRecipe.map((item) => {
+            // Try to find matching ingredient data
+            const ingData = availableIngredients.find(a =>
+                a.name.toLowerCase() === item.ingredient.toLowerCase()
+            );
+            return {
+                ingredientId: ingData?.id || item.ingredient,
+                name: item.ingredient,
+                massGrams: item.quantity_g,
+                ingredientData: ingData,
+            };
+        });
+    }, [result, availableIngredients]);
+
+    // Determine product type from selected recipe
+    const selectedProductType = useMemo(() => {
+        if (selectedRecipeId === 'manual') return 'gelato'; // default
+        const recipe = recipes.find(r => r.id === selectedRecipeId);
+        return recipe?.product_type || 'gelato';
+    }, [selectedRecipeId, recipes]);
 
     // -- Render Helpers --
     const formatNumber = (num: number, decimals = 1) => num.toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
@@ -409,8 +441,15 @@ export default function QuickProductionPlan() {
                             <Label>Target Volume (Liters)</Label>
                             <Input
                                 type="number"
-                                value={targetVolume}
-                                onChange={e => setTargetVolume(Number(e.target.value))}
+                                value={targetVolumeStr !== null ? targetVolumeStr : (targetVolume || '')}
+                                onChange={e => {
+                                    let v = e.target.value;
+                                    if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                    setTargetVolumeStr(v);
+                                    const parsed = parseFloat(v);
+                                    if (!isNaN(parsed)) setTargetVolume(parsed);
+                                }}
+                                onBlur={() => setTargetVolumeStr(null)}
                                 min={1}
                             />
                         </div>
@@ -420,12 +459,22 @@ export default function QuickProductionPlan() {
                             <div className="flex gap-2">
                                 <Input
                                     type="number"
-                                    value={skuSize}
-                                    onChange={e => setSkuSize(Number(e.target.value))}
+                                    value={skuSizeStr !== null ? skuSizeStr : (skuSize || '')}
+                                    onChange={e => {
+                                        let v = e.target.value;
+                                        if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                        setSkuSizeStr(v);
+                                        const parsed = parseFloat(v);
+                                        if (!isNaN(parsed)) setSkuSize(parsed);
+                                    }}
+                                    onBlur={() => setSkuSizeStr(null)}
                                     step={0.1}
                                     min={0.05}
                                 />
-                                <Select onValueChange={(v) => setSkuSize(Number(v))} value={skuSize.toString()}>
+                                <Select onValueChange={(v) => {
+                                    setSkuSize(Number(v));
+                                    setSkuSizeStr(null);
+                                }} value={skuSize.toString()}>
                                     <SelectTrigger className="w-[120px]">
                                         <SelectValue placeholder="Preset" />
                                     </SelectTrigger>
@@ -444,8 +493,15 @@ export default function QuickProductionPlan() {
                                 <Label className="flex items-center gap-1">Overrun % <Variable className="h-3 w-3 text-muted-foreground" /></Label>
                                 <Input
                                     type="number"
-                                    value={overrun}
-                                    onChange={e => setOverrun(Number(e.target.value))}
+                                    value={overrunStr !== null ? overrunStr : (overrun || '')}
+                                    onChange={e => {
+                                        let v = e.target.value;
+                                        if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                        setOverrunStr(v);
+                                        const parsed = parseFloat(v);
+                                        if (!isNaN(parsed)) setOverrun(parsed);
+                                    }}
+                                    onBlur={() => setOverrunStr(null)}
                                     min={0}
                                 />
                             </div>
@@ -453,8 +509,15 @@ export default function QuickProductionPlan() {
                                 <Label className="flex items-center gap-1">Loss % <Variable className="h-3 w-3 text-muted-foreground" /></Label>
                                 <Input
                                     type="number"
-                                    value={loss}
-                                    onChange={e => setLoss(Number(e.target.value))}
+                                    value={lossStr !== null ? lossStr : (loss || '')}
+                                    onChange={e => {
+                                        let v = e.target.value;
+                                        if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                        setLossStr(v);
+                                        const parsed = parseFloat(v);
+                                        if (!isNaN(parsed)) setLoss(parsed);
+                                    }}
+                                    onBlur={() => setLossStr(null)}
                                     min={0}
                                 />
                             </div>
@@ -464,8 +527,15 @@ export default function QuickProductionPlan() {
                             <Label>Mix Density (kg/L)</Label>
                             <Input
                                 type="number"
-                                value={density}
-                                onChange={e => setDensity(Number(e.target.value))}
+                                value={densityStr !== null ? densityStr : (density || '')}
+                                onChange={e => {
+                                    let v = e.target.value;
+                                    if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                    setDensityStr(v);
+                                    const parsed = parseFloat(v);
+                                    if (!isNaN(parsed)) setDensity(parsed);
+                                }}
+                                onBlur={() => setDensityStr(null)}
                                 step={0.01}
                             />
                             <p className="text-xs text-muted-foreground">Usually 1.08 - 1.15 for ice cream mix.</p>
@@ -567,6 +637,19 @@ export default function QuickProductionPlan() {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* AI Rounding Panel */}
+                    {result && productionIngredients.length > 0 && (
+                        <AIRoundingPanel
+                            ingredients={productionIngredients}
+                            productType={selectedProductType}
+                            availableIngredients={availableIngredients}
+                            recipeName={selectedRecipeName}
+                            onRoundingComplete={(roundResult) => {
+                                console.log('AI Rounding complete:', roundResult);
+                            }}
+                        />
+                    )}
                 </div>
             </div>
         </div>

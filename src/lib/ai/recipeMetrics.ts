@@ -1,13 +1,16 @@
 /**
  * Recipe Metrics Calculator
- * Port of Cell 5 — compute_recipe_metrics() from reverse_engine_stage1.ipynb
+ * Grounded in calc.v2.ts (Mathematical Specifications)
  */
 
 import { INGREDIENT_DB } from './ingredientDb';
 import type { RecipeMetrics } from './types';
+import { calcMetricsV2 } from '../calc.v2';
+import type { IngredientData } from '@/types/ingredients';
 
 /**
  * Given { ingredientName: grams }, compute nutritional metrics.
+ * Now acts as a bridge to the v2.1 validated science calculator.
  */
 export function computeRecipeMetrics(
     recipe: Record<string, number>
@@ -25,29 +28,52 @@ export function computeRecipeMetrics(
         };
     }
 
-    let fatG = 0;
-    let msnfG = 0;
-    let sugarsG = 0;
-    let waterG = 0;
+    const rows = Object.entries(recipe).map(([name, grams]) => {
+        const ingDb = INGREDIENT_DB[name] || ({} as any);
 
-    for (const [name, grams] of Object.entries(recipe)) {
-        const ing = INGREDIENT_DB[name];
-        if (!ing) continue;
+        // Build a robust IngredientData stub that calcMetricsV2 can use effectively
+        const ingData: IngredientData = {
+            id: name.toLowerCase().replace(/\s+/g, '_'),
+            name: name,
+            category: (ingDb.category || 'other') as any,
+            water_pct: ingDb.water_pct ?? 0,
+            fat_pct: ingDb.fat_pct ?? 0,
+            msnf_pct: ingDb.msnf_pct ?? 0,
+            sugars_pct: ingDb.sugars_pct ?? 0,
+            // Safe fallback for other properties omitted by simple AI loop
+            other_solids_pct: 0,
+            pac_coeff: ingDb.pac_coeff,
+            sp_coeff: ingDb.sp_coeff
+        };
 
-        fatG += grams * ing.fat_pct / 100;
-        msnfG += grams * ing.msnf_pct / 100;
-        sugarsG += grams * ing.sugars_pct / 100;
-        waterG += grams * ing.water_pct / 100;
-    }
+        // Fallback heuristics for standard AI ingredients if DB mapping failed
+        if (ingData.sugars_pct === 0) {
+            if (name.includes('Sucrose') || name === 'Sugar') {
+                ingData.sugars_pct = 100;
+            } else if (name.includes('Dextrose')) {
+                ingData.sugars_pct = 91;
+                ingData.water_pct = 9;
+            } else if (name.includes('Glucose Syrup')) {
+                ingData.sugars_pct = 78;
+                ingData.water_pct = 22;
+            }
+        }
 
+        return {
+            ing: ingData,
+            grams
+        };
+    });
+
+    const v2Metrics = calcMetricsV2(rows);
     const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
     return {
-        total_mass_g: Math.round(total * 100) / 100,
-        fat_pct: round3((fatG / total) * 100),
-        msnf_pct: round3((msnfG / total) * 100),
-        sugars_pct: round3((sugarsG / total) * 100),
-        water_pct: round3((waterG / total) * 100),
-        total_solids_pct: round3((1 - waterG / total) * 100),
+        total_mass_g: Math.round(v2Metrics.total_g * 100) / 100,
+        fat_pct: round3(v2Metrics.fat_pct),
+        msnf_pct: round3(v2Metrics.msnf_pct),
+        sugars_pct: round3(v2Metrics.totalSugars_pct),
+        water_pct: round3(v2Metrics.water_pct),
+        total_solids_pct: round3(v2Metrics.ts_pct),
     };
 }

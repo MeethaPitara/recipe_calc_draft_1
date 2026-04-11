@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,21 +7,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useIngredients } from '@/contexts/IngredientsContext';
 import { IngredientService } from '@/services/ingredientService';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Scan } from 'lucide-react';
 import type { IngredientData } from '@/types/ingredients';
+import { callGeminiVision } from '@/lib/ai/geminiClient';
 
 interface AddIngredientDialogProps {
   onIngredientAdded?: (ingredient: IngredientData) => void;
   trigger?: React.ReactNode;
+  hideTrigger?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   prefilledData?: Partial<IngredientData>;
 }
 
-export function AddIngredientDialog({ onIngredientAdded, trigger, open: controlledOpen, onOpenChange: externalOnOpenChange, prefilledData }: AddIngredientDialogProps) {
+export function AddIngredientDialog({ onIngredientAdded, trigger, hideTrigger, open: controlledOpen, onOpenChange: externalOnOpenChange, prefilledData }: AddIngredientDialogProps) {
   const { toast } = useToast();
   const { refetch } = useIngredients();
   const [isLoading, setIsLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : undefined;
@@ -72,19 +76,6 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate that composition adds up to ~100%
-    const total = formData.water_pct + formData.sugars_pct + formData.fat_pct +
-      formData.msnf_pct + formData.other_solids_pct;
-
-    if (Math.abs(total - 100) > 5) {
-      toast({
-        title: "Composition Error",
-        description: `Total composition is ${total.toFixed(1)}%. It should be close to 100%.`,
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
       const newIngredient = await IngredientService.addIngredient(formData);
@@ -134,25 +125,128 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
     }
   };
 
+  const handleScanImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result?.toString().split(',')[1];
+          const mimeType = file.type;
+          if (!base64Data) throw new Error("Failed to read image");
+
+          const prompt = `Analyze this nutrition label and return ONLY a valid JSON object matching this structure EXACTLY. Do not include markdown code block syntax (like \`\`\`json). Just the raw JSON brackets.
+
+{
+  "name": "derived from the brand or main ingredient name if available",
+  "category": "Pick one: dairy, sugar, stabilizer, fruit, flavor, fat, other",
+  "water_pct": 0,
+  "sugars_pct": 0,
+  "fat_pct": 0,
+  "msnf_pct": 0,
+  "other_solids_pct": 0,
+  "lactose_pct": 0
+}
+
+Calculations rules (per 100g or 100ml):
+1. fat_pct = Total Fat per 100g
+2. sugars_pct = Total Sugars per 100g
+3. msnf_pct = (For dairy items only) Protein per 100g + Lactose per 100g + ~1% ash.
+4. other_solids_pct = Total Carbohydrate - Total Sugars + Dietary Fiber + Protein (for non-dairy only).
+5. water_pct = 100 - (fat_pct + sugars_pct + msnf_pct + other_solids_pct).
+6. Convert all values to percentages of the total (per 100g equivalent).
+If a value is not explicitly on the label, derive it reasonably according to the ingredients or default to 0. Make sure the total of water_pct + sugars_pct + fat_pct + msnf_pct + other_solids_pct sum to closely 100.`;
+
+          const systemPrompt = "You are a specialized AI nutrition label analyzer for a Gelato formulation app. Return ONLY raw JSON.";
+
+          const response = await callGeminiVision(systemPrompt, prompt, base64Data, mimeType);
+
+          let data;
+          try {
+            const cleanJson = response.replace(/```json/i, '').replace(/```/g, '').trim();
+            data = JSON.parse(cleanJson);
+          } catch (err) {
+            throw new Error("Failed to parse JSON out of response: " + response);
+          }
+
+          setFormData(prev => ({
+            ...prev,
+            name: data.name || prev.name,
+            category: data.category || prev.category,
+            water_pct: data.water_pct || 0,
+            sugars_pct: data.sugars_pct || 0,
+            fat_pct: data.fat_pct || 0,
+            msnf_pct: data.msnf_pct || 0,
+            other_solids_pct: data.other_solids_pct || 0,
+            lactose_pct: data.lactose_pct || 0
+          }));
+
+          toast({
+            title: "Scan Complete",
+            description: "Nutrition values have been auto-filled from the label."
+          });
+        } catch (err: any) {
+          toast({
+            title: "Scanning Failed",
+            description: err?.message || "Could not analyze the image",
+            variant: "destructive"
+          });
+          console.error(err);
+        } finally {
+          setIsScanning(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+      reader.onerror = () => {
+        throw new Error("Error reading file");
+      };
+    } catch (err: any) {
+      toast({
+        title: "Scanning Failed",
+        description: err?.message || "Could not analyze the image",
+        variant: "destructive"
+      });
+      setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const totalComposition = formData.water_pct + formData.sugars_pct + formData.fat_pct +
     formData.msnf_pct + formData.other_solids_pct;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="outline" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Ingredient
-          </Button>
-        )}
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button variant="outline" size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Ingredient
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background border shadow-lg">
         <DialogHeader>
-          <DialogTitle>Add New Ingredient</DialogTitle>
-          <DialogDescription>
-            Create a new ingredient with its composition data. All percentages should add up to 100%.
-          </DialogDescription>
+          <div className="flex flex-row justify-between items-start gap-4">
+            <div>
+              <DialogTitle>Add New Ingredient</DialogTitle>
+              <DialogDescription>
+                Create a new ingredient with its composition data.
+              </DialogDescription>
+            </div>
+            <div className="shrink-0 pt-1">
+              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleScanImage} />
+              <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isScanning}>
+                {isScanning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Scan className="h-4 w-4 mr-2" />}
+                {isScanning ? "Scanning..." : "Scan Label"}
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -195,7 +289,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
                 id="water"
                 type="number"
                 step="0.01"
-                value={formData.water_pct}
+                value={formData.water_pct || ''}
                 onChange={(e) => setFormData({ ...formData, water_pct: parseFloat(e.target.value) || 0 })}
               />
             </div>
@@ -206,7 +300,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
                 id="sugars"
                 type="number"
                 step="0.01"
-                value={formData.sugars_pct}
+                value={formData.sugars_pct || ''}
                 onChange={(e) => setFormData({ ...formData, sugars_pct: parseFloat(e.target.value) || 0 })}
               />
             </div>
@@ -217,7 +311,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
                 id="fat"
                 type="number"
                 step="0.01"
-                value={formData.fat_pct}
+                value={formData.fat_pct || ''}
                 onChange={(e) => setFormData({ ...formData, fat_pct: parseFloat(e.target.value) || 0 })}
               />
             </div>
@@ -228,7 +322,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
                 id="msnf"
                 type="number"
                 step="0.01"
-                value={formData.msnf_pct}
+                value={formData.msnf_pct || ''}
                 onChange={(e) => setFormData({ ...formData, msnf_pct: parseFloat(e.target.value) || 0 })}
               />
             </div>
@@ -239,7 +333,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
                 id="lactose"
                 type="number"
                 step="0.01"
-                value={formData.lactose_pct}
+                value={formData.lactose_pct || ''}
                 onChange={(e) => setFormData({ ...formData, lactose_pct: parseFloat(e.target.value) || 0 })}
               />
             </div>
@@ -255,16 +349,6 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
               />
             </div>
 
-            <div className="col-span-2 p-3 bg-muted rounded-md">
-              <p className="text-sm font-medium">
-                Total Composition: {totalComposition.toFixed(2)}%
-                {Math.abs(totalComposition - 100) > 5 && (
-                  <span className="text-destructive ml-2">
-                    (should be ~100%)
-                  </span>
-                )}
-              </p>
-            </div>
 
             <div>
               <Label htmlFor="sp_coeff">SP Coefficient (optional)</Label>
@@ -316,7 +400,7 @@ export function AddIngredientDialog({ onIngredientAdded, trigger, open: controll
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !formData.name || Math.abs(totalComposition - 100) > 5}>
+            <Button type="submit" disabled={isLoading || !formData.name}>
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

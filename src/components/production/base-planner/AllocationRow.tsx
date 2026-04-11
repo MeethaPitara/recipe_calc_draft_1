@@ -17,6 +17,12 @@ export const AllocationRow = ({ row }: Props) => {
     // Get live result for this row if available
     const result = engineOutput?.rows.find(r => r.recipeId === row.recipeId);
 
+    const [allocationPctStr, setAllocationPctStr] = React.useState<string | null>(null);
+    const [skuSizeStr, setSkuSizeStr] = React.useState<string | null>(null);
+    const [overrunStr, setOverrunStr] = React.useState<string | null>(null);
+    const [lossStr, setLossStr] = React.useState<string | null>(null);
+    const [densityStr, setDensityStr] = React.useState<string | null>(null);
+
     const handleSliderChange = (vals: number[]) => {
         updateRow(row.id, { allocationPct: vals[0] });
     };
@@ -50,8 +56,15 @@ export const AllocationRow = ({ row }: Props) => {
                             <Input
                                 type="number"
                                 min={0} max={100}
-                                value={row.allocationPct}
-                                onChange={e => updateRow(row.id, { allocationPct: parseFloat(e.target.value) || 0 })}
+                                value={allocationPctStr !== null ? allocationPctStr : (row.allocationPct || '')}
+                                onChange={e => {
+                                    let v = e.target.value;
+                                    if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                    setAllocationPctStr(v);
+                                    const parsed = parseFloat(v);
+                                    if (!isNaN(parsed)) updateRow(row.id, { allocationPct: parsed });
+                                }}
+                                onBlur={() => setAllocationPctStr(null)}
                                 className="h-6 w-16 text-right text-xs p-1"
                             />
                             <span className="text-xs text-muted-foreground">%</span>
@@ -73,36 +86,64 @@ export const AllocationRow = ({ row }: Props) => {
                         <Label className="text-[10px] text-muted-foreground uppercase">SKU (L)</Label>
                         <Input
                             type="number" step={0.1}
-                            value={row.skuSize}
+                            value={skuSizeStr !== null ? skuSizeStr : (row.skuSize || '')}
                             className="h-7 text-xs"
-                            onChange={e => updateRow(row.id, { skuSize: parseFloat(e.target.value) })}
+                            onChange={e => {
+                                let v = e.target.value;
+                                if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                setSkuSizeStr(v);
+                                const parsed = parseFloat(v);
+                                if (!isNaN(parsed)) updateRow(row.id, { skuSize: parsed });
+                            }}
+                            onBlur={() => setSkuSizeStr(null)}
                         />
                     </div>
                     <div className="space-y-1">
                         <Label className="text-[10px] text-muted-foreground uppercase">Overrun %</Label>
                         <Input
                             type="number"
-                            value={row.overrun}
+                            value={overrunStr !== null ? overrunStr : (row.overrun || '')}
                             className="h-7 text-xs"
-                            onChange={e => updateRow(row.id, { overrun: parseFloat(e.target.value) })}
+                            onChange={e => {
+                                let v = e.target.value;
+                                if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                setOverrunStr(v);
+                                const parsed = parseFloat(v);
+                                if (!isNaN(parsed)) updateRow(row.id, { overrun: parsed });
+                            }}
+                            onBlur={() => setOverrunStr(null)}
                         />
                     </div>
                     <div className="space-y-1">
                         <Label className="text-[10px] text-muted-foreground uppercase">Loss %</Label>
                         <Input
                             type="number"
-                            value={row.loss}
+                            value={lossStr !== null ? lossStr : (row.loss || '')}
                             className="h-7 text-xs"
-                            onChange={e => updateRow(row.id, { loss: parseFloat(e.target.value) })}
+                            onChange={e => {
+                                let v = e.target.value;
+                                if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                setLossStr(v);
+                                const parsed = parseFloat(v);
+                                if (!isNaN(parsed)) updateRow(row.id, { loss: parsed });
+                            }}
+                            onBlur={() => setLossStr(null)}
                         />
                     </div>
                     <div className="space-y-1">
                         <Label className="text-[10px] text-muted-foreground uppercase">Density</Label>
                         <Input
                             type="number" step={0.01}
-                            value={row.density}
+                            value={densityStr !== null ? densityStr : (row.density || '')}
                             className="h-7 text-xs"
-                            onChange={e => updateRow(row.id, { density: parseFloat(e.target.value) })}
+                            onChange={e => {
+                                let v = e.target.value;
+                                if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                setDensityStr(v);
+                                const parsed = parseFloat(v);
+                                if (!isNaN(parsed)) updateRow(row.id, { density: parsed });
+                            }}
+                            onBlur={() => setDensityStr(null)}
                         />
                     </div>
                 </div>

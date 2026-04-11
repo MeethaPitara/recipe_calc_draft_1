@@ -21,8 +21,8 @@ interface AIInsightsPanelProps {
   productType?: string;
 }
 
-export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ 
-  recipe, 
+export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
+  recipe,
   metrics,
   productType = 'ice_cream'
 }) => {
@@ -42,7 +42,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
     if (!debouncedRecipe || debouncedRecipe.length === 0 || !debouncedMetrics || creditsExhausted) {
       return;
     }
-    
+
     // Auto-trigger analysis when recipe stabilizes
     analyzeRecipe();
   }, [debouncedRecipe, debouncedMetrics, creditsExhausted]);
@@ -85,7 +85,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
       const errorMsg = err.message || 'Failed to analyze recipe';
       const errorType = err.status?.toString() || 'unknown';
       setError(errorMsg);
-      
+
       // Detect 402 credit exhaustion errors
       if (err.status === 402 || errorMsg.includes('AI credits depleted')) {
         setCreditsExhausted(true);
@@ -93,12 +93,13 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
 
       // Prevent duplicate error toasts (max 1 per 5 seconds for same error type)
       const now = Date.now();
-      const shouldShowToast = 
-        errorType !== lastErrorType || 
+      const shouldShowToast =
+        errorType !== lastErrorType ||
         (now - lastErrorTime) > 5000;
 
       if (shouldShowToast) {
-        showApiErrorToast(err, 'AI Analysis failed');
+        // Silenced as per UI cleanup request
+        // showApiErrorToast(err, 'AI Analysis failed');
         setLastErrorTime(now);
         setLastErrorType(errorType);
       }
@@ -143,7 +144,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
               <p className="text-sm text-muted-foreground">
                 Analysis runs automatically when your recipe stabilizes. You can also manually re-analyze anytime.
               </p>
-              
+
               {/* Loading State */}
               {isLoading && (
                 <div className="flex flex-col items-center justify-center py-6 space-y-3">
@@ -153,7 +154,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                   </div>
                 </div>
               )}
-              
+
               {/* Manual Analyze Button */}
               {!isLoading && (
                 <div className="flex justify-center">
@@ -175,11 +176,6 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                 </div>
               )}
 
-              {error && !creditsExhausted && (
-                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
-              )}
 
               {creditsExhausted && analysis && (
                 <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
@@ -222,7 +218,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                         AI Warnings
                       </div>
                       {analysis.warnings.map((warning: string, index: number) => (
-                        <div 
+                        <div
                           key={index}
                           className="p-3 rounded-lg bg-warning/10 border-l-4 border-warning"
                         >
@@ -240,7 +236,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                         AI Suggestions
                       </div>
                       {analysis.suggestions.map((suggestion: string, index: number) => (
-                        <div 
+                        <div
                           key={index}
                           className="p-3 rounded-lg bg-primary/5 border-l-4 border-primary"
                         >

@@ -12,8 +12,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/lib/auth/authService';
-import { Plus, Save, Trash2, Calculator, Loader2, Search, Zap, BookOpen, Bug, History, HelpCircle, CheckCircle, AlertCircle, Wand2, Brain, Check, X, FileDown, GitCompare, Sparkles } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, Save, Trash2, Calculator, Loader2, Search, Zap, BookOpen, Bug, History, HelpCircle, CheckCircle, AlertCircle, Wand2, Brain, Check, X, FileDown, GitCompare, Sparkles, MoreVertical, FilePlus, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SmartIngredientSearch } from '@/components/SmartIngredientSearch';
@@ -39,6 +40,9 @@ import ReverseEngineer from '@/components/ReverseEngineer';
 import IngredientAnalyzer from '@/components/flavour-engine/IngredientAnalyzer';
 import SugarBlendOptimizer from '@/components/flavour-engine/SugarBlendOptimizer';
 import AIOptimization from '@/components/flavour-engine/AIOptimization';
+import AiOptimizerDemo from '@/components/AiOptimizerDemo';
+import AiRecipeCreator from '@/components/AiRecipeCreator';
+import { getBalancingTargets } from '@/lib/productConstraints';
 import { advancedOptimize, OptimizerConfig } from '@/lib/optimize.advanced';
 import { Wrench } from 'lucide-react';
 import { RecipeCompareDialog } from '@/components/RecipeCompareDialog';
@@ -67,8 +71,9 @@ function productKey(mode: Mode, rows: IngredientRow[]): string {
 interface RecipeCalculatorV2Props {
   onRecipeChange?: (recipe: any[], metrics: MetricsV2 | null, productType: string) => void;
   externalRecipe?: { rows: IngredientRow[], name: string, type: string, id: string } | null;
-  openOptimizer?: boolean;
-  onOptimizerOpenChange?: (open: boolean) => void;
+  onOpenLibrary?: () => void;
+  onOpenSave?: () => void;
+  onNewRecipe?: () => void;
 }
 
 // PHASE 1: Simplified Quantity Input - Direct controlled input with no buffering
@@ -93,7 +98,13 @@ const QuantityInput = ({ value, onChange, step, rowIndex, className }: {
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVal = e.target.value;
+    let newVal = e.target.value;
+
+    // Prevent preceding zeros (e.g. "05" becomes "5")
+    if (newVal.length > 1 && newVal.startsWith('0') && newVal[1] !== '.') {
+      newVal = newVal.replace(/^0+/, '');
+    }
+
     setLocalValue(newVal);
 
     // Parse and send up if valid
@@ -149,14 +160,22 @@ const QuantityInput = ({ value, onChange, step, rowIndex, className }: {
 };
 
 
-export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, openOptimizer, onOptimizerOpenChange }: RecipeCalculatorV2Props) {
+export default function RecipeCalculatorV2({
+  onRecipeChange,
+  externalRecipe,
+  onOpenLibrary,
+  onOpenSave,
+  onNewRecipe
+}: RecipeCalculatorV2Props) {
   const { toast } = useToast();
   const [recipeName, setRecipeName] = useState('');
   const [productType, setProductType] = useState('ice_cream');
   const [rows, setRows] = useState<IngredientRow[]>([]);
   const [metrics, setMetrics] = useState<MetricsV2 | null>(null);
   const [targetBatchSize, setTargetBatchSize] = useState<number | null>(null);
+  const [targetBatchSizeStr, setTargetBatchSizeStr] = useState<string | null>(null);
   const [servings, setServings] = useState<number>(10);
+  const [servingsStr, setServingsStr] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [currentRecipeId, setCurrentRecipeId] = useState<string | null>(null);
@@ -186,14 +205,8 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
   const [showCompareDialog, setShowCompareDialog] = React.useState(false);
   const [highlightedRow, setHighlightedRow] = React.useState<number | null>(null);
   const [showOptimizerPanel, setShowOptimizerPanel] = React.useState(false);
+  const [showTemplatesDialog, setShowTemplatesDialog] = React.useState(false);
 
-  // Sync external optimizer trigger
-  React.useEffect(() => {
-    if (openOptimizer) {
-      setShowOptimizerPanel(true);
-      onOptimizerOpenChange?.(false);
-    }
-  }, [openOptimizer]);
 
   // Helper function to load base sets
   const loadBaseSet = (baseType: 'ice_cream' | 'gelato' | 'sorbet') => {
@@ -268,11 +281,22 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
       tolerance = (max - min) / 2;
     } else {
       // Get active targets based on product type
-      const targets = getTargets(productType);
-      targetValue = targets[metricKeyOrRange];
-      tolerance = targets.tolerance;
-      min = targetValue - tolerance;
-      max = targetValue + tolerance;
+      let pType = productType;
+      // Map generic gelato back to specific if determinable
+      if (productType === 'gelato') {
+        const hasFruit = rows.some(r => r.ingredientData?.category === 'fruit');
+        pType = hasFruit ? 'gelato_fruit' : 'gelato_white';
+      }
+      const targets = getTargets(pType);
+      const range = targets[metricKeyOrRange] as [number, number];
+      if (range) {
+        min = range[0];
+        max = range[1];
+        targetValue = (min + max) / 2;
+        tolerance = (max - min) / 2;
+      } else {
+        min = 0; max = 0; targetValue = 0; tolerance = 0;
+      }
     }
 
     // Status Logic
@@ -399,6 +423,8 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
         const mode = resolveMode(productType);
         const calculated = calcMetricsV2(calcRows, { mode });
         setMetrics(calculated);
+      } else {
+        setMetrics(null);
       }
     }, 500);
 
@@ -451,13 +477,22 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
       setRows(hydratedRows);
       setRecipeName(externalRecipe.name);
       setProductType(externalRecipe.type);
-      setCurrentRecipeId(externalRecipe.id);
+      setCurrentRecipeId(externalRecipe.id.startsWith('new-') ? null : externalRecipe.id);
+
+      // Clear metrics and auxiliary state for new/loaded recipes
+      setMetrics(null);
+      setScienceValidation(undefined);
+      setQualityScore(undefined);
+      setBalancingDiagnostics(null);
+      setLastBalanceStrategy(undefined);
 
       // Toast to confirm load
-      toast({
-        title: "Recipe Loaded",
-        description: `Loaded "${externalRecipe.name}"`,
-      });
+      if (!externalRecipe.id.startsWith('new-')) {
+        toast({
+          title: "Recipe Loaded",
+          description: `Loaded "${externalRecipe.name}"`,
+        });
+      }
     }
   }, [externalRecipe, availableIngredients]);
 
@@ -792,39 +827,16 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
     console.log(`  Valid rows (with data + grams > 0): ${validRows.length}`);
 
     // More specific error messages
+    // Silenced as per user request to remove "stupid errors"
     if (validRows.length === 0) {
-      if (rowsWithoutData > 0 && rowsWithIngredientData === 0) {
-        console.warn('⚠ No ingredients from database. All rows are text-only.');
-        toast({
-          title: "No valid ingredients",
-          description: "Choose ingredients from the database list and enter quantities to calculate metrics.",
-          variant: "destructive",
-        });
-      } else if (rows.every(r => r.quantity_g === 0)) {
-        console.warn('⚠ All rows have 0 grams.');
-        toast({
-          title: "No quantities entered",
-          description: "Enter gram amounts for your ingredients to calculate metrics.",
-          variant: "destructive",
-        });
-      } else {
-        console.warn('⚠ No valid rows to calculate.');
-        toast({
-          title: "Cannot calculate",
-          description: "Ensure ingredients are from the database and have quantities entered.",
-          variant: "destructive",
-        });
-      }
+      console.warn('🧮 Cannot calculate metrics: No valid rows with quantities and database data.');
       return;
     }
 
     // Warn if some rows lack data (text-only ingredients)
+    // Silenced as per user request
     if (rowsWithoutData > 0) {
       console.warn(`⚠ ${rowsWithoutData} row(s) have no ingredientData and will be ignored.`);
-      toast({
-        title: "Some ingredients not recognized",
-        description: `${rowsWithoutData} ingredient(s) are not from the database and will be ignored in calculations.`,
-      });
     }
 
     // Convert rows to format expected by calc.v2
@@ -1727,92 +1739,86 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
     setCurrentRecipeId(null);
   };
 
-  /**
-   * Apply 70/10/20 sugar preset (optimal blend)
-   * 70% Sucrose, 10% Dextrose, 20% Glucose Syrup
-   */
-  const applySugarPreset = () => {
-    // Find sugar ingredients
-    const sucrose = availableIngredients.find(i =>
-      i.name.toLowerCase().includes('sucrose') && (i.sugars_pct || 0) >= 95
-    );
-    const dextrose = availableIngredients.find(i =>
-      i.name.toLowerCase().includes('dextrose') && (i.sugars_pct || 0) >= 95
-    );
-    const glucoseSyrup = availableIngredients.find(i =>
-      (i.name.toLowerCase().includes('glucose') || i.name.toLowerCase().includes('syrup')) &&
-      (i.sugars_pct || 0) >= 70
-    );
-
-    if (!sucrose || !dextrose || !glucoseSyrup) {
-      toast({
-        title: 'Missing Sugar Ingredients',
-        description: 'Need Sucrose, Dextrose, and Glucose Syrup in database',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Calculate current total sugars
-    const currentTotalSugars = rows.reduce((sum, r) => sum + r.sugars_g, 0);
-    const targetSugars = currentTotalSugars > 0 ? currentTotalSugars : 180; // Default 180g if none
-
-    // Calculate preset amounts (70/10/20)
-    const sucroseAmount = targetSugars * 0.70;
-    const dextroseAmount = targetSugars * 0.10;
-    const glucoseAmount = targetSugars * 0.20;
-
-    // Remove existing sugar rows
-    const nonSugarRows = rows.filter(r =>
-      !r.ingredientData || (r.ingredientData.sugars_pct || 0) < 90
-    );
-
-    // Add preset sugars
-    const newRows: IngredientRow[] = [
-      ...nonSugarRows,
-      {
-        ingredientData: sucrose,
-        ingredient: sucrose.name,
-        quantity_g: sucroseAmount,
-        sugars_g: sucroseAmount * (sucrose.sugars_pct || 100) / 100,
-        fat_g: 0,
-        msnf_g: 0,
-        other_solids_g: 0,
-        total_solids_g: sucroseAmount * (sucrose.sugars_pct || 100) / 100
-      },
-      {
-        ingredientData: dextrose,
-        ingredient: dextrose.name,
-        quantity_g: dextroseAmount,
-        sugars_g: dextroseAmount * (dextrose.sugars_pct || 100) / 100,
-        fat_g: 0,
-        msnf_g: 0,
-        other_solids_g: 0,
-        total_solids_g: dextroseAmount * (dextrose.sugars_pct || 100) / 100
-      },
-      {
-        ingredientData: glucoseSyrup,
-        ingredient: glucoseSyrup.name,
-        quantity_g: glucoseAmount,
-        sugars_g: glucoseAmount * (glucoseSyrup.sugars_pct || 75) / 100,
-        fat_g: 0,
-        msnf_g: 0,
-        other_solids_g: 0,
-        total_solids_g: glucoseAmount * (glucoseSyrup.sugars_pct || 75) / 100
+  const applyOptimizedRecipe = (optimizedRecipe: { [key: string]: number }) => {
+    // Determine existing ingredients for update
+    const updatedRows = rows.map(row => {
+      const newQty = optimizedRecipe[row.ingredient];
+      if (newQty !== undefined) {
+        const ing = row.ingredientData;
+        if (ing) {
+          const grams = Number(newQty);
+          const updatedRow: IngredientRow = {
+            ...row,
+            quantity_g: grams,
+            sugars_g: ((ing.sugars_pct ?? 0) / 100) * grams,
+            fat_g: ((ing.fat_pct ?? 0) / 100) * grams,
+            msnf_g: ((ing.msnf_pct ?? 0) / 100) * grams,
+            other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * grams,
+            total_solids_g: 0
+          };
+          updatedRow.total_solids_g = updatedRow.sugars_g + updatedRow.fat_g + updatedRow.msnf_g + updatedRow.other_solids_g;
+          return updatedRow;
+        }
       }
-    ];
-
-    setRows(newRows);
-
-    toast({
-      title: '✅ Sugar Preset Applied',
-      description: `70% Sucrose (${sucroseAmount.toFixed(0)}g), 10% Dextrose (${dextroseAmount.toFixed(0)}g), 20% Glucose (${glucoseAmount.toFixed(0)}g)`,
-      duration: 4000
+      return row;
     });
 
-    // Auto-recalculate
+    // Check for any NEW ingredients the AI might have added
+    const existingNames = new Set(rows.map(r => r.ingredient));
+    const newIngredientsRows: IngredientRow[] = [];
+
+    Object.entries(optimizedRecipe).forEach(([name, qty]) => {
+      const grams = Number(qty);
+      if (!existingNames.has(name) && grams > 0.1) {
+        let ing = availableIngredients.find(i => i.name === name);
+        if (!ing) {
+          // Robust fallback for standard AI ingredients if they don't exactly match DB names
+          ing = {
+            id: name.toLowerCase().replace(/\s+/g, '_'),
+            name: name,
+            category: 'other' as const,
+            water_pct: 0,
+            fat_pct: 0,
+            sugars_pct: 0,
+          };
+
+          if (name.includes('Sucrose') || name === 'Sugar') {
+            ing.sugars_pct = 100;
+          } else if (name.includes('Dextrose')) {
+            ing.sugars_pct = 91;
+            ing.water_pct = 9;
+          } else if (name.includes('Glucose Syrup')) {
+            ing.sugars_pct = 78;
+            ing.water_pct = 22;
+          }
+        }
+
+        if (ing) {
+          const newRow: IngredientRow = {
+            ingredientData: ing,
+            ingredient: ing.name,
+            quantity_g: grams,
+            sugars_g: ((ing.sugars_pct ?? 0) / 100) * grams,
+            fat_g: ((ing.fat_pct ?? 0) / 100) * grams,
+            msnf_g: ((ing.msnf_pct ?? 0) / 100) * grams,
+            other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * grams,
+            total_solids_g: 0
+          };
+          newRow.total_solids_g = newRow.sugars_g + newRow.fat_g + newRow.msnf_g + newRow.other_solids_g;
+          newIngredientsRows.push(newRow);
+        }
+      }
+    });
+
+    setRows([...updatedRows, ...newIngredientsRows]);
+    toast({
+      title: "Optimized Recipe Applied",
+      description: "Proposed changes loaded into your calculator.",
+    });
+    // Recalculate metrics immediately
     setTimeout(() => calculateMetrics(), 100);
   };
+
 
   // Version history feature removed in Phase 2 cleanup
 
@@ -1848,6 +1854,7 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
             setShowAddIngredientDialog(false);
           }
         }}
+        hideTrigger={true}
       />
 
 
@@ -1862,43 +1869,58 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
         }}
       />
 
-      {!isAuthenticated && (
-        <Alert>
-          <AlertDescription>
-            Please <a href="/auth" className="font-medium underline">sign in</a> to save recipes
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Silenced as per UI cleanup request */}
 
-      {/* Base Sets Quick Start */}
+      {/* Browse Templates Area replaced Quick Start with Base Sets */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Quick Start with Base Sets</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            Browse Recipe Templates
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col items-center justify-center py-4 bg-muted/20 rounded-lg border border-dashed">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => loadBaseSet('ice_cream')}
+              variant="default"
+              size="lg"
+              onClick={() => setShowTemplatesDialog(true)}
+              className="gap-2 px-8 shadow-md"
             >
-              Classic Ice Cream Base
+              <BookOpen className="h-5 w-5" />
+              Browse Recipe Templates
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => loadBaseSet('gelato')}
-            >
-              Gelato Base
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => loadBaseSet('sorbet')}
-            >
-              Fruit Sorbet Base
-            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Start with a professional Gelato, Ice Cream, or Sorbet foundation
+            </p>
           </div>
+
+          <Dialog open={showTemplatesDialog} onOpenChange={setShowTemplatesDialog}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border shadow-xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-2xl">
+                  <BookOpen className="h-6 w-6 text-primary" />
+                  Recipe Library Templates
+                </DialogTitle>
+                <DialogDescription>
+                  Select a template to instantly populate the calculator with a balanced foundation.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4">
+                <RecipeTemplates
+                  onSelectTemplate={(template) => {
+                    loadTemplate(template);
+                    setShowTemplatesDialog(false);
+                  }}
+                  onStartFromScratch={() => {
+                    handleStartFromScratch();
+                    setShowTemplatesDialog(false);
+                  }}
+                  availableIngredients={availableIngredients}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
 
@@ -1973,20 +1995,93 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
         </CardContent>
       </Card>
 
-      {/* Core Metrics Panel (Basic Mode) */}
-      {basicMode && metrics && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Core Mix Metrics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {renderCoreMetric('Fat', metrics.fat_pct, [6, 16])}
-              {renderCoreMetric('MSNF', metrics.msnf_pct, [7, 12])}
-              {renderCoreMetric('Sugar', metrics.totalSugars_pct, [14, 24])}
-              {renderCoreMetric('Total Solids', metrics.ts_pct, [30, 42])}
-              {renderCoreMetric('Water', 100 - metrics.ts_pct, [58, 70])}
+      {/* Consolidate All Science Metrics Above the Recipe */}
+      {metrics && (
+        <Card className="mb-6 border-primary/20 shadow-md">
+          <CardHeader className="bg-muted/10 py-3 border-b flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <Calculator className="h-4 w-4 text-primary" />
+              Calculated Science Metrics (v2.1)
+            </CardTitle>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Total Batch</p>
+                <p className="text-sm font-bold text-primary">{metrics.total_g.toFixed(1)}g</p>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            {/* Main Composition Grid (Gauges) */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {renderCoreMetric('Fat', metrics.fat_pct, 'fat')}
+              {renderCoreMetric('MSNF', metrics.msnf_pct, 'msnf')}
+              {renderCoreMetric('Sugars', metrics.totalSugars_pct, 'sugar')}
+              {renderCoreMetric('Total Solids', metrics.ts_pct, 'solids')}
+              <div className="border rounded-lg p-3 bg-muted/10">
+                <div className="text-xs text-muted-foreground mb-1">Water Content</div>
+                <div className="text-lg font-bold">{metrics.water_pct.toFixed(1)}%</div>
+              </div>
+            </div>
+
+            {/* Performance & Chemical Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 py-2 border-t border-b bg-muted/5 rounded-md px-2">
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">Protein</span>
+                <span className="text-sm font-semibold">{metrics.protein_pct.toFixed(1)}%</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">Lactose</span>
+                <span className="text-sm font-semibold">{metrics.lactose_pct.toFixed(1)}%</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">FPDT (Freezing)</span>
+                <Badge variant={
+                  metrics.fpdt >= getConstraints().fpdt.optimal[0] &&
+                    metrics.fpdt <= getConstraints().fpdt.optimal[1]
+                    ? 'default'
+                    : 'secondary'
+                } className="w-fit text-[10px] px-1 h-5">
+                  {metrics.fpdt.toFixed(2)}°C
+                </Badge>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">POD (Sweetness)</span>
+                <span className="text-sm font-semibold">{metrics.pod_index.toFixed(0)}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">SE (Sucrose Eq)</span>
+                <span className="text-sm font-semibold">{metrics.se_g.toFixed(1)}g</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">Overrun Est.</span>
+                <span className="text-sm font-semibold">~{metrics.overrunPrediction?.estimatedPct.toFixed(0)}%</span>
+              </div>
+            </div>
+
+            {/* Scientific Validation Alerts Embedded */}
+            {(scienceValidation && scienceValidation.length > 0) || (metrics.warnings && metrics.warnings.length > 0) ? (
+              <div className="space-y-2 mt-2">
+                {metrics.warnings.map((warning, i) => (
+                  <Alert key={i} className="py-2 h-auto border-dashed border-red-200 bg-red-50/30">
+                    <AlertCircle className="h-3 w-3 text-red-500" />
+                    <AlertDescription className="text-[11px] leading-tight text-red-700">
+                      {warning}
+                    </AlertDescription>
+                  </Alert>
+                ))}
+                {scienceValidation && scienceValidation.length > 0 && (
+                  <ScienceValidationPanel
+                    validations={scienceValidation}
+                    qualityScore={qualityScore}
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-green-600 bg-green-50/30 p-2 rounded-md border border-green-100/50">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-xs font-medium">Science Validated: All parameters within professional targets.</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -2005,10 +2100,19 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
                   <Input
                     id="batch-size"
                     type="number"
-                    value={targetBatchSize || totalBatch}
+                    value={targetBatchSizeStr !== null ? targetBatchSizeStr : (targetBatchSize || totalBatch || '')}
                     onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      if (val > 0) scaleRecipe(val);
+                      let strVal = e.target.value;
+                      // Strip leading zeros
+                      if (strVal.length > 1 && strVal.startsWith('0') && strVal[1] !== '.') {
+                        strVal = strVal.replace(/^0+/, '');
+                      }
+                      setTargetBatchSizeStr(strVal);
+                      const val = parseFloat(strVal);
+                      if (!isNaN(val) && val > 0) scaleRecipe(val);
+                    }}
+                    onBlur={() => {
+                      setTargetBatchSizeStr(null); // Reset to synced number on blur
                     }}
                     className="w-28"
                     placeholder="grams"
@@ -2020,8 +2124,17 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
                   <Input
                     id="servings"
                     type="number"
-                    value={servings}
-                    onChange={(e) => setServings(Math.max(1, parseInt(e.target.value) || 1))}
+                    value={servingsStr !== null ? servingsStr : (servings || '')}
+                    onChange={(e) => {
+                      let strVal = e.target.value;
+                      if (strVal.length > 1 && strVal.startsWith('0')) {
+                        strVal = strVal.replace(/^0+/, '');
+                      }
+                      setServingsStr(strVal);
+                      const val = parseInt(strVal);
+                      if (!isNaN(val)) setServings(val);
+                    }}
+                    onBlur={() => setServingsStr(null)}
                     className="w-20"
                     min="1"
                   />
@@ -2043,8 +2156,30 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Ingredients</CardTitle>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Recipe menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={onNewRecipe} className="gap-2 cursor-pointer">
+                <FilePlus className="h-4 w-4" />
+                <span>New Recipe</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onOpenLibrary} className="gap-2 cursor-pointer">
+                <FolderOpen className="h-4 w-4" />
+                <span>Load Recipe</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onOpenSave} className="gap-2 cursor-pointer">
+                <Save className="h-4 w-4" />
+                <span>{currentRecipeId ? "Update Recipe" : "Save Recipe"}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </CardHeader>
         <CardContent>
           {loadingIngredients && (
@@ -2056,15 +2191,7 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
           <div className="space-y-4">
             {/* Template and Export Actions - Always accessible */}
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTemplates(!showTemplates)}
-                className="gap-2"
-              >
-                <BookOpen className="h-4 w-4" />
-                {showTemplates ? 'Hide Templates' : 'Browse Templates'}
-              </Button>
+              {/* Toggle removed - moved to the top card */}
 
               {rows.length > 0 && (
                 <>
@@ -2110,795 +2237,916 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
             </div>
 
             {/* Quick Start Message - Only show when no ingredients */}
-            {rows.length === 0 && !showTemplates && (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-2">
-                  Start with a recipe template or build from scratch
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Click "Browse Templates" above or add ingredients manually below
-                </p>
-              </div>
-            )}
+            {/* Quick start message removed */}
 
             {/* Tip for choosing ingredients from database */}
-            {rows.length > 0 && (
-              <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
-                <AlertDescription className="text-sm flex items-center gap-2">
-                  <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span>
-                    <strong>Tip:</strong> Click ingredient cells to search and select from the database. Status badges show if each row is ready for calculations.
-                  </span>
-                </AlertDescription>
-              </Alert>
-            )}
+            {/* Silenced as per UI cleanup request */}
 
-            {showTemplates && (
-              <div className="mb-6">
-                <RecipeTemplates
-                  onSelectTemplate={loadTemplate}
-                  onStartFromScratch={handleStartFromScratch}
-                  availableIngredients={availableIngredients}
-                />
-              </div>
-            )}
+            {/* Redundant template area removed */}
 
-            {!showTemplates && (
-              <>
-                <div className="overflow-x-auto rounded-md border">
-                  <Table className="min-w-[1200px]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Ingredient</TableHead>
-                        <TableHead>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help">Qty (g)</span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>All quantities in grams (g)</p>
-                                <p className="text-xs text-muted-foreground mt-1">Type directly or use arrow keys</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableHead>
-                        <TableHead>Sugars (g)</TableHead>
-                        <TableHead>Fat (g)</TableHead>
-                        <TableHead>MSNF (g)</TableHead>
-                        <TableHead>Other (g)</TableHead>
-                        <TableHead>T.Solids (g)</TableHead>
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rows.map((row, index) => (
-                        <TableRow
-                          key={index}
-                          className={cn(
-                            "transition-colors duration-500",
-                            highlightedRow === index && "bg-green-100 dark:bg-green-900/20"
+            <div className="overflow-x-auto rounded-md border">
+              <Table className="min-w-[1200px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ingredient</TableHead>
+                    <TableHead>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">Qty (g)</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>All quantities in grams (g)</p>
+                            <p className="text-xs text-muted-foreground mt-1">Type directly or use arrow keys</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
+                    <TableHead>Sugars (g)</TableHead>
+                    <TableHead>Fat (g)</TableHead>
+                    <TableHead>MSNF (g)</TableHead>
+                    <TableHead>Other (g)</TableHead>
+                    <TableHead>T.Solids (g)</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row, index) => (
+                    <TableRow
+                      key={index}
+                      className={cn(
+                        "transition-colors duration-500",
+                        highlightedRow === index && "bg-green-100 dark:bg-green-900/20"
+                      )}
+                    >
+                      <TableCell className="min-w-[280px]">
+                        <div className="flex items-center gap-2">
+                          <Dialog open={searchOpen === index} onOpenChange={(open) => setSearchOpen(open ? index : null)}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-between font-normal",
+                                  !row.ingredient && "text-muted-foreground"
+                                )}
+                              >
+                                <span className="truncate">{row.ingredient || "Select ingredient..."}</span>
+                                <Search className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border shadow-2xl">
+                              <DialogHeader className="p-6 pb-0">
+                                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                                  <Search className="h-5 w-5 text-primary" />
+                                  Database Search
+                                </DialogTitle>
+                                <DialogDescription>
+                                  Select a professional ingredient from the Meetha Pitara library.
+                                </DialogDescription>
+                              </DialogHeader>
+
+                              <div className="flex-1 overflow-hidden p-6">
+                                <SmartIngredientSearch
+                                  ingredients={availableIngredients}
+                                  onSelect={(ing) => {
+                                    handleIngredientSelect(index, ing);
+                                    setSearchOpen(null);
+                                  }}
+                                  open={searchOpen === index}
+                                  onOpenChange={(open) => setSearchOpen(open ? index : null)}
+                                />
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Status Pill */}
+                          {row.ingredientData && row.quantity_g > 0 && (
+                            <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30 shrink-0">
+                              <Check className="h-3 w-3 mr-1" />
+                              In use
+                            </Badge>
                           )}
-                        >
-                          <TableCell className="min-w-[280px]">
-                            <div className="flex items-center gap-2">
-                              <Popover open={searchOpen === index} onOpenChange={(open) => setSearchOpen(open ? index : null)}>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => setSearchOpen(index)}
-                                    className="w-full justify-between font-normal"
-                                  >
-                                    <span className={row.ingredient ? "text-foreground" : "text-muted-foreground"}>
-                                      {row.ingredient || "Select ingredient..."}
-                                    </span>
-                                    <Search className="h-4 w-4 text-muted-foreground" />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full max-w-[400px] p-0 bg-popover border shadow-lg" align="start" sideOffset={8}>
-                                  {loadingIngredients ? (
-                                    <div className="p-4 text-center">
-                                      <p className="text-sm text-muted-foreground">Loading ingredients...</p>
-                                    </div>
-                                  ) : availableIngredients.length === 0 ? (
-                                    <div className="p-4 text-center space-y-3">
-                                      <p className="text-sm text-destructive">No ingredients found</p>
-                                      <AddIngredientDialog
-                                        onIngredientAdded={(ing) => {
-                                          handleIngredientSelect(index, ing);
-                                          setSearchOpen(null);
-                                        }}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col">
-                                      <SmartIngredientSearch
-                                        ingredients={availableIngredients}
-                                        onSelect={(ing) => handleIngredientSelect(index, ing)}
-                                        open={searchOpen === index}
-                                        onOpenChange={(open) => setSearchOpen(open ? index : null)}
-                                      />
-                                      <div className="border-t p-2 bg-muted/50">
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="w-full justify-start text-sm"
-                                          onClick={() => {
-                                            setSearchOpen(null);
-                                            setAddIngredientIndex(index);
-                                          }}
-                                        >
-                                          <Plus className="h-4 w-4 mr-2" />
-                                          Can't find it? Add new ingredient
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </PopoverContent>
-                              </Popover>
+                          {row.ingredientData && row.quantity_g === 0 && (
+                            <Badge variant="secondary" className="bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 shrink-0">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Add grams
+                            </Badge>
+                          )}
+                          {!row.ingredientData && row.ingredient && (
+                            <Badge variant="destructive" className="bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30 shrink-0">
+                              <X className="h-3 w-3 mr-1" />
+                              Not from DB
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[220px]">
+                        <div className="flex items-center gap-2">
+                          <QuantityInput
+                            value={row.quantity_g}
+                            onChange={(val) => updateRow(index, 'quantity_g', val)}
+                            step={FIXED_STEP_SIZE}
+                            rowIndex={index}
+                            className="text-lg font-bold"
+                          />
+                          <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                            ±{FIXED_STEP_SIZE}g
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <Input
+                          type="number"
+                          value={typeof row.sugars_g === 'number' && !isNaN(row.sugars_g) ? row.sugars_g.toFixed(2) : '0.00'}
+                          readOnly
+                          className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
+                          title="Auto-calculated from ingredient composition"
+                        />
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <Input
+                          type="number"
+                          value={typeof row.fat_g === 'number' && !isNaN(row.fat_g) ? row.fat_g.toFixed(2) : '0.00'}
+                          readOnly
+                          className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
+                          title="Auto-calculated from ingredient composition"
+                        />
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <Input
+                          type="number"
+                          value={typeof row.msnf_g === 'number' && !isNaN(row.msnf_g) ? row.msnf_g.toFixed(2) : '0.00'}
+                          readOnly
+                          className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
+                          title="Auto-calculated from ingredient composition"
+                        />
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <Input
+                          type="number"
+                          value={typeof row.other_solids_g === 'number' && !isNaN(row.other_solids_g) ? row.other_solids_g.toFixed(2) : '0.00'}
+                          readOnly
+                          className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
+                          title="Auto-calculated from ingredient composition"
+                        />
+                      </TableCell>
+                      <TableCell className="min-w-[140px]">
+                        <Input
+                          type="number"
+                          value={typeof row.total_solids_g === 'number' && !isNaN(row.total_solids_g) ? row.total_solids_g.toFixed(2) : '0.00'}
+                          readOnly
+                          className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
+                          title="Auto-calculated from ingredient composition"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => removeRow(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-                              {/* Status Pill */}
-                              {row.ingredientData && row.quantity_g > 0 && (
-                                <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30 shrink-0">
-                                  <Check className="h-3 w-3 mr-1" />
-                                  In use
-                                </Badge>
-                              )}
-                              {row.ingredientData && row.quantity_g === 0 && (
-                                <Badge variant="secondary" className="bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 shrink-0">
-                                  <AlertCircle className="h-3 w-3 mr-1" />
-                                  Add grams
-                                </Badge>
-                              )}
-                              {!row.ingredientData && row.ingredient && (
-                                <Badge variant="destructive" className="bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30 shrink-0">
-                                  <X className="h-3 w-3 mr-1" />
-                                  Not from DB
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="min-w-[220px]">
-                            <div className="flex items-center gap-2">
-                              <QuantityInput
-                                value={row.quantity_g}
-                                onChange={(val) => updateRow(index, 'quantity_g', val)}
-                                step={FIXED_STEP_SIZE}
-                                rowIndex={index}
-                                className="text-lg font-bold"
-                              />
-                              <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                                ±{FIXED_STEP_SIZE}g
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell className="min-w-[120px]">
-                            <Input
-                              type="number"
-                              value={typeof row.sugars_g === 'number' && !isNaN(row.sugars_g) ? row.sugars_g.toFixed(2) : '0.00'}
-                              readOnly
-                              className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
-                              title="Auto-calculated from ingredient composition"
-                            />
-                          </TableCell>
-                          <TableCell className="min-w-[120px]">
-                            <Input
-                              type="number"
-                              value={typeof row.fat_g === 'number' && !isNaN(row.fat_g) ? row.fat_g.toFixed(2) : '0.00'}
-                              readOnly
-                              className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
-                              title="Auto-calculated from ingredient composition"
-                            />
-                          </TableCell>
-                          <TableCell className="min-w-[120px]">
-                            <Input
-                              type="number"
-                              value={typeof row.msnf_g === 'number' && !isNaN(row.msnf_g) ? row.msnf_g.toFixed(2) : '0.00'}
-                              readOnly
-                              className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
-                              title="Auto-calculated from ingredient composition"
-                            />
-                          </TableCell>
-                          <TableCell className="min-w-[120px]">
-                            <Input
-                              type="number"
-                              value={typeof row.other_solids_g === 'number' && !isNaN(row.other_solids_g) ? row.other_solids_g.toFixed(2) : '0.00'}
-                              readOnly
-                              className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
-                              title="Auto-calculated from ingredient composition"
-                            />
-                          </TableCell>
-                          <TableCell className="min-w-[140px]">
-                            <Input
-                              type="number"
-                              value={typeof row.total_solids_g === 'number' && !isNaN(row.total_solids_g) ? row.total_solids_g.toFixed(2) : '0.00'}
-                              readOnly
-                              className="bg-muted/50 text-muted-foreground cursor-not-allowed font-mono text-sm"
-                              title="Auto-calculated from ingredient composition"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm" onClick={() => removeRow(index)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+            <div className="flex items-center justify-between gap-2 flex-wrap border-t pt-6 mt-4">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={addRow} variant="outline" size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Ingredient
+                </Button>
 
-                <div className="flex gap-2 flex-wrap">
-                  <Button onClick={addRow} variant="outline" size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Ingredient
-                  </Button>
-                  <Button onClick={calculateMetrics} variant="default" size="sm">
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Calculate
-                  </Button>
-
-                  {/* Advanced features - hidden in basic mode */}
-                  {!basicMode && (
-                    <>
-                      <Button
-                        onClick={balanceRecipe}
-                        disabled={isOptimizing || rows.length === 0}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        {isOptimizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-                        Balance Recipe
-                      </Button>
-                      <Button
-                        onClick={() => setShowOptimizerPanel(true)}
-                        disabled={rows.length === 0}
-                        variant="outline"
-                        size="sm"
-                        className="gap-1"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        ✨ Optimize
-                      </Button>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={applySugarPreset}
-                            disabled={rows.length === 0}
-                            variant="outline"
-                            size="sm"
-                          >
-                            70/10/20 Preset
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Apply optimal sugar blend: 70% Sucrose, 10% Dextrose, 20% Glucose Syrup</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </>
-                  )}
-
-                  <div className="flex items-center gap-3">
-                    <Button onClick={saveRecipe} disabled={isSaving || !isAuthenticated} size="sm">
-                      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                      Save
+                <AddIngredientDialog
+                  open={showAddIngredientDialog}
+                  onOpenChange={setShowAddIngredientDialog}
+                  trigger={
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add New Ingredient
                     </Button>
-                  </div>
+                  }
+                />
+                <Button onClick={calculateMetrics} variant="default" size="sm">
+                  <Calculator className="mr-2 h-4 w-4" />
+                  Calculate
+                </Button>
 
-                  <Button onClick={clearRecipe} variant="ghost" size="sm">
-                    Clear
-                  </Button>
-                  {rows.length === 0 && (
-                    <Button onClick={() => setShowTemplates(true)} variant="outline" size="sm">
-                      <BookOpen className="mr-2 h-4 w-4" />
-                      Browse Templates
+                {!basicMode && (
+                  <>
+                    <Button
+                      onClick={() => setShowOptimizerPanel(true)}
+                      disabled={isOptimizing || rows.length === 0}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      {isOptimizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+                      Balance Recipe
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDebugPanel(!showDebugPanel)}
-                  >
-                    <Bug className="mr-2 h-4 w-4" />
-                    {showDebugPanel ? 'Hide' : 'Show'} Debug
-                  </Button>
-                </div>
-              </>
-            )}
+                    <Button
+                      onClick={() => setShowOptimizerPanel(true)}
+                      disabled={rows.length === 0}
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      ✨ Optimize
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={saveRecipe}
+                  disabled={isSaving || !isAuthenticated}
+                  variant="default"
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {currentRecipeId ? "Update Recipe" : "Save Recipe"}
+                </Button>
+                <Button onClick={clearRecipe} variant="outline" size="sm" className="text-muted-foreground hover:text-destructive transition-colors">
+                  Clear
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDebugPanel(!showDebugPanel)}
+                  className="opacity-50 hover:opacity-100"
+                >
+                  <Bug className="mr-2 h-4 w-4" />
+                  {showDebugPanel ? 'Hide' : 'Show'} Debug
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Debug Panel */}
-      {showDebugPanel && balancingDiagnostics && (
-        <Card className="border-blue-500">
-          <CardHeader>
-            <CardTitle className="text-sm">🐛 Balancing Diagnostics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs">
-            <div>
-              <span className="font-semibold">Product Type:</span> {balancingDiagnostics.productType}
-            </div>
-            <div>
-              <span className="font-semibold">Mode:</span> {balancingDiagnostics.mode}
-            </div>
-            <div>
-              <span className="font-semibold">Ingredient Count:</span> {balancingDiagnostics.ingredientCount}
-            </div>
-
-            <Separator />
-
-            <div className="space-y-1">
-              <div className="font-semibold">Ingredient Availability:</div>
-              <div className={balancingDiagnostics.hasWater ? 'text-green-600' : 'text-red-600'}>
-                {balancingDiagnostics.hasWater ? '✓' : '✗'} Water/Diluent (Recipe or DB has 80%+ water)
+      {
+        showDebugPanel && balancingDiagnostics && (
+          <Card className="border-blue-500">
+            <CardHeader>
+              <CardTitle className="text-sm">🐛 Balancing Diagnostics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-xs">
+              <div>
+                <span className="font-semibold">Product Type:</span> {balancingDiagnostics.productType}
               </div>
-              <div className={balancingDiagnostics.hasFatSource ? 'text-green-600' : 'text-red-600'}>
-                {balancingDiagnostics.hasFatSource ? '✓' : '✗'} Fat Source (Recipe has 2%+ fat or DB has cream/butter)
+              <div>
+                <span className="font-semibold">Mode:</span> {balancingDiagnostics.mode}
               </div>
-              <div className={balancingDiagnostics.hasMSNFSource ? 'text-green-600' : 'text-red-600'}>
-                {balancingDiagnostics.hasMSNFSource ? '✓' : '✗'} MSNF Source (Recipe has 5%+ MSNF or DB has SMP)
+              <div>
+                <span className="font-semibold">Ingredient Count:</span> {balancingDiagnostics.ingredientCount}
               </div>
-            </div>
 
-            {balancingDiagnostics.missingIngredients.length > 0 && (
-              <>
-                <Separator />
-                <div className="space-y-1">
-                  <div className="font-semibold text-destructive">
-                    Missing from Database:
-                  </div>
-                  <ul className="list-disc list-inside">
-                    {balancingDiagnostics.missingIngredients.map((ing: string, i: number) => (
-                      <li key={i}>{ing}</li>
-                    ))}
-                  </ul>
+              <Separator />
+
+              <div className="space-y-1">
+                <div className="font-semibold">Ingredient Availability:</div>
+                <div className={balancingDiagnostics.hasWater ? 'text-green-600' : 'text-red-600'}>
+                  {balancingDiagnostics.hasWater ? '✓' : '✗'} Water/Diluent (Recipe or DB has 80%+ water)
                 </div>
-              </>
-            )}
-
-            {balancingDiagnostics.suggestions.length > 0 && (
-              <>
-                <Separator />
-                <div className="space-y-1">
-                  <div className="font-semibold">Suggestions:</div>
-                  <ul className="list-disc list-inside">
-                    {balancingDiagnostics.suggestions.map((sug: string, i: number) => (
-                      <li key={i}>{sug}</li>
-                    ))}
-                  </ul>
+                <div className={balancingDiagnostics.hasFatSource ? 'text-green-600' : 'text-red-600'}>
+                  {balancingDiagnostics.hasFatSource ? '✓' : '✗'} Fat Source (Recipe has 2%+ fat or DB has cream/butter)
                 </div>
-              </>
-            )}
-
-            <Separator />
-
-            <div className="space-y-1">
-              <div className="font-semibold">Targets:</div>
-              <div>Fat: {balancingDiagnostics.targets.fat_pct?.toFixed(1)}%</div>
-              <div>MSNF: {balancingDiagnostics.targets.msnf_pct?.toFixed(1)}%</div>
-              <div>Total Sugars: {balancingDiagnostics.targets.totalSugars_pct?.toFixed(1)}%</div>
-              <div>FPDT: {balancingDiagnostics.targets.fpdt?.toFixed(2)}°C</div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <div className="font-semibold">Database Health:</div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const health = checkDbHealth(availableIngredients);
-                  setBalancingDiagnostics({
-                    ...balancingDiagnostics,
-                    dbHealth: health
-                  });
-
-                  if (health.healthy) {
-                    toast({
-                      title: "✅ Database Healthy",
-                      description: "All essential ingredients available for balancing",
-                      duration: 3000
-                    });
-                  } else {
-                    toast({
-                      title: "⚠️ Database Missing Ingredients",
-                      description: (
-                        <div className="text-xs space-y-1">
-                          <div className="font-medium">Missing:</div>
-                          <ul className="list-disc list-inside">
-                            {health.missing.map((m, i) => <li key={i}>{m}</li>)}
-                          </ul>
-                        </div>
-                      ),
-                      variant: "destructive",
-                      duration: 6000
-                    });
-                  }
-                }}
-              >
-                Run DB Health Check
-              </Button>
-
-              {balancingDiagnostics.dbHealth && (
-                <div className="text-xs space-y-1 mt-2">
-                  <div className={balancingDiagnostics.dbHealth.hasWater ? 'text-green-600' : 'text-red-600'}>
-                    {balancingDiagnostics.dbHealth.hasWater ? '✓' : '✗'} Water (95%+ water)
-                  </div>
-                  <div className={balancingDiagnostics.dbHealth.hasCream35OrButter ? 'text-green-600' : 'text-red-600'}>
-                    {balancingDiagnostics.dbHealth.hasCream35OrButter ? '✓' : '✗'} Heavy Cream 35%+ or Butter
-                  </div>
-                  <div className={balancingDiagnostics.dbHealth.hasSMP ? 'text-green-600' : 'text-red-600'}>
-                    {balancingDiagnostics.dbHealth.hasSMP ? '✓' : '✗'} Skim Milk Powder (85%+ MSNF)
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* SE/AFP Audit Panel */}
-            {metrics && rows.length > 0 && (
-              <div className="space-y-2">
-                <div className="font-semibold">🔬 SE/AFP Audit (Sugar Analysis):</div>
-                <div className="text-xs space-y-1 bg-muted/30 p-2 rounded">
-                  {(() => {
-                    // Calculate per-sugar SE and AFP breakdown
-                    const sugarBreakdown: Array<{
-                      name: string;
-                      grams: number;
-                      spCoeff: number;
-                      pacCoeff: number;
-                      seContribution: number;
-                      afpContribution: number;
-                    }> = [];
-
-                    let totalSE = 0;
-                    let totalAFP = 0;
-
-                    rows.forEach(row => {
-                      if (!row.ingredientData) return;
-
-                      const ing = row.ingredientData;
-                      const sugars_g = (ing.sugars_pct / 100) * row.quantity_g;
-
-                      if (sugars_g > 0.1) {
-                        const spCoeff = ing.sp_coeff || 1.0;
-                        const pacCoeff = ing.pac_coeff || 1.9;
-
-                        // SE = sugars_g * sp_coeff (sucrose equivalents for sweetness)
-                        const seContribution = sugars_g * spCoeff;
-
-                        // AFP = sugars_g * pac_coeff (anti-freezing power)
-                        const afpContribution = sugars_g * pacCoeff;
-
-                        totalSE += seContribution;
-                        totalAFP += afpContribution;
-
-                        sugarBreakdown.push({
-                          name: ing.name,
-                          grams: sugars_g,
-                          spCoeff,
-                          pacCoeff,
-                          seContribution,
-                          afpContribution
-                        });
-                      }
-                    });
-
-                    return (
-                      <>
-                        <div className="font-semibold mb-1">Sugar Ingredients:</div>
-                        {sugarBreakdown.length === 0 && (
-                          <div className="text-muted-foreground">No sugar ingredients detected</div>
-                        )}
-                        {sugarBreakdown.map((sugar, i) => (
-                          <div key={i} className="ml-2 space-y-0.5 mb-2 pb-2 border-b border-border/50 last:border-0">
-                            <div className="font-medium text-primary">{sugar.name}</div>
-                            <div className="ml-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
-                              <div>Amount:</div>
-                              <div className="font-mono">{sugar.grams.toFixed(1)}g</div>
-
-                              <div>SP Coeff:</div>
-                              <div className="font-mono">{sugar.spCoeff.toFixed(2)}</div>
-
-                              <div>PAC Coeff:</div>
-                              <div className="font-mono">{sugar.pacCoeff.toFixed(2)}</div>
-
-                              <div className="text-blue-600">SE:</div>
-                              <div className="font-mono text-blue-600">
-                                {sugar.seContribution.toFixed(1)}g ({totalSE > 0 ? ((sugar.seContribution / totalSE) * 100).toFixed(0) : 0}%)
-                              </div>
-
-                              <div className="text-purple-600">AFP:</div>
-                              <div className="font-mono text-purple-600">
-                                {sugar.afpContribution.toFixed(1)} ({totalAFP > 0 ? ((sugar.afpContribution / totalAFP) * 100).toFixed(0) : 0}%)
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-
-                        <Separator className="my-2" />
-
-                        <div className="font-semibold bg-primary/10 p-2 rounded space-y-1">
-                          <div className="flex justify-between">
-                            <span>Total SE (Sucrose Equiv):</span>
-                            <span className="font-mono text-blue-600">{totalSE.toFixed(1)}g</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Total AFP (Anti-Freeze):</span>
-                            <span className="font-mono text-purple-600">{totalAFP.toFixed(1)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Calculated SE (v2.1):</span>
-                            <span className="font-mono text-green-600">{metrics.se_g.toFixed(1)}g</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>POD Index:</span>
-                            <span className="font-mono">{metrics.pod_index.toFixed(2)}</span>
-                          </div>
-                        </div>
-
-                        <div className="text-[10px] text-muted-foreground mt-2 space-y-0.5">
-                          <div>💡 SE = Sweetness Power × Sugar Weight</div>
-                          <div>💡 AFP = PAC Coefficient × Sugar Weight</div>
-                          <div>💡 POD = Protein/Other/Dairy balance index</div>
-                        </div>
-                      </>
-                    );
-                  })()}
+                <div className={balancingDiagnostics.hasMSNFSource ? 'text-green-600' : 'text-red-600'}>
+                  {balancingDiagnostics.hasMSNFSource ? '✓' : '✗'} MSNF Source (Recipe has 5%+ MSNF or DB has SMP)
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      {/* PHASE 1: DB Health Check - Before metrics */}
-      {rows.length > 0 && (
-        <div className="mt-4">
-          <DatabaseHealthIndicator
-            availableIngredients={availableIngredients}
-            compact={true}
-          />
-        </div>
-      )}
-
-      {metrics && (
-        <Card data-metrics-card>
-          <CardHeader>
-            <CardTitle>Calculated Metrics (Science v2.1)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Batch</p>
-                <p className="text-2xl font-bold">{metrics.total_g.toFixed(1)}g</p>
-              </div>
-              {renderCoreMetric('Total Sugars', metrics.totalSugars_pct, 'sugar')}
-              {renderCoreMetric('Fat', metrics.fat_pct, 'fat')}
-              {renderCoreMetric('MSNF', metrics.msnf_pct, 'msnf')}
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Protein</p>
-                <Badge variant="outline">{metrics.protein_pct.toFixed(1)}%</Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Lactose</p>
-                <Badge variant="outline">{metrics.lactose_pct.toFixed(1)}%</Badge>
-              </div>
-              <div>
-                {renderCoreMetric('Total Solids', metrics.ts_pct, 'solids')}
-                {metrics.overrunPrediction && (
-                  <div className="mt-1">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className="text-xs w-full justify-center">
-                            ~{metrics.overrunPrediction.estimatedPct.toFixed(0)}% overrun
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <div className="space-y-1 text-xs">
-                            <div className="font-semibold">{metrics.overrunPrediction.category}</div>
-                            <div>Expected: {metrics.overrunPrediction.range[0]}-{metrics.overrunPrediction.range[1]}%</div>
-                            <div className="text-muted-foreground">{metrics.overrunPrediction.notes[0]}</div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Water</p>
-                <Badge variant="outline">{metrics.water_pct.toFixed(1)}%</Badge>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-muted-foreground">FPDT (Freezing Point)</p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge variant={
-                        metrics.fpdt >= getConstraints().fpdt.optimal[0] &&
-                          metrics.fpdt <= getConstraints().fpdt.optimal[1]
-                          ? 'default'
-                          : metrics.fpdt >= getConstraints().fpdt.acceptable[0] &&
-                            metrics.fpdt <= getConstraints().fpdt.acceptable[1]
-                            ? 'secondary'
-                            : 'destructive'
-                      }>
-                        {metrics.fpdt.toFixed(2)}°C
-                      </Badge>
-                    </TooltipTrigger>
-                    {metrics.servingTemp && (
-                      <TooltipContent className="max-w-sm">
-                        <div className="space-y-2 text-xs">
-                          <div className="font-semibold">🌡️ Serving Temperature Guide</div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <div className="text-muted-foreground">Draw Temp:</div>
-                              <div className="font-medium">{metrics.servingTemp.drawTempC}°C</div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground">Serve Temp:</div>
-                              <div className="font-medium">{metrics.servingTemp.serveTempC}°C</div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Hardening:</div>
-                            <div>{metrics.servingTemp.hardeningTimeHours}h in blast freezer</div>
-                          </div>
-                          <div className="text-muted-foreground">{metrics.servingTemp.notes[0]}</div>
-                        </div>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">POD Index (Sweetness)</p>
-                <Badge variant="outline">{metrics.pod_index.toFixed(0)}</Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">SE (Sucrose Equiv)</p>
-                <Badge variant="outline">{metrics.se_g.toFixed(1)}g</Badge>
-              </div>
-            </div>
-
-            {metrics.warnings.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-sm font-semibold text-destructive">⚠️ Warnings & Recommendations:</p>
-                {metrics.warnings.map((warning, i) => (
-                  <Alert key={i} variant={warning.includes('⚠️') ? 'destructive' : 'default'}>
-                    <AlertDescription className="text-xs">{warning}</AlertDescription>
-                  </Alert>
-                ))}
-              </div>
-            )}
-
-            {metrics.warnings.length === 0 && (
-              <Alert>
-                <AlertDescription className="text-sm font-medium text-green-700">
-                  ✅ All parameters within target ranges! Recipe is balanced.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {scienceValidation && scienceValidation.length > 0 && (
-        <ScienceValidationPanel
-          validations={scienceValidation}
-          qualityScore={qualityScore}
-        />
-      )}
-
-      {/* PHASE 2: Debug Panel - Below metrics */}
-      {balancingDiagnostics && (
-        <BalancingDebugPanel
-          diagnostics={balancingDiagnostics}
-          lastStrategy={lastBalanceStrategy}
-        />
-      )}
-
-      {/* Advanced Tools Section - Hidden in Basic Mode */}
-      {rows.length > 0 && !basicMode && (
-        <Card className="mt-6">
-          <CardHeader className="gradient-card border-b border-border/50 relative">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Wrench className="h-5 w-5 text-primary" />
-                Advanced Tools
-                {showAdvancedToolsTutorial && (
-                  <Badge
-                    variant="default"
-                    className="ml-2 animate-pulse bg-primary/90 hover:bg-primary"
-                  >
-                    NEW
-                  </Badge>
-                )}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
-                      <HelpCircle className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="space-y-2">
-                      <h4 className="font-semibold">🤖 AI Engine Features</h4>
-                      <p className="text-sm text-muted-foreground">
-                        All AI Engine features are now here! Use these tools to:
-                      </p>
-                      <ul className="text-sm space-y-1 ml-4 list-disc">
-                        <li>Find flavor pairings</li>
-                        <li>Optimize sugar blends</li>
-                        <li>Analyze ingredients</li>
-                        <li>Tune temperature profiles</li>
-                        <li>Reverse engineer recipes</li>
-                        <li>AI-powered optimization</li>
-                      </ul>
+              {balancingDiagnostics.missingIngredients.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <div className="font-semibold text-destructive">
+                      Missing from Database:
                     </div>
-                  </PopoverContent>
-                </Popover>
-              </CardTitle>
-              {showAdvancedToolsTutorial && (
+                    <ul className="list-disc list-inside">
+                      {balancingDiagnostics.missingIngredients.map((ing: string, i: number) => (
+                        <li key={i}>{ing}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
+
+              {balancingDiagnostics.suggestions.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <div className="font-semibold">Suggestions:</div>
+                    <ul className="list-disc list-inside">
+                      {balancingDiagnostics.suggestions.map((sug: string, i: number) => (
+                        <li key={i}>{sug}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              <div className="space-y-1">
+                <div className="font-semibold">Targets:</div>
+                <div>Fat: {balancingDiagnostics.targets.fat_pct?.toFixed(1)}%</div>
+                <div>MSNF: {balancingDiagnostics.targets.msnf_pct?.toFixed(1)}%</div>
+                <div>Total Sugars: {balancingDiagnostics.targets.totalSugars_pct?.toFixed(1)}%</div>
+                <div>FPDT: {balancingDiagnostics.targets.fpdt?.toFixed(2)}°C</div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <div className="font-semibold">Database Health:</div>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => {
-                    setShowAdvancedToolsTutorial(false);
-                    localStorage.setItem('advanced-tools-tutorial-seen', 'true');
-                  }}
-                  className="text-xs"
-                >
-                  Got it ✓
-                </Button>
-              )}
-            </div>
-            {showAdvancedToolsTutorial && (
-              <Alert className="mt-3 bg-primary/5 border-primary/20">
-                <AlertDescription className="text-sm">
-                  <strong>🎉 AI Engine features are now here!</strong>
-                  <br />
-                  All the powerful tools from the AI Engine tab (Flavor Pairings, Temperature Tuning, Reverse Engineer, and more)
-                  have been consolidated into these Advanced Tools for easier access.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardHeader>
-          <CardContent className="p-6" id="advanced-tools">
-            {isMobile ? (
-              // Mobile: Accordion-style with grouping
-              <Accordion type="single" collapsible defaultValue="optimization" className="w-full">
-                <AccordionItem value="optimization">
-                  <AccordionTrigger className="text-base font-semibold">
-                    🎯 Optimization Tools
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <Tabs defaultValue="pairings" className="w-full">
-                      <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
-                        <TabsTrigger value="pairings" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                          🍫 Pairings
-                        </TabsTrigger>
-                        <TabsTrigger value="sugar-blend" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                          🍬 Sugar Blend
-                        </TabsTrigger>
-                        <TabsTrigger value="ai-optimize" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                          🤖 AI Optimize
-                          <Badge variant="secondary" className="ml-1 text-[10px]">Popular</Badge>
-                        </TabsTrigger>
-                      </TabsList>
+                    const health = checkDbHealth(availableIngredients);
+                    setBalancingDiagnostics({
+                      ...balancingDiagnostics,
+                      dbHealth: health
+                    });
 
-                      <TabsContent value="pairings" className="mt-4">
+                    if (health.healthy) {
+                      toast({
+                        title: "✅ Database Healthy",
+                        description: "All essential ingredients available for balancing",
+                        duration: 3000
+                      });
+                    } else {
+                      toast({
+                        title: "⚠️ Database Missing Ingredients",
+                        description: (
+                          <div className="text-xs space-y-1">
+                            <div className="font-medium">Missing:</div>
+                            <ul className="list-disc list-inside">
+                              {health.missing.map((m, i) => <li key={i}>{m}</li>)}
+                            </ul>
+                          </div>
+                        ),
+                        variant: "destructive",
+                        duration: 6000
+                      });
+                    }
+                  }}
+                >
+                  Run DB Health Check
+                </Button>
+
+                {balancingDiagnostics.dbHealth && (
+                  <div className="text-xs space-y-1 mt-2">
+                    <div className={balancingDiagnostics.dbHealth.hasWater ? 'text-green-600' : 'text-red-600'}>
+                      {balancingDiagnostics.dbHealth.hasWater ? '✓' : '✗'} Water (95%+ water)
+                    </div>
+                    <div className={balancingDiagnostics.dbHealth.hasCream35OrButter ? 'text-green-600' : 'text-red-600'}>
+                      {balancingDiagnostics.dbHealth.hasCream35OrButter ? '✓' : '✗'} Heavy Cream 35%+ or Butter
+                    </div>
+                    <div className={balancingDiagnostics.dbHealth.hasSMP ? 'text-green-600' : 'text-red-600'}>
+                      {balancingDiagnostics.dbHealth.hasSMP ? '✓' : '✗'} Skim Milk Powder (85%+ MSNF)
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* SE/AFP Audit Panel */}
+              {metrics && rows.length > 0 && (
+                <div className="space-y-2">
+                  <div className="font-semibold">🔬 SE/AFP Audit (Sugar Analysis):</div>
+                  <div className="text-xs space-y-1 bg-muted/30 p-2 rounded">
+                    {(() => {
+                      // Calculate per-sugar SE and AFP breakdown
+                      const sugarBreakdown: Array<{
+                        name: string;
+                        grams: number;
+                        spCoeff: number;
+                        pacCoeff: number;
+                        seContribution: number;
+                        afpContribution: number;
+                      }> = [];
+
+                      let totalSE = 0;
+                      let totalAFP = 0;
+
+                      rows.forEach(row => {
+                        if (!row.ingredientData) return;
+
+                        const ing = row.ingredientData;
+                        const sugars_g = (ing.sugars_pct / 100) * row.quantity_g;
+
+                        if (sugars_g > 0.1) {
+                          const spCoeff = ing.sp_coeff || 1.0;
+                          const pacCoeff = ing.pac_coeff || 1.9;
+
+                          // SE = sugars_g * sp_coeff (sucrose equivalents for sweetness)
+                          const seContribution = sugars_g * spCoeff;
+
+                          // AFP = sugars_g * pac_coeff (anti-freezing power)
+                          const afpContribution = sugars_g * pacCoeff;
+
+                          totalSE += seContribution;
+                          totalAFP += afpContribution;
+
+                          sugarBreakdown.push({
+                            name: ing.name,
+                            grams: sugars_g,
+                            spCoeff,
+                            pacCoeff,
+                            seContribution,
+                            afpContribution
+                          });
+                        }
+                      });
+
+                      return (
+                        <>
+                          <div className="font-semibold mb-1">Sugar Ingredients:</div>
+                          {sugarBreakdown.length === 0 && (
+                            <div className="text-muted-foreground">No sugar ingredients detected</div>
+                          )}
+                          {sugarBreakdown.map((sugar, i) => (
+                            <div key={i} className="ml-2 space-y-0.5 mb-2 pb-2 border-b border-border/50 last:border-0">
+                              <div className="font-medium text-primary">{sugar.name}</div>
+                              <div className="ml-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                                <div>Amount:</div>
+                                <div className="font-mono">{sugar.grams.toFixed(1)}g</div>
+
+                                <div>SP Coeff:</div>
+                                <div className="font-mono">{sugar.spCoeff.toFixed(2)}</div>
+
+                                <div>PAC Coeff:</div>
+                                <div className="font-mono">{sugar.pacCoeff.toFixed(2)}</div>
+
+                                <div className="text-blue-600">SE:</div>
+                                <div className="font-mono text-blue-600">
+                                  {sugar.seContribution.toFixed(1)}g ({totalSE > 0 ? ((sugar.seContribution / totalSE) * 100).toFixed(0) : 0}%)
+                                </div>
+
+                                <div className="text-purple-600">AFP:</div>
+                                <div className="font-mono text-purple-600">
+                                  {sugar.afpContribution.toFixed(1)} ({totalAFP > 0 ? ((sugar.afpContribution / totalAFP) * 100).toFixed(0) : 0}%)
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          <Separator className="my-2" />
+
+                          <div className="font-semibold bg-primary/10 p-2 rounded space-y-1">
+                            <div className="flex justify-between">
+                              <span>Total SE (Sucrose Equiv):</span>
+                              <span className="font-mono text-blue-600">{totalSE.toFixed(1)}g</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Total AFP (Anti-Freeze):</span>
+                              <span className="font-mono text-purple-600">{totalAFP.toFixed(1)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Calculated SE (v2.1):</span>
+                              <span className="font-mono text-green-600">{metrics.se_g.toFixed(1)}g</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>POD Index:</span>
+                              <span className="font-mono">{metrics.pod_index.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          <div className="text-[10px] text-muted-foreground mt-2 space-y-0.5">
+                            <div>💡 SE = Sweetness Power × Sugar Weight</div>
+                            <div>💡 AFP = PAC Coefficient × Sugar Weight</div>
+                            <div>💡 POD = Protein/Other/Dairy balance index</div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {/* PHASE 1: DB Health Check - Before metrics */}
+      {
+        rows.length > 0 && (
+          <div className="mt-4">
+            <DatabaseHealthIndicator
+              availableIngredients={availableIngredients}
+              compact={true}
+            />
+          </div>
+        )
+      }
+
+      {/* Redundant metrics cards and validation moved above recipe formulation */}
+
+      {/* PHASE 2: Debug Panel - Below metrics */}
+      {
+        balancingDiagnostics && (
+          <BalancingDebugPanel
+            diagnostics={balancingDiagnostics}
+            lastStrategy={lastBalanceStrategy}
+          />
+        )
+      }
+
+      {/* Advanced Tools Section - Hidden in Basic Mode */}
+      {
+        rows.length > 0 && !basicMode && (
+          <Card className="mt-6">
+            <CardHeader className="gradient-card border-b border-border/50 relative">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Wrench className="h-5 w-5 text-primary" />
+                  Advanced Tools
+                  {showAdvancedToolsTutorial && (
+                    <Badge
+                      variant="default"
+                      className="ml-2 animate-pulse bg-primary/90 hover:bg-primary"
+                    >
+                      NEW
+                    </Badge>
+                  )}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+                        <HelpCircle className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="space-y-2">
+                        <h4 className="font-semibold">🤖 AI Engine Features</h4>
+                        <p className="text-sm text-muted-foreground">
+                          All AI Engine features are now here! Use these tools to:
+                        </p>
+                        <ul className="text-sm space-y-1 ml-4 list-disc">
+                          <li>Find flavor pairings</li>
+                          <li>Optimize sugar blends</li>
+                          <li>Analyze ingredients</li>
+                          <li>Tune temperature profiles</li>
+                          <li>Reverse engineer recipes</li>
+                          <li>AI-powered optimization</li>
+                        </ul>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </CardTitle>
+                {showAdvancedToolsTutorial && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowAdvancedToolsTutorial(false);
+                      localStorage.setItem('advanced-tools-tutorial-seen', 'true');
+                    }}
+                    className="text-xs"
+                  >
+                    Got it ✓
+                  </Button>
+                )}
+              </div>
+              {showAdvancedToolsTutorial && (
+                <Alert className="mt-3 bg-primary/5 border-primary/20">
+                  <AlertDescription className="text-sm">
+                    <strong>🎉 AI Engine features are now here!</strong>
+                    <br />
+                    All the powerful tools from the AI Engine tab (Flavor Pairings, Temperature Tuning, Reverse Engineer, and more)
+                    have been consolidated into these Advanced Tools for easier access.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardHeader>
+            <CardContent className="p-6" id="advanced-tools">
+              {isMobile ? (
+                // Mobile: Accordion-style with grouping
+                <Accordion type="single" collapsible defaultValue="optimization" className="w-full">
+                  <AccordionItem value="optimization">
+                    <AccordionTrigger className="text-base font-semibold">
+                      🎯 Optimization Tools
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <Tabs defaultValue="pairings" className="w-full">
+                        <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
+                          <TabsTrigger value="pairings" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
+                            🍫 Pairings
+                          </TabsTrigger>
+                          <TabsTrigger value="sugar-blend" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
+                            🍬 Sugar Blend
+                          </TabsTrigger>
+                          <TabsTrigger value="ai-optimize" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
+                            🤖 AI Agent
+                            <Badge variant="secondary" className="ml-1 text-[10px]">NEW</Badge>
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="pairings" className="mt-4">
+                          <PairingsDrawer
+                            selectedIngredient={selectedIngredientForPairing}
+                            availableIngredients={availableIngredients}
+                            currentMetrics={metrics}
+                            onAddIngredient={(ing, percentage) => {
+                              const totalMass = rows.reduce((sum, r) => sum + r.quantity_g, 0) || 1000;
+                              const gramsToAdd = (percentage / 100) * totalMass;
+
+                              const existingRow = rows.find(r => r.ingredient === ing.name);
+                              if (existingRow) {
+                                setRows(rows.map(r =>
+                                  r.ingredient === ing.name
+                                    ? { ...r, quantity_g: r.quantity_g + gramsToAdd }
+                                    : r
+                                ));
+                              } else {
+                                const newRow: IngredientRow = {
+                                  ingredientData: ing,
+                                  ingredient: ing.name,
+                                  quantity_g: gramsToAdd,
+                                  sugars_g: ((ing.sugars_pct ?? 0) / 100) * gramsToAdd,
+                                  fat_g: ((ing.fat_pct ?? 0) / 100) * gramsToAdd,
+                                  msnf_g: ((ing.msnf_pct ?? 0) / 100) * gramsToAdd,
+                                  other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * gramsToAdd,
+                                  total_solids_g: 0
+                                };
+                                newRow.total_solids_g = newRow.sugars_g + newRow.fat_g + newRow.msnf_g + newRow.other_solids_g;
+                                setRows([...rows, newRow]);
+                              }
+
+                              toast({
+                                title: "Pairing Added",
+                                description: `${ing.name} added at ${percentage}% (${gramsToAdd.toFixed(0)}g)`
+                              });
+                            }}
+                          />
+                          <div className="mt-4">
+                            <Label className="text-sm font-semibold mb-2 block">Select ingredient to analyze pairings:</Label>
+                            <Select
+                              value={selectedIngredientForPairing?.id || ''}
+                              onValueChange={(id) => {
+                                const ing = availableIngredients.find(i => i.id === id);
+                                setSelectedIngredientForPairing(ing || null);
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Choose an ingredient..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {rows.map((row) => row.ingredientData && (
+                                  <SelectItem key={row.ingredientData.id} value={row.ingredientData.id}>
+                                    {row.ingredientData.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="sugar-blend" className="mt-4">
+                          {rows.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                              <p className="text-lg font-semibold mb-2">No Recipe Available</p>
+                              <p className="text-sm">Add ingredients to optimize sugar blend</p>
+                            </div>
+                          ) : rows.filter(r => r.ingredientData?.category === 'sugar').length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                              <p className="text-lg font-semibold mb-2">No Sugar Ingredients</p>
+                              <p className="text-sm">Add sucrose, dextrose, or glucose syrup to use this tool</p>
+                            </div>
+                          ) : (
+                            <SugarBlendOptimizer
+                              productType={productType as 'gelato' | 'ice-cream' | 'sorbet'}
+                              totalSugarAmount={rows
+                                .filter(r => r.ingredientData?.category === 'sugar')
+                                .reduce((sum, r) => sum + r.quantity_g, 0)}
+                              onOptimizedBlend={(blend) => {
+                                const nonSugarRows = rows.filter(r => r.ingredientData?.category !== 'sugar');
+                                const newSugarRows = Object.entries(blend).map(([name, grams]) => {
+                                  const ing = availableIngredients.find(i => i.name === name);
+                                  if (!ing) return null;
+                                  return {
+                                    ingredientData: ing,
+                                    ingredient: ing.name,
+                                    quantity_g: grams,
+                                    sugars_g: ((ing.sugars_pct ?? 0) / 100) * grams,
+                                    fat_g: ((ing.fat_pct ?? 0) / 100) * grams,
+                                    msnf_g: ((ing.msnf_pct ?? 0) / 100) * grams,
+                                    other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * grams,
+                                    total_solids_g: 0
+                                  } as IngredientRow;
+                                }).filter((r): r is IngredientRow => r !== null);
+
+                                newSugarRows.forEach(r => {
+                                  r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
+                                });
+
+                                setRows([...nonSugarRows, ...newSugarRows]);
+                                toast({
+                                  title: "Sugar Blend Applied",
+                                  description: "Recipe updated with optimized sugar blend"
+                                });
+                              }}
+                            />
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="ai-optimize" className="mt-4">
+                          <AiOptimizerDemo
+                            recipe={rows.filter(r => r.ingredient).map(r => ({
+                              ingredient: r.ingredient,
+                              quantity_g: r.quantity_g
+                            }))}
+                            idealRanges={{
+                              fat_pct: getBalancingTargets(resolveMode(productType)).fat_pct,
+                              msnf_pct: getBalancingTargets(resolveMode(productType)).msnf_pct,
+                              sugars_pct: getBalancingTargets(resolveMode(productType)).totalSugars_pct
+                            }}
+                            currentMetrics={metrics}
+                            onApplyRecipe={applyOptimizedRecipe}
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="analysis">
+                    <AccordionTrigger className="text-base font-semibold">
+                      🔬 Analysis Tools
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
+                          <TabsTrigger value="ai-insights" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
+                            🤖 AI Insights
+                          </TabsTrigger>
+                          <TabsTrigger value="analyzer" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
+                            🔬 Analyzer
+                          </TabsTrigger>
+                          <TabsTrigger value="temperature" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
+                            🌡️ Temperature
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="ai-insights" className="mt-4">
+                          <AIInsightsPanel
+                            recipe={rows.map(r => ({
+                              ingredientId: r.ingredientData?.id || r.ingredient,
+                              grams: r.quantity_g
+                            }))}
+                            metrics={metrics}
+                            productType={productType}
+                          />
+                        </TabsContent>
+
+                        <TabsContent value="analyzer" className="mt-4">
+                          {rows.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                              <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
+                              <p className="text-sm">Add ingredients to your recipe to analyze them</p>
+                            </div>
+                          ) : (
+                            <>
+                              {rows.filter(r => r.ingredient && !r.ingredientData).length > 0 && (
+                                <Alert className="mb-4 bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                                  <AlertDescription className="text-sm">
+                                    <strong>Note:</strong> Some rows are missing composition data. Choose ingredients from the list for best analysis.
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                              <IngredientAnalyzer currentRecipe={rows} />
+                            </>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="temperature" className="mt-4">
+                          {rows.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                              <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
+                              <p className="text-sm">Add ingredients to analyze temperature profiles</p>
+                            </div>
+                          ) : !metrics ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                              <p className="text-lg font-semibold mb-2">Calculate Recipe First</p>
+                              <p className="text-sm">Click 'Calculate' to compute metrics before using temperature tools</p>
+                            </div>
+                          ) : (
+                            <TemperaturePanel
+                              metrics={metrics}
+                              recipe={rows.map(r => ({
+                                ing: r.ingredientData || {
+                                  id: r.ingredient.toLowerCase().replace(/\s+/g, '_'),
+                                  name: r.ingredient,
+                                  category: 'other' as const,
+                                  water_pct: 0,
+                                  fat_pct: 0
+                                },
+                                grams: r.quantity_g
+                              }))}
+                              onApplyTuning={(tunedRecipe) => {
+                                const newRows = tunedRecipe
+                                  .filter(item => item.grams > 0)
+                                  .map(item => {
+                                    const ing = item.ing;
+                                    return {
+                                      ingredientData: ing,
+                                      ingredient: ing.name,
+                                      quantity_g: item.grams,
+                                      sugars_g: ((ing.sugars_pct ?? 0) / 100) * item.grams,
+                                      fat_g: ((ing.fat_pct ?? 0) / 100) * item.grams,
+                                      msnf_g: ((ing.msnf_pct ?? 0) / 100) * item.grams,
+                                      other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * item.grams,
+                                      total_solids_g: 0
+                                    } as IngredientRow;
+                                  });
+                                newRows.forEach(r => {
+                                  r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
+                                });
+                                setRows(newRows);
+                                toast({
+                                  title: "Temperature Tuning Applied",
+                                  description: "Recipe optimized for target temperature"
+                                });
+                              }}
+                            />
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="utilities">
+                    <AccordionTrigger className="text-base font-semibold">
+                      🛠️ Utilities
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <Tabs defaultValue="reverse" className="w-full">
+                        <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
+                          <TabsTrigger value="reverse" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
+                            🔄 Reverse Engineer
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="reverse" className="mt-4">
+                          <h3 className="text-lg font-semibold mb-4">AI Recipe Creator</h3>
+                          <AiRecipeCreator />
+                        </TabsContent>
+                      </Tabs>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              ) : (
+                // Desktop: Single tab row with all tools
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="w-full h-auto flex flex-wrap lg:grid lg:grid-cols-7 gap-1 lg:gap-2 p-2 bg-background/80 backdrop-blur-sm">
+                    <TabsTrigger value="ai-insights" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
+                      🤖 AI Insights
+                      <Badge variant="secondary" className="ml-1 text-[10px]">NEW</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="pairings" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
+                      🍫 Pairings
+                    </TabsTrigger>
+                    <TabsTrigger value="temperature" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
+                      🌡️ Temperature
+                    </TabsTrigger>
+                    <TabsTrigger value="reverse" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
+                      🔄 Reverse
+                    </TabsTrigger>
+                    <TabsTrigger value="analyzer" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
+                      🔬 Analyzer
+                    </TabsTrigger>
+                    <TabsTrigger value="sugar-blend" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
+                      🍬 Sugar Blend
+                    </TabsTrigger>
+                    <TabsTrigger value="ai-optimize" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
+                      🤖 AI Agent
+                      <Badge variant="secondary" className="ml-1 text-[10px]">NEW</Badge>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="ai-insights" className="mt-4">
+                    <AIInsightsPanel
+                      recipe={rows.map(r => ({
+                        ingredientId: r.ingredientData?.id || r.ingredient,
+                        grams: r.quantity_g
+                      }))}
+                      metrics={metrics}
+                      productType={productType}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="pairings" className="mt-4">
+                    {rows.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
+                        <p className="text-sm">Add ingredients to your recipe to analyze flavor pairings</p>
+                      </div>
+                    ) : (
+                      <>
                         <PairingsDrawer
                           selectedIngredient={selectedIngredientForPairing}
                           availableIngredients={availableIngredients}
@@ -2956,641 +3204,154 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
                             </SelectContent>
                           </Select>
                         </div>
-                      </TabsContent>
+                      </>
+                    )}
+                  </TabsContent>
 
-                      <TabsContent value="sugar-blend" className="mt-4">
-                        {rows.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <p className="text-lg font-semibold mb-2">No Recipe Available</p>
-                            <p className="text-sm">Add ingredients to optimize sugar blend</p>
-                          </div>
-                        ) : rows.filter(r => r.ingredientData?.category === 'sugar').length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <p className="text-lg font-semibold mb-2">No Sugar Ingredients</p>
-                            <p className="text-sm">Add sucrose, dextrose, or glucose syrup to use this tool</p>
-                          </div>
-                        ) : (
-                          <SugarBlendOptimizer
-                            productType={productType as 'gelato' | 'ice-cream' | 'sorbet'}
-                            totalSugarAmount={rows
-                              .filter(r => r.ingredientData?.category === 'sugar')
-                              .reduce((sum, r) => sum + r.quantity_g, 0)}
-                            onOptimizedBlend={(blend) => {
-                              const nonSugarRows = rows.filter(r => r.ingredientData?.category !== 'sugar');
-                              const newSugarRows = Object.entries(blend).map(([name, grams]) => {
-                                const ing = availableIngredients.find(i => i.name === name);
-                                if (!ing) return null;
-                                return {
-                                  ingredientData: ing,
-                                  ingredient: ing.name,
-                                  quantity_g: grams,
-                                  sugars_g: ((ing.sugars_pct ?? 0) / 100) * grams,
-                                  fat_g: ((ing.fat_pct ?? 0) / 100) * grams,
-                                  msnf_g: ((ing.msnf_pct ?? 0) / 100) * grams,
-                                  other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * grams,
-                                  total_solids_g: 0
-                                } as IngredientRow;
-                              }).filter((r): r is IngredientRow => r !== null);
-
-                              newSugarRows.forEach(r => {
-                                r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
-                              });
-
-                              setRows([...nonSugarRows, ...newSugarRows]);
-                              toast({
-                                title: "Sugar Blend Applied",
-                                description: "Recipe updated with optimized sugar blend"
-                              });
-                            }}
-                          />
-                        )}
-                      </TabsContent>
-
-                      <TabsContent value="ai-optimize" className="mt-4">
-                        {metrics && (
-                          <AIOptimization
-                            allTargetsMet={metrics.warnings.length === 0}
-                            suggestions={[]}
-                            isOptimizing={isOptimizing}
-                            currentRows={rows
-                              .filter(r => r.ingredientData)
-                              .map(r => ({
-                                ing: r.ingredientData!,
-                                grams: r.quantity_g,
-                                min: r.quantity_g * 0.5,
-                                max: r.quantity_g * 1.5
-                              }))}
-                            targets={(() => {
-                              const mode = resolveMode(productType);
-                              const constraints = PRODUCT_CONSTRAINTS[productKey(mode, rows)];
-                              return {
-                                fat_pct: (constraints.fat.optimal[0] + constraints.fat.optimal[1]) / 2,
-                                msnf_pct: (constraints.msnf.optimal[0] + constraints.msnf.optimal[1]) / 2,
-                                ts_pct: (constraints.totalSolids.optimal[0] + constraints.totalSolids.optimal[1]) / 2
-                              };
-                            })()}
-                            onApplyResult={(optimizedRows: Row[]) => {
-                              const newRows = optimizedRows.map(opt => {
-                                const ing = opt.ing;
-                                return {
-                                  ingredientData: ing,
-                                  ingredient: ing.name,
-                                  quantity_g: opt.grams,
-                                  sugars_g: ((ing.sugars_pct ?? 0) / 100) * opt.grams,
-                                  fat_g: ((ing.fat_pct ?? 0) / 100) * opt.grams,
-                                  msnf_g: ((ing.msnf_pct ?? 0) / 100) * opt.grams,
-                                  other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * opt.grams,
-                                  total_solids_g: 0
-                                } as IngredientRow;
-                              });
-
-                              newRows.forEach(r => {
-                                r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
-                              });
-
-                              setRows(newRows);
-                              toast({
-                                title: "AI Optimization Applied",
-                                description: "Recipe optimized using AI"
-                              });
-                            }}
-                            onAutoOptimize={async (algorithm: OptimizerConfig['algorithm']) => {
-                              setIsOptimizing(true);
-                              try {
-                                const rowsForOptimize: Row[] = rows
-                                  .filter(r => r.ingredientData)
-                                  .map(r => ({
-                                    ing: r.ingredientData!,
-                                    grams: r.quantity_g,
-                                    min: r.quantity_g * 0.5,
-                                    max: r.quantity_g * 1.5
-                                  }));
-
-                                const mode = resolveMode(productType);
-                                const constraints = PRODUCT_CONSTRAINTS[productKey(mode, rows)];
-
-                                const targets = {
-                                  fat_pct: (constraints.fat.optimal[0] + constraints.fat.optimal[1]) / 2,
-                                  msnf_pct: (constraints.msnf.optimal[0] + constraints.msnf.optimal[1]) / 2,
-                                  ts_pct: (constraints.totalSolids.optimal[0] + constraints.totalSolids.optimal[1]) / 2
-                                };
-
-                                const optimized = advancedOptimize(rowsForOptimize, targets, {
-                                  algorithm,
-                                  maxIterations: algorithm === 'hybrid' ? 150 : 200,
-                                  populationSize: 40
-                                });
-
-                                const newRows = optimized.map(opt => {
-                                  const ing = opt.ing;
-                                  return {
-                                    ingredientData: ing,
-                                    ingredient: ing.name,
-                                    quantity_g: opt.grams,
-                                    sugars_g: ((ing.sugars_pct ?? 0) / 100) * opt.grams,
-                                    fat_g: ((ing.fat_pct ?? 0) / 100) * opt.grams,
-                                    msnf_g: ((ing.msnf_pct ?? 0) / 100) * opt.grams,
-                                    other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * opt.grams,
-                                    total_solids_g: 0
-                                  } as IngredientRow;
-                                });
-
-                                newRows.forEach(r => {
-                                  r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
-                                });
-
-                                setRows(newRows);
-                                toast({
-                                  title: "AI Optimization Complete",
-                                  description: `Recipe optimized using ${algorithm} algorithm`
-                                });
-                              } catch (error) {
-                                console.error('AI optimization error:', error);
-                                toast({
-                                  title: "Optimization Failed",
-                                  description: error instanceof Error ? error.message : "Failed to optimize recipe",
-                                  variant: "destructive"
-                                });
-                              } finally {
-                                setIsOptimizing(false);
-                              }
-                            }}
-                          />
-                        )}
-                      </TabsContent>
-                    </Tabs>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="analysis">
-                  <AccordionTrigger className="text-base font-semibold">
-                    🔬 Analysis Tools
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                      <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
-                        <TabsTrigger value="ai-insights" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                          🤖 AI Insights
-                        </TabsTrigger>
-                        <TabsTrigger value="analyzer" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                          🔬 Analyzer
-                        </TabsTrigger>
-                        <TabsTrigger value="temperature" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                          🌡️ Temperature
-                        </TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="ai-insights" className="mt-4">
-                        <AIInsightsPanel
-                          recipe={rows.map(r => ({
-                            ingredientId: r.ingredientData?.id || r.ingredient,
-                            grams: r.quantity_g
-                          }))}
-                          metrics={metrics}
-                          productType={productType}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="analyzer" className="mt-4">
-                        {rows.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
-                            <p className="text-sm">Add ingredients to your recipe to analyze them</p>
-                          </div>
-                        ) : (
-                          <>
-                            {rows.filter(r => r.ingredient && !r.ingredientData).length > 0 && (
-                              <Alert className="mb-4 bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-                                <AlertDescription className="text-sm">
-                                  <strong>Note:</strong> Some rows are missing composition data. Choose ingredients from the list for best analysis.
-                                </AlertDescription>
-                              </Alert>
-                            )}
-                            <IngredientAnalyzer currentRecipe={rows} />
-                          </>
-                        )}
-                      </TabsContent>
-
-                      <TabsContent value="temperature" className="mt-4">
-                        {rows.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
-                            <p className="text-sm">Add ingredients to analyze temperature profiles</p>
-                          </div>
-                        ) : !metrics ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <p className="text-lg font-semibold mb-2">Calculate Recipe First</p>
-                            <p className="text-sm">Click 'Calculate' to compute metrics before using temperature tools</p>
-                          </div>
-                        ) : (
-                          <TemperaturePanel
-                            metrics={metrics}
-                            recipe={rows.map(r => ({
-                              ing: r.ingredientData || {
-                                id: r.ingredient.toLowerCase().replace(/\s+/g, '_'),
-                                name: r.ingredient,
-                                category: 'other' as const,
-                                water_pct: 0,
-                                fat_pct: 0
-                              },
-                              grams: r.quantity_g
-                            }))}
-                            onApplyTuning={(tunedRecipe) => {
-                              const newRows = tunedRecipe
-                                .filter(item => item.grams > 0)
-                                .map(item => {
-                                  const ing = item.ing;
-                                  return {
-                                    ingredientData: ing,
-                                    ingredient: ing.name,
-                                    quantity_g: item.grams,
-                                    sugars_g: ((ing.sugars_pct ?? 0) / 100) * item.grams,
-                                    fat_g: ((ing.fat_pct ?? 0) / 100) * item.grams,
-                                    msnf_g: ((ing.msnf_pct ?? 0) / 100) * item.grams,
-                                    other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * item.grams,
-                                    total_solids_g: 0
-                                  } as IngredientRow;
-                                });
-                              newRows.forEach(r => {
-                                r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
-                              });
-                              setRows(newRows);
-                              toast({
-                                title: "Temperature Tuning Applied",
-                                description: "Recipe optimized for target temperature"
-                              });
-                            }}
-                          />
-                        )}
-                      </TabsContent>
-                    </Tabs>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="utilities">
-                  <AccordionTrigger className="text-base font-semibold">
-                    🛠️ Utilities
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <Tabs defaultValue="reverse" className="w-full">
-                      <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
-                        <TabsTrigger value="reverse" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                          🔄 Reverse Engineer
-                        </TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="reverse" className="mt-4">
-                        <ReverseEngineer />
-                      </TabsContent>
-                    </Tabs>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            ) : (
-              // Desktop: Single tab row with all tools
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="w-full h-auto flex flex-wrap lg:grid lg:grid-cols-7 gap-1 lg:gap-2 p-2 bg-background/80 backdrop-blur-sm">
-                  <TabsTrigger value="ai-insights" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                    🤖 AI Insights
-                    <Badge variant="secondary" className="ml-1 text-[10px]">NEW</Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="pairings" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                    🍫 Pairings
-                  </TabsTrigger>
-                  <TabsTrigger value="temperature" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                    🌡️ Temperature
-                  </TabsTrigger>
-                  <TabsTrigger value="reverse" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                    🔄 Reverse
-                  </TabsTrigger>
-                  <TabsTrigger value="analyzer" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                    🔬 Analyzer
-                  </TabsTrigger>
-                  <TabsTrigger value="sugar-blend" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                    🍬 Sugar Blend
-                  </TabsTrigger>
-                  <TabsTrigger value="ai-optimize" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                    🤖 AI Optimize
-                    <Badge variant="secondary" className="ml-1 text-[10px]">Popular</Badge>
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="ai-insights" className="mt-4">
-                  <AIInsightsPanel
-                    recipe={rows.map(r => ({
-                      ingredientId: r.ingredientData?.id || r.ingredient,
-                      grams: r.quantity_g
-                    }))}
-                    metrics={metrics}
-                    productType={productType}
-                  />
-                </TabsContent>
-
-                <TabsContent value="pairings" className="mt-4">
-                  {rows.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
-                      <p className="text-sm">Add ingredients to your recipe to analyze flavor pairings</p>
-                    </div>
-                  ) : (
-                    <>
-                      <PairingsDrawer
-                        selectedIngredient={selectedIngredientForPairing}
-                        availableIngredients={availableIngredients}
-                        currentMetrics={metrics}
-                        onAddIngredient={(ing, percentage) => {
-                          const totalMass = rows.reduce((sum, r) => sum + r.quantity_g, 0) || 1000;
-                          const gramsToAdd = (percentage / 100) * totalMass;
-
-                          const existingRow = rows.find(r => r.ingredient === ing.name);
-                          if (existingRow) {
-                            setRows(rows.map(r =>
-                              r.ingredient === ing.name
-                                ? { ...r, quantity_g: r.quantity_g + gramsToAdd }
-                                : r
-                            ));
-                          } else {
-                            const newRow: IngredientRow = {
-                              ingredientData: ing,
-                              ingredient: ing.name,
-                              quantity_g: gramsToAdd,
-                              sugars_g: ((ing.sugars_pct ?? 0) / 100) * gramsToAdd,
-                              fat_g: ((ing.fat_pct ?? 0) / 100) * gramsToAdd,
-                              msnf_g: ((ing.msnf_pct ?? 0) / 100) * gramsToAdd,
-                              other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * gramsToAdd,
-                              total_solids_g: 0
-                            };
-                            newRow.total_solids_g = newRow.sugars_g + newRow.fat_g + newRow.msnf_g + newRow.other_solids_g;
-                            setRows([...rows, newRow]);
-                          }
-
-                          toast({
-                            title: "Pairing Added",
-                            description: `${ing.name} added at ${percentage}% (${gramsToAdd.toFixed(0)}g)`
-                          });
-                        }}
-                      />
-                      <div className="mt-4">
-                        <Label className="text-sm font-semibold mb-2 block">Select ingredient to analyze pairings:</Label>
-                        <Select
-                          value={selectedIngredientForPairing?.id || ''}
-                          onValueChange={(id) => {
-                            const ing = availableIngredients.find(i => i.id === id);
-                            setSelectedIngredientForPairing(ing || null);
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Choose an ingredient..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {rows.map((row) => row.ingredientData && (
-                              <SelectItem key={row.ingredientData.id} value={row.ingredientData.id}>
-                                {row.ingredientData.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                  <TabsContent value="temperature" className="mt-4">
+                    {!metrics ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <p className="text-lg font-semibold mb-2">Calculate Recipe First</p>
+                        <p className="text-sm">Click 'Calculate' to compute metrics before using temperature tools</p>
                       </div>
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="temperature" className="mt-4">
-                  {!metrics ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p className="text-lg font-semibold mb-2">Calculate Recipe First</p>
-                      <p className="text-sm">Click 'Calculate' to compute metrics before using temperature tools</p>
-                    </div>
-                  ) : (
-                    <TemperaturePanel
-                      metrics={metrics}
-                      recipe={rows.map(r => ({
-                        ing: r.ingredientData || {
-                          id: r.ingredient.toLowerCase().replace(/\s+/g, '_'),
-                          name: r.ingredient,
-                          category: 'other' as const,
-                          water_pct: 0,
-                          fat_pct: 0
-                        },
-                        grams: r.quantity_g
-                      }))}
-                      onApplyTuning={(tunedRecipe) => {
-                        const newRows = tunedRecipe
-                          .filter(item => item.grams > 0)
-                          .map(item => {
-                            const ing = item.ing;
-                            return {
-                              ingredientData: ing,
-                              ingredient: ing.name,
-                              quantity_g: item.grams,
-                              sugars_g: ((ing.sugars_pct ?? 0) / 100) * item.grams,
-                              fat_g: ((ing.fat_pct ?? 0) / 100) * item.grams,
-                              msnf_g: ((ing.msnf_pct ?? 0) / 100) * item.grams,
-                              other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * item.grams,
-                              total_solids_g: 0
-                            } as IngredientRow;
-                          });
-                        newRows.forEach(r => {
-                          r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
-                        });
-                        setRows(newRows);
-                        toast({
-                          title: "Temperature Tuning Applied",
-                          description: "Recipe optimized for target temperature"
-                        });
-                      }}
-                    />
-                  )}
-                </TabsContent>
-
-                <TabsContent value="reverse" className="mt-4">
-                  <ReverseEngineer />
-                </TabsContent>
-
-                <TabsContent value="analyzer" className="mt-4">
-                  {rows.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
-                      <p className="text-sm">Add ingredients to your recipe to analyze them</p>
-                    </div>
-                  ) : (
-                    <IngredientAnalyzer currentRecipe={rows} />
-                  )}
-                </TabsContent>
-
-                <TabsContent value="sugar-blend" className="mt-4">
-                  {rows.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p className="text-lg font-semibold mb-2">No Recipe Available</p>
-                      <p className="text-sm">Add ingredients to optimize sugar blends</p>
-                    </div>
-                  ) : (
-                    <SugarBlendOptimizer
-                      productType={productType as 'gelato' | 'ice-cream' | 'sorbet'}
-                      totalSugarAmount={rows
-                        .filter(r => r.ingredientData?.category === 'sugar')
-                        .reduce((sum, r) => sum + r.quantity_g, 0)}
-                      onOptimizedBlend={(blend) => {
-                        // Remove existing sugar ingredients
-                        const nonSugarRows = rows.filter(r => r.ingredientData?.category !== 'sugar');
-
-                        // Add new sugar blend
-                        const blendRows = Object.entries(blend).map(([name, grams]) => {
-                          const ing = availableIngredients.find(i => i.name === name);
-                          if (!ing) return null;
-
-                          const newRow: IngredientRow = {
-                            ingredientData: ing,
-                            ingredient: ing.name,
-                            quantity_g: grams,
-                            sugars_g: ((ing.sugars_pct ?? 0) / 100) * grams,
-                            fat_g: ((ing.fat_pct ?? 0) / 100) * grams,
-                            msnf_g: ((ing.msnf_pct ?? 0) / 100) * grams,
-                            other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * grams,
-                            total_solids_g: 0
-                          };
-                          newRow.total_solids_g = newRow.sugars_g + newRow.fat_g + newRow.msnf_g + newRow.other_solids_g;
-                          return newRow;
-                        }).filter(Boolean) as IngredientRow[];
-
-                        setRows([...nonSugarRows, ...blendRows]);
-                        toast({
-                          title: "Sugar Blend Applied",
-                          description: "Recipe updated with optimized sugar blend"
-                        });
-                      }}
-                    />
-                  )}
-                </TabsContent>
-
-                <TabsContent value="ai-optimize" className="mt-4">
-                  {metrics && (
-                    <AIOptimization
-                      allTargetsMet={metrics.warnings.length === 0}
-                      suggestions={[]}
-                      isOptimizing={isOptimizing}
-                      currentRows={rows
-                        .filter(r => r.ingredientData)
-                        .map(r => ({
-                          ing: r.ingredientData!,
-                          grams: r.quantity_g,
-                          min: r.quantity_g * 0.5,
-                          max: r.quantity_g * 1.5
+                    ) : (
+                      <TemperaturePanel
+                        metrics={metrics}
+                        recipe={rows.map(r => ({
+                          ing: r.ingredientData || {
+                            id: r.ingredient.toLowerCase().replace(/\s+/g, '_'),
+                            name: r.ingredient,
+                            category: 'other' as const,
+                            water_pct: 0,
+                            fat_pct: 0
+                          },
+                          grams: r.quantity_g
                         }))}
-                      targets={(() => {
-                        const mode = resolveMode(productType);
-                        const constraints = PRODUCT_CONSTRAINTS[productKey(mode, rows)];
-                        return {
-                          fat_pct: (constraints.fat.optimal[0] + constraints.fat.optimal[1]) / 2,
-                          msnf_pct: (constraints.msnf.optimal[0] + constraints.msnf.optimal[1]) / 2,
-                          ts_pct: (constraints.totalSolids.optimal[0] + constraints.totalSolids.optimal[1]) / 2
-                        };
-                      })()}
-                      onApplyResult={(optimizedRows: Row[]) => {
-                        // Convert optimized Row[] back to IngredientRow format
-                        const newRows = optimizedRows.map(opt => {
-                          const ing = opt.ing;
-                          return {
-                            ingredientData: ing,
-                            ingredient: ing.name,
-                            quantity_g: opt.grams,
-                            sugars_g: ((ing.sugars_pct ?? 0) / 100) * opt.grams,
-                            fat_g: ((ing.fat_pct ?? 0) / 100) * opt.grams,
-                            msnf_g: ((ing.msnf_pct ?? 0) / 100) * opt.grams,
-                            other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * opt.grams,
-                            total_solids_g: 0
-                          } as IngredientRow;
-                        });
-
-                        newRows.forEach(r => {
-                          r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
-                        });
-
-                        setRows(newRows);
-                      }}
-                      onAutoOptimize={async (algorithm: OptimizerConfig['algorithm']) => {
-                        setIsOptimizing(true);
-                        try {
-                          // Convert to Row format for optimization
-                          const rowsForOptimize: Row[] = rows
-                            .filter(r => r.ingredientData)
-                            .map(r => ({
-                              ing: r.ingredientData!,
-                              grams: r.quantity_g,
-                              min: r.quantity_g * 0.5,
-                              max: r.quantity_g * 1.5
-                            }));
-
-                          const mode = resolveMode(productType);
-                          const constraints = PRODUCT_CONSTRAINTS[productKey(mode, rows)];
-
-                          const targets = {
-                            fat_pct: (constraints.fat.optimal[0] + constraints.fat.optimal[1]) / 2,
-                            msnf_pct: (constraints.msnf.optimal[0] + constraints.msnf.optimal[1]) / 2,
-                            ts_pct: (constraints.totalSolids.optimal[0] + constraints.totalSolids.optimal[1]) / 2
-                          };
-
-                          const optimized = advancedOptimize(rowsForOptimize, targets, {
-                            algorithm,
-                            maxIterations: algorithm === 'hybrid' ? 150 : 200,
-                            populationSize: 40
-                          });
-
-                          // Convert back to IngredientRow format
-                          const newRows = optimized.map(opt => {
-                            const ing = opt.ing;
-                            return {
-                              ingredientData: ing,
-                              ingredient: ing.name,
-                              quantity_g: opt.grams,
-                              sugars_g: ((ing.sugars_pct ?? 0) / 100) * opt.grams,
-                              fat_g: ((ing.fat_pct ?? 0) / 100) * opt.grams,
-                              msnf_g: ((ing.msnf_pct ?? 0) / 100) * opt.grams,
-                              other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * opt.grams,
-                              total_solids_g: 0
-                            } as IngredientRow;
-                          });
-
+                        onApplyTuning={(tunedRecipe) => {
+                          const newRows = tunedRecipe
+                            .filter(item => item.grams > 0)
+                            .map(item => {
+                              const ing = item.ing;
+                              return {
+                                ingredientData: ing,
+                                ingredient: ing.name,
+                                quantity_g: item.grams,
+                                sugars_g: ((ing.sugars_pct ?? 0) / 100) * item.grams,
+                                fat_g: ((ing.fat_pct ?? 0) / 100) * item.grams,
+                                msnf_g: ((ing.msnf_pct ?? 0) / 100) * item.grams,
+                                other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * item.grams,
+                                total_solids_g: 0
+                              } as IngredientRow;
+                            });
                           newRows.forEach(r => {
                             r.total_solids_g = r.sugars_g + r.fat_g + r.msnf_g + r.other_solids_g;
                           });
-
                           setRows(newRows);
                           toast({
-                            title: "AI Optimization Complete",
-                            description: `Recipe optimized using ${algorithm} algorithm`
+                            title: "Temperature Tuning Applied",
+                            description: "Recipe optimized for target temperature"
                           });
-                        } catch (error) {
-                          console.error('AI optimization error:', error);
+                        }}
+                      />
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="reverse" className="mt-4">
+                    <h3 className="text-lg font-semibold mb-4 text-center">AI Generation: Create from Scratch</h3>
+                    <AiRecipeCreator />
+                  </TabsContent>
+
+                  <TabsContent value="analyzer" className="mt-4">
+                    {rows.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
+                        <p className="text-sm">Add ingredients to your recipe to analyze them</p>
+                      </div>
+                    ) : (
+                      <IngredientAnalyzer currentRecipe={rows} />
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="sugar-blend" className="mt-4">
+                    {rows.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <p className="text-lg font-semibold mb-2">No Recipe Available</p>
+                        <p className="text-sm">Add ingredients to optimize sugar blends</p>
+                      </div>
+                    ) : (
+                      <SugarBlendOptimizer
+                        productType={productType as 'gelato' | 'ice-cream' | 'sorbet'}
+                        totalSugarAmount={rows
+                          .filter(r => r.ingredientData?.category === 'sugar')
+                          .reduce((sum, r) => sum + r.quantity_g, 0)}
+                        onOptimizedBlend={(blend) => {
+                          // Remove existing sugar ingredients
+                          const nonSugarRows = rows.filter(r => r.ingredientData?.category !== 'sugar');
+
+                          // Add new sugar blend
+                          const blendRows = Object.entries(blend).map(([name, grams]) => {
+                            const ing = availableIngredients.find(i => i.name === name);
+                            if (!ing) return null;
+
+                            const newRow: IngredientRow = {
+                              ingredientData: ing,
+                              ingredient: ing.name,
+                              quantity_g: grams,
+                              sugars_g: ((ing.sugars_pct ?? 0) / 100) * grams,
+                              fat_g: ((ing.fat_pct ?? 0) / 100) * grams,
+                              msnf_g: ((ing.msnf_pct ?? 0) / 100) * grams,
+                              other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * grams,
+                              total_solids_g: 0
+                            };
+                            newRow.total_solids_g = newRow.sugars_g + newRow.fat_g + newRow.msnf_g + newRow.other_solids_g;
+                            return newRow;
+                          }).filter(Boolean) as IngredientRow[];
+
+                          setRows([...nonSugarRows, ...blendRows]);
                           toast({
-                            title: "Optimization Failed",
-                            description: error instanceof Error ? error.message : "Failed to optimize recipe",
-                            variant: "destructive"
+                            title: "Sugar Blend Applied",
+                            description: "Recipe updated with optimized sugar blend"
                           });
-                        } finally {
-                          setIsOptimizing(false);
-                        }
+                        }}
+                      />
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="ai-optimize" className="mt-4">
+                    <AiOptimizerDemo
+                      recipe={rows.filter(r => r.ingredient).map(r => ({
+                        ingredient: r.ingredient,
+                        quantity_g: r.quantity_g
+                      }))}
+                      idealRanges={{
+                        fat_pct: getBalancingTargets(resolveMode(productType)).fat_pct,
+                        msnf_pct: getBalancingTargets(resolveMode(productType)).msnf_pct,
+                        sugars_pct: getBalancingTargets(resolveMode(productType)).totalSugars_pct
                       }}
+                      currentMetrics={metrics}
+                      onApplyRecipe={applyOptimizedRecipe}
                     />
-                  )}
-                </TabsContent>
-              </Tabs>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  </TabsContent>
+                </Tabs>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
       {/* Mobile Quick Access Button */}
-      {isMobile && rows.length > 0 && (
-        <Button
-          className="fixed bottom-4 right-4 rounded-full shadow-lg z-50 h-14 w-14"
-          size="icon"
-          onClick={() => {
-            document.getElementById('advanced-tools')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        >
-          <Wrench className="h-5 w-5" />
-        </Button>
-      )}
+      {
+        isMobile && rows.length > 0 && (
+          <Button
+            className="fixed bottom-4 right-4 rounded-full shadow-lg z-50 h-14 w-14"
+            size="icon"
+            onClick={() => {
+              document.getElementById('advanced-tools')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            <Wrench className="h-5 w-5" />
+          </Button>
+        )
+      }
 
       {/* PHASE 2: Balancing Suggestions Dialog */}
       <Dialog open={showSuggestionsDialog} onOpenChange={setShowSuggestionsDialog}>
@@ -3609,7 +3370,7 @@ export default function RecipeCalculatorV2({ onRecipeChange, externalRecipe, ope
             {balancingSuggestions.length > 0 ? (
               <>
                 <div className="space-y-2">
-                  {balancingSuggestions.map((suggestion, index) => (
+                  {balancingSuggestions.map((suggestion) => (
                     <Card key={suggestion.id} className="p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">

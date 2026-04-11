@@ -20,6 +20,7 @@ export interface ProductConstraint {
   fpdt?: ConstraintRange;
   stabilizer?: ConstraintRange;
   fruitPct?: ConstraintRange;
+  otherSolids?: ConstraintRange;
 }
 
 /**
@@ -39,33 +40,36 @@ export const PRODUCT_CONSTRAINTS: Record<string, ProductConstraint> = {
 
   // Gelato White Base: Low-fat, versatile base for flavoring
   gelato_white: {
-    fat: { optimal: [4, 7], acceptable: [3, 9] },
-    msnf: { optimal: [9, 11], acceptable: [8, 12] },
-    totalSugars: { optimal: [17, 20], acceptable: [15, 22] },
-    totalSolids: { optimal: [34, 38], acceptable: [32, 40] },
+    fat: { optimal: [3, 7], acceptable: [3, 8] },
+    msnf: { optimal: [7, 12], acceptable: [7, 13] },
+    totalSugars: { optimal: [16, 19], acceptable: [15, 20] },
+    totalSolids: { optimal: [32, 37], acceptable: [30, 39] },
     fpdt: { optimal: [2.5, 3.5], acceptable: [2.2, 3.8] },
-    stabilizer: { optimal: [0.3, 0.5], acceptable: [0.2, 0.6] }
+    stabilizer: { optimal: [0.3, 0.6], acceptable: [0.2, 0.7] },
+    otherSolids: { optimal: [0.3, 0.6], acceptable: [0.2, 0.7] }
   },
 
   // Gelato Finished: Standard finished gelato
   gelato_finished: {
-    fat: { optimal: [6, 10], acceptable: [4, 12] },
-    msnf: { optimal: [8, 11], acceptable: [7, 12] },
-    totalSugars: { optimal: [18, 22], acceptable: [16, 24] },
-    totalSolids: { optimal: [36, 42], acceptable: [34, 46] },
+    fat: { optimal: [7, 16], acceptable: [6, 18] },
+    msnf: { optimal: [7, 12], acceptable: [7, 13] },
+    totalSugars: { optimal: [18, 22], acceptable: [17, 24] },
+    totalSolids: { optimal: [37, 46], acceptable: [35, 48] },
     fpdt: { optimal: [2.5, 3.5], acceptable: [2.2, 3.8] },
-    stabilizer: { optimal: [0.3, 0.5], acceptable: [0.2, 0.6] }
+    stabilizer: { optimal: [0.3, 0.5], acceptable: [0.2, 0.6] },
+    otherSolids: { optimal: [0.2, 10], acceptable: [0.2, 12] }
   },
 
   // Fruit Gelato: Lower dairy, fruit-forward
   gelato_fruit: {
-    fat: { optimal: [2, 5], acceptable: [1, 7] },
-    msnf: { optimal: [4, 6], acceptable: [3, 8] },
-    totalSugars: { optimal: [20, 24], acceptable: [18, 26] },
-    totalSolids: { optimal: [32, 38], acceptable: [30, 42] },
+    fat: { optimal: [3, 10], acceptable: [2, 12] },
+    msnf: { optimal: [3, 7], acceptable: [2.5, 8] },
+    totalSugars: { optimal: [22, 24], acceptable: [20, 26] },
+    totalSolids: { optimal: [32, 42], acceptable: [30, 44] },
     fpdt: { optimal: [2.5, 3.5], acceptable: [2.2, 3.8] },
     stabilizer: { optimal: [0.4, 0.6], acceptable: [0.3, 0.7] },
-    fruitPct: { optimal: [20, 30], acceptable: [15, 40] }
+    fruitPct: { optimal: [20, 30], acceptable: [15, 40] },
+    otherSolids: { optimal: [0.2, 7], acceptable: [0.1, 8] }
   },
 
   // Sorbet: Fat-free, fruit-based
@@ -88,14 +92,15 @@ export const PRODUCT_CONSTRAINTS: Record<string, ProductConstraint> = {
     fpdt: { optimal: [2.0, 2.5], acceptable: [1.8, 2.8] }
   },
 
-  // Alias for gelato
+  // Alias for gelato (mapped to white base)
   gelato: {
-    fat: { optimal: [4, 7], acceptable: [3, 9] },
-    msnf: { optimal: [9, 11], acceptable: [8, 12] },
-    totalSugars: { optimal: [17, 20], acceptable: [15, 22] },
-    totalSolids: { optimal: [34, 38], acceptable: [32, 40] },
+    fat: { optimal: [3, 7], acceptable: [3, 8] },
+    msnf: { optimal: [7, 12], acceptable: [7, 13] },
+    totalSugars: { optimal: [16, 19], acceptable: [15, 20] },
+    totalSolids: { optimal: [32, 37], acceptable: [30, 39] },
     fpdt: { optimal: [2.5, 3.5], acceptable: [2.2, 3.8] },
-    stabilizer: { optimal: [0.3, 0.5], acceptable: [0.2, 0.6] }
+    stabilizer: { optimal: [0.3, 0.6], acceptable: [0.2, 0.7] },
+    otherSolids: { optimal: [0.3, 0.6], acceptable: [0.2, 0.7] }
   }
 };
 
@@ -125,10 +130,10 @@ export interface BalancingTarget {
 
 export const BALANCING_TARGETS: Record<Mode, BalancingTarget> = {
   gelato: {
-    fat_pct: 7.5,
-    msnf_pct: 10.5,
-    totalSugars_pct: 19,
-    ts_pct: 40.5,
+    fat_pct: 5.0,
+    msnf_pct: 9.5,
+    totalSugars_pct: 17.5,
+    ts_pct: 34.5,
     fpdt: 3.0
   },
   ice_cream: {

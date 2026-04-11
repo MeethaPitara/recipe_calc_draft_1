@@ -16,9 +16,9 @@ interface DatabaseHealthIndicatorProps {
  * DB Health Check UI - Shows which canonical ingredients are available
  * PHASE 1: Critical Fix - Display missing balancing levers
  */
-export function DatabaseHealthIndicator({ 
-  availableIngredients, 
-  compact = false 
+export function DatabaseHealthIndicator({
+  availableIngredients,
+  compact = false
 }: DatabaseHealthIndicatorProps) {
   const navigate = useNavigate();
   const health = checkDbHealth(availableIngredients);
@@ -35,28 +35,8 @@ export function DatabaseHealthIndicator({
   }
 
   if (compact) {
-    return (
-      <Alert variant="destructive" className="bg-destructive/10">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription className="text-sm">
-          <strong>Missing {health.missing.length} essential ingredient{health.missing.length > 1 ? 's' : ''}</strong>
-          <div className="text-xs mt-1 space-y-0.5">
-            {health.missing.map((item, i) => (
-              <div key={i}>• {item}</div>
-            ))}
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="mt-2 w-full"
-            onClick={() => navigate('/database')}
-          >
-            <Database className="h-3 w-3 mr-1" />
-            Add to Database
-          </Button>
-        </AlertDescription>
-      </Alert>
-    );
+    // Silenced as per UI cleanup request
+    return null;
   }
 
   // Full card view
@@ -89,7 +69,7 @@ export function DatabaseHealthIndicator({
               Water (diluent)
             </span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {health.hasCream35OrButter ? (
               <CheckCircle2 className="h-4 w-4 text-success" />
@@ -100,7 +80,7 @@ export function DatabaseHealthIndicator({
               Cream/Butter (fat)
             </span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {health.hasSMP ? (
               <CheckCircle2 className="h-4 w-4 text-success" />
@@ -111,7 +91,7 @@ export function DatabaseHealthIndicator({
               SMP (MSNF)
             </span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
             <span className="text-success-foreground">
@@ -133,10 +113,10 @@ export function DatabaseHealthIndicator({
                 </ul>
               </AlertDescription>
             </Alert>
-            
-            <Button 
-              variant="default" 
-              size="sm" 
+
+            <Button
+              variant="default"
+              size="sm"
               className="w-full"
               onClick={() => navigate('/database')}
             >

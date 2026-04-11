@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { recipeService } from '@/services/recipeService';
 import { useIngredients } from '@/contexts/IngredientsContext';
 import { calculateDemandRun, Level3Input, Level3Output } from '@/lib/production/level3_engine';
+import AIRoundingPanel from '@/components/production/AIRoundingPanel';
+import type { ProductionIngredient } from '@/lib/production/productionValidator';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -42,10 +44,15 @@ const ExactPlan = () => {
     // --- State ---
     const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
     const [targetUnits, setTargetUnits] = useState<number>(500);
+    const [targetUnitsStr, setTargetUnitsStr] = useState<string | null>(null);
     const [skuSizeLiters, setSkuSizeLiters] = useState<number>(0.5);
+    const [skuSizeLitersStr, setSkuSizeLitersStr] = useState<string | null>(null);
     const [overrunPercent, setOverrunPercent] = useState<number>(30);
+    const [overrunPercentStr, setOverrunPercentStr] = useState<string | null>(null);
     const [lossPercent, setLossPercent] = useState<number>(5);
+    const [lossPercentStr, setLossPercentStr] = useState<string | null>(null);
     const [density, setDensity] = useState<number>(1.1);
+    const [densityStr, setDensityStr] = useState<string | null>(null);
 
     const [calculationResult, setCalculationResult] = useState<Level3Output | null>(null);
 
@@ -95,6 +102,22 @@ const ExactPlan = () => {
 
     }, [fullRecipe, targetUnits, skuSizeLiters, overrunPercent, lossPercent, density, ingredients, selectedRecipeId]);
 
+
+    // --- Convert output for AI Rounding ---
+    const productionIngredients: ProductionIngredient[] = useMemo(() => {
+        if (!calculationResult?.scaledRecipe) return [];
+        return calculationResult.scaledRecipe.map((item) => {
+            const ingData = ingredients.find(a =>
+                a.id === item.ingredientId || a.name.toLowerCase() === item.name.toLowerCase()
+            );
+            return {
+                ingredientId: item.ingredientId,
+                name: item.name,
+                massGrams: item.requiredMassKg * 1000,
+                ingredientData: ingData,
+            };
+        });
+    }, [calculationResult, ingredients]);
 
     // --- State: Save/Load ---
     const [isSaving, setIsSaving] = useState(false);
@@ -353,8 +376,15 @@ const ExactPlan = () => {
                                     <Label className="text-blue-600 font-semibold">Target Units</Label>
                                     <Input
                                         type="number"
-                                        value={targetUnits}
-                                        onChange={e => setTargetUnits(parseInt(e.target.value) || 0)}
+                                        value={targetUnitsStr !== null ? targetUnitsStr : (targetUnits || '')}
+                                        onChange={e => {
+                                            let v = e.target.value;
+                                            if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                            setTargetUnitsStr(v);
+                                            const parsed = parseInt(v);
+                                            if (!isNaN(parsed)) setTargetUnits(parsed);
+                                        }}
+                                        onBlur={() => setTargetUnitsStr(null)}
                                         className="font-mono text-lg"
                                     />
                                     <p className="text-[10px] text-muted-foreground">Tubs / Cups</p>
@@ -363,8 +393,15 @@ const ExactPlan = () => {
                                     <Label>SKU Size (L)</Label>
                                     <Input
                                         type="number" step={0.1}
-                                        value={skuSizeLiters}
-                                        onChange={e => setSkuSizeLiters(parseFloat(e.target.value) || 0)}
+                                        value={skuSizeLitersStr !== null ? skuSizeLitersStr : (skuSizeLiters || '')}
+                                        onChange={e => {
+                                            let v = e.target.value;
+                                            if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                            setSkuSizeLitersStr(v);
+                                            const parsed = parseFloat(v);
+                                            if (!isNaN(parsed)) setSkuSizeLiters(parsed);
+                                        }}
+                                        onBlur={() => setSkuSizeLitersStr(null)}
                                     />
                                 </div>
                             </div>
@@ -381,24 +418,45 @@ const ExactPlan = () => {
                                 <Label className="text-xs uppercase text-muted-foreground">Overrun %</Label>
                                 <Input
                                     type="number"
-                                    value={overrunPercent}
-                                    onChange={e => setOverrunPercent(parseFloat(e.target.value) || 0)}
+                                    value={overrunPercentStr !== null ? overrunPercentStr : (overrunPercent || '')}
+                                    onChange={e => {
+                                        let v = e.target.value;
+                                        if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                        setOverrunPercentStr(v);
+                                        const parsed = parseFloat(v);
+                                        if (!isNaN(parsed)) setOverrunPercent(parsed);
+                                    }}
+                                    onBlur={() => setOverrunPercentStr(null)}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs uppercase text-muted-foreground">Loss %</Label>
                                 <Input
                                     type="number"
-                                    value={lossPercent}
-                                    onChange={e => setLossPercent(parseFloat(e.target.value) || 0)}
+                                    value={lossPercentStr !== null ? lossPercentStr : (lossPercent || '')}
+                                    onChange={e => {
+                                        let v = e.target.value;
+                                        if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                        setLossPercentStr(v);
+                                        const parsed = parseFloat(v);
+                                        if (!isNaN(parsed)) setLossPercent(parsed);
+                                    }}
+                                    onBlur={() => setLossPercentStr(null)}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs uppercase text-muted-foreground">Density</Label>
                                 <Input
                                     type="number" step={0.01}
-                                    value={density}
-                                    onChange={e => setDensity(parseFloat(e.target.value) || 0)}
+                                    value={densityStr !== null ? densityStr : (density || '')}
+                                    onChange={e => {
+                                        let v = e.target.value;
+                                        if (v.length > 1 && v.startsWith('0') && v[1] !== '.') v = v.replace(/^0+/, '');
+                                        setDensityStr(v);
+                                        const parsed = parseFloat(v);
+                                        if (!isNaN(parsed)) setDensity(parsed);
+                                    }}
+                                    onBlur={() => setDensityStr(null)}
                                 />
                             </div>
                         </CardContent>
@@ -504,6 +562,21 @@ const ExactPlan = () => {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* AI Rounding Panel */}
+                    {calculationResult && productionIngredients.length > 0 && (
+                        <div className="mt-6">
+                            <AIRoundingPanel
+                                ingredients={productionIngredients}
+                                productType={fullRecipe?.product_type || "gelato"}
+                                availableIngredients={ingredients}
+                                recipeName={fullRecipe?.recipe_name}
+                                onRoundingComplete={(roundResult) => {
+                                    console.log('Level 3 AI Rounding complete:', roundResult);
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
 
             </div>

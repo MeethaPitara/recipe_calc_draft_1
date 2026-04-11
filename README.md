@@ -50,7 +50,7 @@
 ```markdown
 | **Level 1** | Quick Plan | Rapid scaling of recipes based on target production volume or weight. |
 | **Level 2** | Base Planner | Strategic allocation of master base mixes across multiple flavors and SKU configurations. |
-| **Level 3** | Exact Plan | Precision production sheets designed to fulfill specific SKU order quantities with automated loss compensation. |
+| **Level 3** | Exact Plan | Precision production sheets designed to fu+lfill specific SKU order quantities with automated loss compensation. |
 ```
 
 All three levels handle:

@@ -138,13 +138,13 @@ export function optimizerTool(
  * ```
  */
 export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
-    const { userPrompt, recipe, targetParams, mode = 'gelato' } = options;
+    const { userPrompt, recipe, targetParams, mode = 'gelato', currentMetrics } = options;
 
     await loadIngredientsFromSupabase();
 
     // Step 1/3: Food Engineer (AI) — interpret request & modify recipe
     console.log('🔧 Step 1/3: Food Engineer analyzing request...');
-    const preResult = await foodEngineerPre(userPrompt, recipe);
+    const preResult = await foodEngineerPre(userPrompt, recipe, currentMetrics);
     const modifiedRecipe = preResult.modified_recipe;
     const engineerChanges = preResult.changes_made;
     const optimizerInstruction = preResult.pass_to_optimizer;
@@ -168,12 +168,23 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
     );
     console.log('   ✅ Analysis complete.');
 
+    const finalMetricsBefore = currentMetrics
+        ? {
+            total_mass_g: currentMetrics.total_g ?? optResult.metrics_before.total_mass_g,
+            fat_pct: currentMetrics.fat_pct ?? optResult.metrics_before.fat_pct,
+            msnf_pct: currentMetrics.msnf_pct ?? optResult.metrics_before.msnf_pct,
+            sugars_pct: currentMetrics.totalSugars_pct ?? optResult.metrics_before.sugars_pct,
+            water_pct: currentMetrics.water_pct ?? optResult.metrics_before.water_pct,
+            total_solids_pct: currentMetrics.ts_pct ?? optResult.metrics_before.total_solids_pct,
+        }
+        : optResult.metrics_before;
+
     return {
         success: optResult.success,
         solver_status: optResult.solver_status,
         batch: optResult.batch,
         optimized_recipe: optResult.optimized_recipe,
-        metrics_before: optResult.metrics_before,
+        metrics_before: finalMetricsBefore,
         metrics_after: optResult.metrics_after,
         diffs: optResult.diffs,
         engineer_changes: engineerChanges,

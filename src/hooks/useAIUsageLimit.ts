@@ -1,5 +1,9 @@
+/**
+ * useAIUsageLimit — Refactored to call backend API instead of direct Supabase.
+ */
+
 import { useState, useEffect } from 'react';
-import { getSupabase } from '@/integrations/supabase/safeClient';
+import { apiGet } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 
 interface AIUsageLimit {
@@ -25,31 +29,15 @@ export function useAIUsageLimit(limitPerHour: number = 10): AIUsageLimit {
       setIsLoading(true);
       setError(null);
 
-      const supabase = await getSupabase();
       const user = await authService.getUser();
-
       if (!user) {
-        // User not logged in - no usage tracking
         setUsed(0);
         setIsLoading(false);
         return;
       }
 
-      const userId = user.id;
-      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
-
-      const { count, error: countError } = await supabase
-        .from('ai_usage_log')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .in('function_name', ['suggest-ingredient', 'explain-warning', 'analyze-recipe', 'analyze-csv'])
-        .gt('created_at', since);
-
-      if (countError) {
-        throw countError;
-      }
-
-      setUsed(count || 0);
+      const data = await apiGet<{ used: number; limit: number; remaining: number }>('/api/ai/usage');
+      setUsed(data.used);
     } catch (err) {
       console.error('Error fetching AI usage:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch AI usage'));
@@ -60,10 +48,7 @@ export function useAIUsageLimit(limitPerHour: number = 10): AIUsageLimit {
 
   useEffect(() => {
     fetchUsageCount();
-
-    // Refresh every 30 seconds
     const interval = setInterval(fetchUsageCount, 30000);
-
     return () => clearInterval(interval);
   }, []);
 

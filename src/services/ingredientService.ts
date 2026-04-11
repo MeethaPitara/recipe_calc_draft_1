@@ -1,236 +1,55 @@
-import { getSupabase } from "@/integrations/supabase/safeClient";
-import { authService } from "@/lib/auth/authService";
-import { z } from "zod";
-import type { IngredientData } from "@/types/ingredients";
-import { trace } from "@/utils/tracer";
+/**
+ * ingredientService — Frontend ingredient operations.
+ * All Supabase queries moved to backend. This now delegates to /api/ingredients/*.
+ */
 
-const DbIngredientSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  category: z.string(),
-  tags: z.array(z.string()).nullable().optional(),
-  notes: z.string().nullable().optional(),
-  water_pct: z.number(),
-  sugar_pct: z.number().nullable().optional(),
-  sugars_pct: z.number().nullable().optional(),
-  fat_pct: z.number(),
-  msnf_pct: z.number().nullable().optional(),
-  other_solids_pct: z.number().nullable().optional(),
-  sugar_split: z.record(z.number()).nullable().optional(),
-  sp_coeff: z.number().nullable().optional(),
-  pac_coeff: z.number().nullable().optional(),
-  cost_per_kg: z.number().nullable().optional(),
-  lactose_pct: z.number().nullable().optional(),
-  user_email: z.string().nullable().optional(),
-});
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/apiClient';
+import type { IngredientData } from '@/types/ingredients';
 
-// Validate ingredient composition (should sum to ~100%)
-function validateIngredientComposition(ing: z.infer<typeof DbIngredientSchema>): { valid: boolean; warnings: string[] } {
-  const warnings: string[] = [];
-  const water = ing.water_pct ?? 0;
-  const sugars = ing.sugars_pct ?? 0;
-  const fat = ing.fat_pct ?? 0;
-  const msnf = ing.msnf_pct ?? 0;
-  const other = ing.other_solids_pct ?? 0;
+// Service wrapper
+export const IngredientService = {
+  async getIngredients(userEmail?: string): Promise<IngredientData[]> {
+    const params = userEmail ? `?userEmail=${encodeURIComponent(userEmail)}` : '';
+    return apiGet<IngredientData[]>(`/api/ingredients${params}`);
+  },
 
-  // Check for negative values
-  if (water < 0 || sugars < 0 || fat < 0 || msnf < 0 || other < 0) {
-    warnings.push(`${ing.name}: Has negative percentage values`);
-  }
+  async getIngredientById(id: string): Promise<IngredientData | null> {
+    try {
+      return await apiGet<IngredientData>(`/api/ingredients/${id}`);
+    } catch {
+      return null;
+    }
+  },
 
-  // Check for values > 100%
-  if (water > 100 || sugars > 100 || fat > 100 || msnf > 100 || other > 100) {
-    warnings.push(`${ing.name}: Has percentage value > 100%`);
-  }
+  async searchIngredients(query: string): Promise<IngredientData[]> {
+    return apiGet<IngredientData[]>(`/api/ingredients/search?q=${encodeURIComponent(query)}`);
+  },
 
-  // Check total (allow some tolerance for rounding)
-  const total = water + sugars + fat + msnf + other;
-  if (total < 0 || total > 110) {
-    warnings.push(`${ing.name}: Composition total ${total.toFixed(1)}% is out of range`);
-  }
+  async addIngredient(ingredient: Omit<IngredientData, 'id'>, userEmail?: string): Promise<IngredientData> {
+    return apiPost<IngredientData>('/api/ingredients', {
+      ...ingredient,
+      user_email: userEmail,
+    });
+  },
 
-  return { valid: warnings.length === 0, warnings };
-}
+  async updateIngredient(id: string, updates: Partial<IngredientData>): Promise<IngredientData> {
+    return apiPut<IngredientData>(`/api/ingredients/${id}`, updates);
+  },
 
-function transformToIngredientData(dbRow: z.infer<typeof DbIngredientSchema>): IngredientData {
-  // Sanitize values to prevent NaN in calculations
-  const safeNumber = (val: number | null | undefined, fallback = 0): number => {
-    if (val === null || val === undefined || isNaN(val)) return fallback;
-    return Math.max(0, Math.min(val, 100)); // Clamp to 0-100
-  };
+  async deleteIngredient(id: string, userEmail?: string): Promise<void> {
+    await apiDelete(`/api/ingredients/${id}`);
+  },
+};
 
-  return {
-    id: dbRow.id,
-    name: dbRow.name,
-    category: dbRow.category,
-    tags: dbRow.tags || undefined,
-    notes: dbRow.notes ? [dbRow.notes] : undefined,
-    water_pct: safeNumber(dbRow.water_pct),
-    // Handle both singular (historic/seed) and plural (schema) naming
-    sugars_pct: safeNumber(dbRow.sugars_pct) || safeNumber(dbRow.sugar_pct) || undefined,
-    fat_pct: safeNumber(dbRow.fat_pct),
-    msnf_pct: safeNumber(dbRow.msnf_pct) || undefined,
-    other_solids_pct: safeNumber(dbRow.other_solids_pct) || undefined,
-    sugar_split: dbRow.sugar_split || undefined,
-    sp_coeff: dbRow.sp_coeff ?? undefined,
-    pac_coeff: dbRow.pac_coeff ?? undefined,
-    cost_per_kg: dbRow.cost_per_kg ?? undefined,
-    lactose_pct: safeNumber(dbRow.lactose_pct) || undefined,
-    user_email: dbRow.user_email || undefined,
-    is_custom: !!dbRow.user_email,
-  };
-}
-
-
-
-export async function getSessionEmail(): Promise<string | undefined> {
-  const user = await authService.getUser();
-  return user?.email;
-}
-
+// Legacy exports for backward compatibility
 export async function getAllIngredients(userEmail?: string): Promise<IngredientData[]> {
-  const supabase = await getSupabase();
-  const email = userEmail || await getSessionEmail();
-  let query = supabase.from("ingredients").select("*").order("category").order("name");
-
-  if (email) {
-    query = query.or(`user_email.is.null,user_email.eq.${email}`);
-  } else {
-    query = query.is("user_email", null);
-  }
-  const { data, error } = await query;
-
-  if (data) {
-    trace('ingredientService.ts', 'getAllIngredients', 'RAW_FETCH_FROM_DB', { count: data.length, sample: data[0] });
-  }
-
-  if (error) {
-    console.error('❌ Error fetching ingredients:', error);
-
-    throw error;
-  }
-
-  const parsed = DbIngredientSchema.array().parse(data);
-
-  // Validate and filter ingredients
-  const allWarnings: string[] = [];
-  const validIngredients = parsed.filter(ing => {
-    const { valid, warnings } = validateIngredientComposition(ing);
-    allWarnings.push(...warnings);
-    return valid;
-  });
-
-  // Log warnings in development
-  if (allWarnings.length > 0 && import.meta.env.DEV) {
-    console.warn('⚠️ Ingredient data quality issues:', allWarnings);
-  }
-
-  // Return all ingredients but with sanitized values
-  return parsed.map(transformToIngredientData);
-}
-
-export async function getByCategory(category: IngredientData["category"]): Promise<IngredientData[]> {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase.from("ingredients").select("*").eq("category", category).order("name");
-  if (error) throw error;
-  const parsed = DbIngredientSchema.array().parse(data);
-  return parsed.map(transformToIngredientData);
+  return IngredientService.getIngredients(userEmail);
 }
 
 export async function getById(id: string): Promise<IngredientData | null> {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase.from("ingredients").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return data ? transformToIngredientData(DbIngredientSchema.parse(data)) : null;
+  return IngredientService.getIngredientById(id);
 }
 
 export async function searchIngredients(q: string): Promise<IngredientData[]> {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase.from("ingredients").select("*").ilike("name", `%${q}%`).order("name").limit(20);
-  if (error) throw error;
-  const parsed = DbIngredientSchema.array().parse(data);
-  return parsed.map(transformToIngredientData);
+  return IngredientService.searchIngredients(q);
 }
-
-// Service wrapper for tests
-export const IngredientService = {
-  async getIngredients(userEmail?: string): Promise<IngredientData[]> {
-    return getAllIngredients(userEmail);
-  },
-  async getIngredientById(id: string): Promise<IngredientData | null> {
-    return getById(id);
-  },
-  async searchIngredients(query: string): Promise<IngredientData[]> {
-    return searchIngredients(query);
-  },
-  async addIngredient(ingredient: Omit<IngredientData, 'id'>, userEmail?: string): Promise<IngredientData> {
-    const email = userEmail || await getSessionEmail();
-    const supabase = await getSupabase();
-    const { data, error } = await supabase
-      .from("ingredients")
-      .insert({
-        name: ingredient.name,
-        category: ingredient.category,
-        water_pct: ingredient.water_pct,
-        fat_pct: ingredient.fat_pct,
-        msnf_pct: ingredient.msnf_pct || null,
-        // sugars_pct: ingredient.sugars_pct || null, // TODO: Enable when column 'sugars_pct' satisfies database schema
-        other_solids_pct: ingredient.other_solids_pct || null,
-        // sp_coeff: ingredient.sp_coeff || null, // TODO: Enable when column 'sp_coeff' satisfies database schema
-        // pac_coeff: ingredient.pac_coeff || null, // TODO: Enable when column 'pac_coeff' satisfies database schema
-        // cost_per_kg: ingredient.cost_per_kg || null, // TODO: Enable when column 'cost_per_kg' satisfies database schema
-        notes: ingredient.notes?.[0] || null,
-        tags: ingredient.tags && ingredient.tags.length > 0 ? ingredient.tags : null,
-        sugar_split: ingredient.sugar_split as any,
-        // lactose_pct: ingredient.lactose_pct || null, // TODO: Enable when column 'lactose_pct' satisfies database schema
-        user_email: email || null,
-      })
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to add ingredient: ${error.message}`);
-    return transformToIngredientData(DbIngredientSchema.parse(data));
-  },
-  async updateIngredient(id: string, updates: Partial<IngredientData>): Promise<IngredientData> {
-    const supabase = await getSupabase();
-    const { data, error } = await supabase
-      .from("ingredients")
-      .update({
-        name: updates.name,
-        category: updates.category,
-        water_pct: updates.water_pct,
-        fat_pct: updates.fat_pct,
-        msnf_pct: updates.msnf_pct,
-        // sugars_pct: updates.sugars_pct, // TODO: Enable when column 'sugars_pct' satisfies database schema
-        other_solids_pct: updates.other_solids_pct,
-        // sp_coeff: updates.sp_coeff, // TODO: Enable when column 'sp_coeff' satisfies database schema
-        // pac_coeff: updates.pac_coeff, // TODO: Enable when column 'pac_coeff' satisfies database schema
-        // cost_per_kg: updates.cost_per_kg, // TODO: Enable when column 'cost_per_kg' satisfies database schema
-        notes: updates.notes?.[0],
-        tags: updates.tags,
-        sugar_split: updates.sugar_split as any,
-        // lactose_pct: updates.lactose_pct, // TODO: Enable when column 'lactose_pct' satisfies database schema
-      })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to update ingredient: ${error.message}`);
-    return transformToIngredientData(DbIngredientSchema.parse(data));
-  },
-  async deleteIngredient(id: string, userEmail?: string): Promise<void> {
-    const email = userEmail || await getSessionEmail();
-    const supabase = await getSupabase() as any;
-
-    let error;
-    if (email) {
-      const res = await supabase.from("ingredients").delete().eq("id", id).eq("user_email", email);
-      error = res.error;
-    } else {
-      const res = await supabase.from("ingredients").delete().eq("id", id);
-      error = res.error;
-    }
-
-    if (error) throw new Error(`Failed to delete ingredient: ${error.message}`);
-  }
-};

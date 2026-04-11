@@ -155,7 +155,7 @@ export function SmartIngredientSearch({
   );
 
   return (
-    <div className="w-full bg-popover border rounded-lg shadow-lg z-50">
+    <div className="w-full">
       {/* Search Input */}
       <div className="p-3 border-b bg-popover">
         <div className="relative">
@@ -265,6 +265,7 @@ export function SmartIngredientSearch({
       <AddIngredientDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
+        hideTrigger={true}
         prefilledData={{ name: searchQuery }}
         onIngredientAdded={(newIng) => {
           handleSelect(newIng);

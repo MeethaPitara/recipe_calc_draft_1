@@ -13,43 +13,47 @@ export interface ProductTargets {
   sugar: [number, number];
   fat: [number, number];
   msnf: [number, number];
+  other_solids?: [number, number];
   total_solids: [number, number];
   sp: [number, number];
   pac: [number, number];
 }
 
 export const PRODUCT_RANGES: Record<string, ProductTargets> = {
-  white_base: { 
-    sugar: [16, 19], 
-    fat: [3, 7], 
-    msnf: [7, 12], 
-    total_solids: [32, 37], 
-    sp: [12, 22], 
-    pac: [22, 28] 
+  white_base: {
+    sugar: [16, 19],
+    fat: [3, 7],
+    msnf: [7, 12],
+    other_solids: [0.3, 0.6],
+    total_solids: [32, 37],
+    sp: [12, 22],
+    pac: [22, 28]
   },
-  finished_gelato: { 
-    sugar: [18, 22], 
-    fat: [7, 16], 
-    msnf: [7, 12], 
-    total_solids: [37, 46], 
-    sp: [12, 22], 
-    pac: [22, 28] 
+  finished_gelato: {
+    sugar: [18, 22],
+    fat: [7, 16],
+    msnf: [7, 12],
+    other_solids: [0.2, 10],
+    total_solids: [37, 46],
+    sp: [12, 22],
+    pac: [22, 28]
   },
-  fruit_gelato: { 
-    sugar: [22, 24], 
-    fat: [3, 10], 
-    msnf: [3, 7], 
-    total_solids: [32, 42], 
-    sp: [18, 26], 
-    pac: [25, 29] 
+  fruit_gelato: {
+    sugar: [22, 24],
+    fat: [3, 10],
+    msnf: [3, 7],
+    other_solids: [0.2, 7],
+    total_solids: [32, 42],
+    sp: [18, 26],
+    pac: [25, 29]
   },
-  sorbet: { 
-    sugar: [26, 31], 
-    fat: [0, 0], 
-    msnf: [0, 0], 
-    total_solids: [32, 42], 
-    sp: [20, 28], 
-    pac: [28, 33] 
+  sorbet: {
+    sugar: [26, 31],
+    fat: [0, 0],
+    msnf: [0, 0],
+    total_solids: [32, 42],
+    sp: [20, 28],
+    pac: [28, 33]
   }
 };
 
@@ -167,7 +171,7 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
               <Settings className="h-4 w-4" />
               Live Validation
             </div>
-            
+
             {parameters.map(({ key, label, value, max }) => {
               const status = getValidationStatus(value, targets[key]);
               return (
@@ -183,7 +187,7 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
                         {key === 'total_solids' && <p>Total solids = sugars + fat + MSNF + other solids (stabilizers, fiber, cocoa).</p>}
                       </TooltipContent>
                     </Tooltip>
-                    
+
                     <div className="flex items-center gap-2">
                       {getStatusIcon(status)}
                       <Badge className={`${getStatusColor(status)} text-xs`}>
@@ -191,12 +195,12 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
                       </Badge>
                     </div>
                   </div>
-                  
+
                   {/* Range Indicator */}
                   <div className="relative">
                     <div className="h-2 bg-muted rounded-full">
                       {/* Target Range */}
-                      <div 
+                      <div
                         className="absolute h-2 bg-green-200 rounded-full"
                         style={{
                           left: `${(targets[key][0] / max) * 100}%`,
@@ -204,11 +208,10 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
                         }}
                       />
                       {/* Current Value */}
-                      <div 
-                        className={`absolute top-0 w-1 h-2 rounded-full ${
-                          status === 'optimal' ? 'bg-green-600' : 
-                          status === 'warning' ? 'bg-yellow-600' : 'bg-red-600'
-                        }`}
+                      <div
+                        className={`absolute top-0 w-1 h-2 rounded-full ${status === 'optimal' ? 'bg-green-600' :
+                            status === 'warning' ? 'bg-yellow-600' : 'bg-red-600'
+                          }`}
                         style={{
                           left: `${Math.min(Math.max((value / max) * 100, 0), 100)}%`
                         }}
