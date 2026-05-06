@@ -552,19 +552,21 @@ export function validateRecipeScience(
 
   // FPDT Validation
   const fpdt = metrics.fpdt;
-  const fpdtValidation = validateParameter(
-    'FPDT',
-    fpdt,
-    constraints.fpdt.optimal,
-    constraints.fpdt.acceptable,
-    '°C'
-  );
-  if (fpdtValidation.severity === 'critical' && fpdt < constraints.fpdt.acceptable[0]) {
-    fpdtValidation.recommendation = 'Too hard: increase sugars or use higher-FPDT sugars like dextrose';
-  } else if (fpdtValidation.severity === 'critical' && fpdt > constraints.fpdt.acceptable[1]) {
-    fpdtValidation.recommendation = 'Too soft: reduce sugars or use lower-FPDT sugars';
+  if (constraints.fpdt) {
+    const fpdtValidation = validateParameter(
+      'FPDT',
+      fpdt,
+      constraints.fpdt.optimal,
+      constraints.fpdt.acceptable,
+      '°C'
+    );
+    if (fpdtValidation.severity === 'critical' && fpdt < constraints.fpdt.acceptable[0]) {
+      fpdtValidation.recommendation = 'Too hard: increase sugars or use higher-FPDT sugars like dextrose';
+    } else if (fpdtValidation.severity === 'critical' && fpdt > constraints.fpdt.acceptable[1]) {
+      fpdtValidation.recommendation = 'Too soft: reduce sugars or use lower-FPDT sugars';
+    }
+    validations.push(fpdtValidation);
   }
-  validations.push(fpdtValidation);
 
   return validations;
 }
