@@ -22,12 +22,13 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ── Middleware ──
-const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
-    : ['http://localhost:5173', 'http://localhost:8080'];
+const corsOriginEnv = process.env.CORS_ORIGIN?.trim();
+const corsOrigin = !corsOriginEnv || corsOriginEnv === '*'
+    ? true  // Allow all origins
+    : corsOriginEnv.split(',').map(s => s.trim());
 
 app.use(cors({
-    origin: allowedOrigins,
+    origin: corsOrigin,
     credentials: true,
 }));
 app.use(express.json({ limit: '10mb' })); // Large payloads for image upload (label scanner)
