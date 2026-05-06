@@ -12,11 +12,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { apiGet, apiPost } from "@/lib/apiClient";
 import { authService } from "@/lib/auth/authService";
 import { Loader2, ArrowLeft, Calculator, Variable, Save, History, Trash2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { calculateProductionRun, ProductionInput, ProductionOutput } from "@/lib/production/level1_engine";
+import { calculateProductionRun, type ProductionInput, type ProductionOutput, type ProductionIngredient } from "@/lib/production/api";
 import { RecipeIngredient } from "@/types/recipe";
 import { savePlan, getPlans, deletePlan, Plan } from "@/lib/api/plans";
 import {
@@ -39,7 +39,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIngredients } from "@/contexts/IngredientsContext";
 import AIRoundingPanel from "@/components/production/AIRoundingPanel";
-import type { ProductionIngredient } from "@/lib/production/productionValidator";
+
 
 // Simplified recipe type from DB
 interface DbRecipe {
@@ -197,29 +197,18 @@ export default function QuickProductionPlan() {
     useEffect(() => {
         const fetchRecipes = async () => {
             setIsLoadingRecipes(true);
-            const { data, error } = await supabase
-                .from('recipes')
-                .select(`
-          id,
-          recipe_name,
-          product_type,
-          recipe_rows (
-            ingredient,
-            quantity_g
-          )
-        `)
-                .order('created_at', { ascending: false });
-
-            if (error) {
+            try {
+                const data = await apiGet<any[]>('/api/recipes');
+                setRecipes(data || []);
+            } catch (error: any) {
                 toast({
                     title: "Error loading recipes",
                     description: error.message,
                     variant: "destructive",
                 });
-            } else {
-                setRecipes(data || []);
+            } finally {
+                setIsLoadingRecipes(false);
             }
-            setIsLoadingRecipes(false);
         };
 
         fetchRecipes();
@@ -272,8 +261,9 @@ export default function QuickProductionPlan() {
             mixDensity: density,
         };
 
-        const output = calculateProductionRun(input);
-        setResult(output);
+        calculateProductionRun(input)
+            .then(output => setResult(output))
+            .catch(err => console.error("Production calc error:", err));
 
     }, [selectedRecipeId, targetVolume, skuSize, overrun, loss, density, recipes, passedRecipe]);
 

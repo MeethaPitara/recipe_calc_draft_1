@@ -109,7 +109,7 @@ export function useRecipeBalance({
     };
   };
 
-  const balanceRecipe = () => {
+  const balanceRecipe = async () => {
     const mode = resolveMode(productType);
     const validRows = rows.filter(r => r.ingredientData && r.quantity_g > 0);
     const rowsWithoutData = rows.filter(r => !r.ingredientData && r.ingredient).length;
@@ -247,7 +247,7 @@ export function useRecipeBalance({
         mode: calcMode
       });
 
-      const result = RecipeBalancerV2.balance(optRows, targets, availableIngredients, {
+      const result = await RecipeBalancerV2.balance(optRows, targets, availableIngredients, {
         maxIterations: 200,
         tolerance,
         enableFeasibilityCheck: true,
@@ -259,7 +259,7 @@ export function useRecipeBalance({
 
       if (!result.success) {
         // Generate suggestions
-        const currentMetrics = calcMetricsV2(optRows, { mode: calcMode });
+        const currentMetrics = await calcMetricsV2(optRows, { mode: calcMode });
         const structuredSuggestions: BalancingSuggestion[] = [];
 
         const fatGap = targets.fat_pct - currentMetrics.fat_pct;
@@ -328,7 +328,7 @@ export function useRecipeBalance({
         .filter(r => r.ing && r.grams > 0)
         .map(r => ({ ing: r.ing, grams: r.grams }));
 
-      const recalculatedMetrics = calcMetricsV2(recalcRows, { mode: calcMode });
+      const recalculatedMetrics = await calcMetricsV2(recalcRows, { mode: calcMode });
       setMetrics(recalculatedMetrics);
 
       toast({

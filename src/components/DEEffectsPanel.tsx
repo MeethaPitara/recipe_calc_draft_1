@@ -14,13 +14,34 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { DE_EFFECTS } from '@/lib/calc';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+
+/** Static educational reference — safe UI content, no business logic */
+const DE_EFFECTS = {
+  increase: [
+    { property: 'Sweetness (SP)', effect: '↑ Increases', explanation: 'More simple sugars = more perceived sweetness per gram' },
+    { property: 'Anti-Freeze Power (PAC)', effect: '↑ Increases', explanation: 'Smaller sugar molecules depress freezing point more effectively' },
+    { property: 'Hygroscopicity', effect: '↑ Increases', explanation: 'More moisture absorption - can affect shelf life' },
+    { property: 'Fermentability', effect: '↑ Increases', explanation: 'Simpler sugars are more easily fermented' },
+  ],
+  decrease: [
+    { property: 'Viscosity / Body', effect: '↓ Decreases', explanation: 'Longer chains provide more body; breaking them reduces viscosity' },
+    { property: 'Browning Resistance', effect: '↓ Decreases', explanation: 'More reducing sugars = more Maillard reaction potential' },
+    { property: 'Crystallization Control', effect: '↓ Decreases', explanation: 'Complex chains inhibit ice crystal growth better' },
+  ],
+  reference: {
+    'DE 0-20 (Maltodextrins)': 'Minimal sweetness, excellent body builder. Used for texture without adding sweetness.',
+    'DE 20-40 (Corn Syrup Solids)': 'Low sweetness, good viscosity. Common in ice cream for body.',
+    'DE 40-60 (Regular Glucose Syrup)': 'Moderate sweetness and PAC. Most versatile range for gelato.',
+    'DE 60-80 (High-Conversion Syrup)': 'Notable sweetness and anti-freeze. Good for soft-serve.',
+    'DE 80-100 (Dextrose/Glucose)': 'High sweetness, maximum PAC. Pure dextrose = DE 100.',
+  }
+} as const;
 
 export const DEEffectsPanel: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);

@@ -4,7 +4,7 @@
  * Handles auth token injection, JSON parsing, and error handling.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 const TOKEN_KEY = 'mp_auth_token';
 
 function getToken(): string | null {

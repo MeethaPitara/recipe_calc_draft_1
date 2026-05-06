@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiGet } from "@/lib/apiClient";
 import { authService } from "@/lib/auth/authService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -40,17 +40,7 @@ export function RecipeCompareDialog({
   const loadSavedRecipes = async () => {
     setLoading(true);
     try {
-      const user = await authService.getUser();
-      if (!user) return;
-
-      const { data: recipes, error } = await supabase
-        .from('recipes')
-        .select('id, recipe_name, product_type, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
+      const recipes = await apiGet<any[]>('/api/recipes');
       setSavedRecipes(recipes || []);
     } catch (error) {
       console.error('Error loading recipes:', error);
@@ -62,44 +52,20 @@ export function RecipeCompareDialog({
   const loadRecipeForComparison = async (recipeId: string) => {
     setLoading(true);
     try {
-      // Load recipe rows
-      const { data: rows, error: rowsError } = await supabase
-        .from('recipe_rows')
-        .select('*')
-        .eq('recipe_id', recipeId);
-
-      if (rowsError) throw rowsError;
-
-      // Load metrics
-      const { data: metrics, error: metricsError } = await supabase
-        .from('calculated_metrics')
-        .select('*')
-        .eq('recipe_id', recipeId)
-        .single();
-
-      if (metricsError) throw metricsError;
-
-      // Load recipe info
-      const { data: recipe, error: recipeError } = await supabase
-        .from('recipes')
-        .select('*')
-        .eq('id', recipeId)
-        .single();
-
-      if (recipeError) throw recipeError;
+      const data = await apiGet<any>(`/api/recipes/${recipeId}`);
 
       setCompareRecipe({
-        name: recipe.recipe_name,
-        rows: rows || [],
-        metrics: metrics ? {
-          fat_pct: metrics.fat_pct,
-          msnf_pct: metrics.msnf_pct,
-          totalSugars_pct: metrics.sugars_pct,
-          ts_pct: metrics.total_solids_pct,
-          pac: metrics.pac,
-          fpd: metrics.fpdt,
+        name: data.recipe_name,
+        rows: data.rows || [],
+        metrics: data.metrics ? {
+          fat_pct: data.metrics.fat_pct,
+          msnf_pct: data.metrics.msnf_pct,
+          totalSugars_pct: data.metrics.sugars_pct,
+          ts_pct: data.metrics.total_solids_pct,
+          pac: data.metrics.pac,
+          fpd: data.metrics.fpdt,
         } : null,
-        productType: recipe.product_type,
+        productType: data.product_type,
       });
     } catch (error) {
       console.error('Error loading recipe:', error);

@@ -20,7 +20,7 @@ import { Loader2, Lock, Unlock, Sparkles, ArrowRight, Check, X, AlertTriangle } 
 import { cn } from '@/lib/utils';
 import type { IngredientRow } from '@/types/calculator';
 import type { IngredientData } from '@/types/ingredients';
-import { runOptimizer, type OptimizerRequest, type OptimizerResult, type OptimizerChange } from '@/lib/optimizer/engine';
+import { runOptimizer, type OptimizerRequest, type OptimizerResult, type OptimizerChange } from '@/lib/optimizer/api';
 
 interface OptimizerPanelProps {
     open: boolean;
@@ -109,10 +109,10 @@ export function OptimizerPanel({ open, onOpenChange, rows, onApplyChanges, produ
             mode: productType || 'gelato',
         };
 
-        // Run synchronously (LP solver is fast)
-        setTimeout(() => {
+        // Run asynchronously
+        setTimeout(async () => {
             try {
-                const res = runOptimizer(request);
+                const res = await runOptimizer(request);
                 setResult(res);
             } catch (e) {
                 setResult({

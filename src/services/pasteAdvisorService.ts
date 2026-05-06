@@ -1,10 +1,10 @@
 import { PasteFormula, PreservationAdvice, ScientificRecipe } from '@/types/paste';
-import { getSupabase } from '@/integrations/supabase/safeClient';
+import { apiPost } from '@/lib/apiClient';
 
 export class PasteAdvisorService {
-  
+
   async generateScientificFormulation(
-    pasteType: string, 
+    pasteType: string,
     category: string,
     mode: 'standard' | 'ai_discovery' | 'reverse_engineer',
     knownIngredients?: string,
@@ -17,21 +17,17 @@ export class PasteAdvisorService {
       viscosity?: 'spreadable' | 'pourable' | 'thick';
     }
   ): Promise<ScientificRecipe> {
-    const supabase = await getSupabase();
-    const { data, error } = await supabase.functions.invoke('paste-formulator', {
-      body: {
-        pasteType,
-        category,
-        mode,
-        knownIngredients,
-        constraints,
-        targets
-      }
+    const data = await apiPost('/api/ai/paste-formulator', {
+      pasteType,
+      category,
+      mode,
+      knownIngredients,
+      constraints,
+      targets
     });
 
-    if (error) throw error;
-    if (!data.success) throw new Error(data.error);
-    
+    if (!data.success) throw new Error(data.error || "Failed to generate formulation");
+
     return data.recipe;
   }
 
@@ -44,18 +40,18 @@ export class PasteAdvisorService {
     const totalSolids = 100 - paste.water_pct;
     const fat = paste.fat_pct;
     const sugars = paste.sugars_pct || 0;
-    
+
     // Viscosity proxy formula (empirical model)
     // Higher solids, fat, and certain sugars increase viscosity
-    const viscosity_index = 
-      (totalSolids * 0.5) + 
-      (fat * 0.8) + 
+    const viscosity_index =
+      (totalSolids * 0.5) +
+      (fat * 0.8) +
       (sugars * 0.3);
-    
+
     let texture_prediction = '';
     let spreadability: 'spreadable' | 'pourable' | 'thick' = 'spreadable';
     const recommendations: string[] = [];
-    
+
     if (viscosity_index < 40) {
       texture_prediction = 'Thin, syrup-like consistency';
       spreadability = 'pourable';
@@ -71,13 +67,13 @@ export class PasteAdvisorService {
       recommendations.push('May need warming before use');
       recommendations.push('Consider adding liquid glucose (DE42) to reduce viscosity');
     }
-    
+
     // Anti-crystallization check
     const glucose_ratio = 0.2; // Would need actual sugar split data
     if (glucose_ratio < 0.15 && sugars > 40) {
       recommendations.push('Add dextrose/glucose (10-20% of sugars) to prevent crystallization');
     }
-    
+
     return {
       viscosity_index,
       texture_prediction,
@@ -91,11 +87,11 @@ export class PasteAdvisorService {
     const fat = paste.fat_pct;
     const msnf = paste.msnf_pct || 0;
     const sugars = paste.sugars_pct || 0;
-    
+
     // Water activity estimation (simplified Norrish equation)
     const brix = paste.lab?.brix_deg || (sugars * 1.2);
     const aw = paste.lab?.aw_est || Math.max(0.75, 1 - 0.005 * brix);
-    
+
     // Industry benchmarks (MEC3/Pregel standards)
     const benchmarks = {
       dairy: { fat: [25, 40], msnf: [12, 18], aw: 0.85 },
@@ -105,9 +101,9 @@ export class PasteAdvisorService {
       spice: { fat: [5, 20], msnf: [3, 8], aw: 0.70 },
       mixed: { fat: [15, 35], msnf: [8, 15], aw: 0.80 }
     };
-    
+
     const benchmark = benchmarks[paste.category];
-    
+
     return {
       totalSolids,
       fat,
@@ -116,11 +112,11 @@ export class PasteAdvisorService {
       aw,
       benchmark,
       warnings: [
-        ...(fat < benchmark.fat[0] || fat > benchmark.fat[1] 
-          ? [`Fat content (${fat.toFixed(1)}%) outside industry standard (${benchmark.fat[0]}-${benchmark.fat[1]}%)`] 
+        ...(fat < benchmark.fat[0] || fat > benchmark.fat[1]
+          ? [`Fat content (${fat.toFixed(1)}%) outside industry standard (${benchmark.fat[0]}-${benchmark.fat[1]}%)`]
           : []),
-        ...(aw > benchmark.aw 
-          ? [`Water activity (${aw.toFixed(2)}) too high for shelf stability (target <${benchmark.aw})`] 
+        ...(aw > benchmark.aw
+          ? [`Water activity (${aw.toFixed(2)}) too high for shelf stability (target <${benchmark.aw})`]
           : []),
         ...(msnf < benchmark.msnf[0] && paste.category === 'dairy'
           ? [`MSNF (${msnf.toFixed(1)}%) below dairy standard (${benchmark.msnf[0]}-${benchmark.msnf[1]}%)`]
@@ -128,7 +124,7 @@ export class PasteAdvisorService {
       ]
     };
   }
-  
+
   advise(paste: PasteFormula, prefs?: { ambientPreferred?: boolean; cleanLabel?: boolean; particulate_mm?: number }): PreservationAdvice[] {
     const pH = paste.lab?.pH;
     const brix = paste.lab?.brix_deg;
@@ -146,23 +142,23 @@ export class PasteAdvisorService {
         method: 'hot_fill',
         confidence: 0.7,
         why: [
-          'High-acid & high °Bx; typical jam-like hot-fill feasible', 
-          'No dairy components', 
+          'High-acid & high °Bx; typical jam-like hot-fill feasible',
+          'No dairy components',
           particulate > 5 ? 'Particulates borderline; consider size reduction' : 'Particulates ok'
         ],
-        targets: { 
-          brix_deg: Math.max(60, brix ?? 60), 
-          pH: Math.min(3.8, pH ?? 3.8), 
-          aw_max: 0.85, 
-          particle_mm_max: 5 
+        targets: {
+          brix_deg: Math.max(60, brix ?? 60),
+          pH: Math.min(3.8, pH ?? 3.8),
+          aw_max: 0.85,
+          particle_mm_max: 5
         },
         packaging: ['Glass jar + lug cap (hot-fill)', 'HDPE bottle (heat resistant)'],
         storage: 'ambient',
         shelf_life_hint: 'Ambient shelf-life typical for hot-filled jams; verify with process authority',
-        impact_on_gelato: { 
-          aroma_retention: 'medium', 
-          color_browning: 'medium', 
-          notes: ['Balanced solids; adds water & sugars to base'] 
+        impact_on_gelato: {
+          aroma_retention: 'medium',
+          color_browning: 'medium',
+          notes: ['Balanced solids; adds water & sugars to base']
         }
       });
     }
@@ -180,10 +176,10 @@ export class PasteAdvisorService {
         packaging: ['Retort pouch', 'Cans', 'Glass jar (retortable)'],
         storage: 'ambient',
         shelf_life_hint: 'Ambient; exact lethality to be validated by process authority',
-        impact_on_gelato: { 
-          aroma_retention: 'low', 
-          color_browning: 'high', 
-          notes: ['Potential Maillard/caramel notes; adjust color/flavor'] 
+        impact_on_gelato: {
+          aroma_retention: 'low',
+          color_browning: 'high',
+          notes: ['Potential Maillard/caramel notes; adjust color/flavor']
         }
       });
     }
@@ -197,10 +193,10 @@ export class PasteAdvisorService {
       packaging: ['Foodgrade pails', 'Vacuum pouch + blast freeze'],
       storage: 'frozen',
       shelf_life_hint: 'Frozen; quality depends on ice crystal control',
-      impact_on_gelato: { 
-        aroma_retention: 'high', 
-        color_browning: 'low', 
-        notes: ['Adds water solids; plan PAC/SP balance'] 
+      impact_on_gelato: {
+        aroma_retention: 'high',
+        color_browning: 'low',
+        notes: ['Adds water solids; plan PAC/SP balance']
       }
     });
 
@@ -213,10 +209,10 @@ export class PasteAdvisorService {
       packaging: ['FD jar with desiccant', 'FOIL pouch + nitrogen'],
       storage: 'ambient',
       shelf_life_hint: 'Ambient; protect from moisture uptake',
-      impact_on_gelato: { 
-        aroma_retention: 'high', 
-        color_browning: 'low', 
-        notes: ['Boosts TS without PAC; may need sucrose/dextrose adjustment'] 
+      impact_on_gelato: {
+        aroma_retention: 'high',
+        color_browning: 'low',
+        notes: ['Boosts TS without PAC; may need sucrose/dextrose adjustment']
       }
     });
 

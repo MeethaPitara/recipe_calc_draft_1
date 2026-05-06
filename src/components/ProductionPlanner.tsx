@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { apiGet } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 import { Calculator, Download, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -54,21 +54,8 @@ export default function ProductionPlanner() {
   const loadRecipes = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('recipes')
-        .select(`
-          id,
-          recipe_name,
-          recipe_rows (
-            ingredient,
-            quantity_g
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      setRecipes(data as Recipe[] || []);
+      const data = await apiGet<Recipe[]>('/api/recipes');
+      setRecipes(data || []);
     } catch (error: any) {
       toast({
         title: 'Failed to load recipes',

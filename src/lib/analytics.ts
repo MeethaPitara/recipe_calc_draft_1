@@ -1,4 +1,4 @@
-import { getSupabase } from "@/integrations/supabase/safeClient";
+import { apiPost } from "@/lib/apiClient";
 import { authService } from "@/lib/auth/authService";
 
 /**
@@ -10,10 +10,9 @@ import { authService } from "@/lib/auth/authService";
  */
 export async function logEvent(event: string, meta?: Record<string, any>) {
   try {
-    const supabase = await getSupabase();
     const user = await authService.getUser();
 
-    await supabase.from("events").insert({
+    await apiPost("/api/events", {
       event,
       meta: meta || null,
       user_id: user?.id || null,

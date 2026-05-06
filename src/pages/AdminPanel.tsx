@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { authService } from "@/lib/auth/authService";
+import { IngredientService } from "@/services/ingredientService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -64,14 +64,16 @@ export default function AdminPanel() {
 
   const loadIngredients = async () => {
     try {
-      const { data, error } = await supabase
-        .from("ingredients")
-        .select("*")
-        .order("category", { ascending: true })
-        .order("name", { ascending: true });
+      const data = await IngredientService.getIngredients();
 
-      if (error) throw error;
-      setIngredients(data || []);
+      // Sort natively since API might return unordered
+      const sorted = data.sort((a, b) => {
+        if (a.category < b.category) return -1;
+        if (a.category > b.category) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setIngredients(sorted as unknown as Ingredient[]);
     } catch (error) {
       console.error("Error loading ingredients:", error);
       toast.error("Failed to load ingredients");
@@ -89,19 +91,10 @@ export default function AdminPanel() {
       }
 
       if (editingId) {
-        const { error } = await supabase
-          .from("ingredients")
-          .update(formData as any)
-          .eq("id", editingId);
-
-        if (error) throw error;
+        await IngredientService.updateIngredient(editingId, formData as any);
         toast.success("Ingredient updated successfully");
       } else {
-        const { error } = await supabase
-          .from("ingredients")
-          .insert([formData as any]);
-
-        if (error) throw error;
+        await IngredientService.addIngredient(formData as any);
         toast.success("Ingredient added successfully");
       }
 
@@ -118,12 +111,7 @@ export default function AdminPanel() {
     if (!confirm("Are you sure you want to delete this ingredient?")) return;
 
     try {
-      const { error } = await supabase
-        .from("ingredients")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await IngredientService.deleteIngredient(id);
       toast.success("Ingredient deleted successfully");
       loadIngredients();
     } catch (error: any) {

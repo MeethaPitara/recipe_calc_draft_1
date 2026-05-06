@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { apiGet, apiDelete } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 import { Search, Loader2, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -67,33 +67,8 @@ export function RecipeBrowserDrawer({
   const loadRecipes = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('recipes')
-        .select(`
-          id,
-          recipe_name,
-          product_type,
-          created_at,
-          recipe_rows (
-            ingredient,
-            quantity_g,
-            sugars_g,
-            fat_g,
-            msnf_g
-          ),
-          calculated_metrics (
-            sp,
-            pac,
-            fat_pct,
-            sugars_pct,
-            total_quantity_g
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setRecipes(data as any || []);
+      const data = await apiGet<Recipe[]>('/api/recipes');
+      setRecipes(data || []);
     } catch (error: any) {
       toast({
         title: 'Failed to load recipes',
@@ -107,10 +82,7 @@ export function RecipeBrowserDrawer({
 
   const deleteRecipe = async (recipeId: string) => {
     try {
-      // CASCADE DELETE will automatically clean up related data (recipe_rows, calculated_metrics, recipe_outcomes)
-      const { error } = await supabase.from('recipes').delete().eq('id', recipeId);
-
-      if (error) throw error;
+      await apiDelete(`/api/recipes/${recipeId}`);
 
       toast({
         title: 'Recipe deleted',

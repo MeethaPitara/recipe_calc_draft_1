@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { IngredientService } from '@/services/ingredientService';
 import { matchIngredientName } from '@/lib/ingredientMapper';
 import type { IngredientData } from '@/types/ingredients';
-import { supabase } from '@/integrations/supabase/client';
+import { apiPost } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 
 type ParsedRow = {
@@ -138,76 +138,53 @@ export function RecipeImporter() {
         const user = await authService.getUser();
         if (!user) throw new Error('User not authenticated');
 
-        // Create recipe
-        const { data: newRecipe, error: recipeError } = await supabase
-          .from('recipes')
-          .insert({
-            recipe_name: recipe.name,
-            product_type: 'gelato',
-            user_id: user.id
-          } as any)
-          .select()
-          .single();
-
-        if (recipeError) throw recipeError;
-
-        // Insert ingredient rows with calculated data
-        const rows = recipe.rows.map(r => {
+        // Calculate composition for metrics
+        const totals = recipe.rows.reduce((acc, r) => {
           const ingData = r.matchedIngredient!;
           const qty = r.grams;
-
           return {
-            recipe_id: newRecipe.id,
-            ingredient: ingData.name,
-            quantity_g: qty,
-            sugars_g: qty * (ingData.sugars_pct / 100),
-            fat_g: qty * (ingData.fat_pct / 100),
-            msnf_g: qty * (ingData.msnf_pct / 100),
-            other_solids_g: qty * (ingData.other_solids_pct / 100),
-            total_solids_g: qty * ((100 - ingData.water_pct) / 100)
+            quantity: acc.quantity + qty,
+            sugars: acc.sugars + (qty * (ingData.sugars_pct / 100)),
+            fat: acc.fat + (qty * (ingData.fat_pct / 100)),
+            msnf: acc.msnf + (qty * (ingData.msnf_pct / 100)),
+            otherSolids: acc.otherSolids + (qty * (ingData.other_solids_pct / 100)),
+            totalSolids: acc.totalSolids + (qty * ((100 - ingData.water_pct) / 100))
           };
-        });
+        }, { quantity: 0, sugars: 0, fat: 0, msnf: 0, otherSolids: 0, totalSolids: 0 });
 
-        const { error: rowsError } = await supabase
-          .from('recipe_rows')
-          .insert(rows);
-
-        if (rowsError) throw rowsError;
-
-        // Calculate and save metrics
-        const totals = rows.reduce((acc, r) => ({
-          quantity: acc.quantity + r.quantity_g,
-          sugars: acc.sugars + r.sugars_g,
-          fat: acc.fat + r.fat_g,
-          msnf: acc.msnf + r.msnf_g,
-          otherSolids: acc.otherSolids + r.other_solids_g,
-          totalSolids: acc.totalSolids + r.total_solids_g
-        }), { quantity: 0, sugars: 0, fat: 0, msnf: 0, otherSolids: 0, totalSolids: 0 });
-
-        const metrics = {
-          recipe_id: newRecipe.id,
-          total_quantity_g: totals.quantity,
-          total_sugars_g: totals.sugars,
-          total_fat_g: totals.fat,
-          total_msnf_g: totals.msnf,
-          total_other_solids_g: totals.otherSolids,
-          total_solids_g: totals.totalSolids,
-          sugars_pct: (totals.sugars / totals.quantity) * 100,
-          fat_pct: (totals.fat / totals.quantity) * 100,
-          msnf_pct: (totals.msnf / totals.quantity) * 100,
-          other_solids_pct: (totals.otherSolids / totals.quantity) * 100,
-          total_solids_pct: (totals.totalSolids / totals.quantity) * 100,
-          sp: 0, // Will be calculated by backend
-          pac: 0, // Will be calculated by backend
-          fpdt: 0, // Will be calculated by backend
-          pod_index: 0 // Will be calculated by backend
+        // Insert via backend API
+        const payload = {
+          recipe_name: recipe.name,
+          product_type: 'gelato',
+          rows: recipe.rows.map(r => {
+            const ingData = r.matchedIngredient!;
+            const qty = r.grams;
+            return {
+              ingredient: ingData.name,
+              quantity_g: qty,
+              sugars_g: qty * (ingData.sugars_pct / 100),
+              fat_g: qty * (ingData.fat_pct / 100),
+              msnf_g: qty * (ingData.msnf_pct / 100),
+              other_solids_g: qty * (ingData.other_solids_pct / 100),
+              total_solids_g: qty * ((100 - ingData.water_pct) / 100)
+            };
+          }),
+          metrics: {
+            total_g: totals.quantity,
+            ts_g: totals.totalSolids,
+            ts_pct: (totals.totalSolids / totals.quantity) * 100,
+            totalSugars_pct: (totals.sugars / totals.quantity) * 100,
+            fat_pct: (totals.fat / totals.quantity) * 100,
+            msnf_pct: (totals.msnf / totals.quantity) * 100,
+            other_pct: (totals.otherSolids / totals.quantity) * 100,
+            totalSugars_g: totals.sugars,
+            fat_g: totals.fat,
+            msnf_g: totals.msnf,
+            other_g: totals.otherSolids
+          }
         };
 
-        const { error: metricsError } = await supabase
-          .from('calculated_metrics')
-          .insert(metrics);
-
-        if (metricsError) console.error('Metrics save error:', metricsError);
+        await apiPost('/api/recipes', payload);
 
         setImportProgress(((i + 1) / parsedRecipes.length) * 100);
       }

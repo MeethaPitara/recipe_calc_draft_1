@@ -17,7 +17,7 @@ interface UseRecipeMetricsProps {
 interface UseRecipeMetricsReturn {
   metrics: MetricsV2 | null;
   setMetrics: (metrics: MetricsV2 | null) => void;
-  calculateMetrics: () => MetricsV2 | null;
+  calculateMetrics: () => Promise<MetricsV2 | null>;
   totalBatch: number;
   totalCost: number;
   mode: Mode;
@@ -29,7 +29,7 @@ export function useRecipeMetrics({ rows, productType }: UseRecipeMetricsProps): 
   const [metrics, setMetrics] = useState<MetricsV2 | null>(null);
 
   const mode = useMemo(() => resolveMode(productType), [productType]);
-  
+
   const productKeyValue = useMemo(() => {
     const hasFruit = rows.some(r => r.ingredientData?.category === 'fruit');
     return resolveProductKey(mode, hasFruit);
@@ -55,27 +55,30 @@ export function useRecipeMetrics({ rows, productType }: UseRecipeMetricsProps): 
   // Debounced auto-calculation when rows change
   useEffect(() => {
     if (rows.length === 0) return;
-    
+
     const timer = setTimeout(() => {
-      const calcRows = rows
-        .filter(r => r.ingredientData && r.quantity_g > 0)
-        .map(r => ({
-          ing: r.ingredientData!,
-          grams: r.quantity_g
-        }));
-      
-      if (calcRows.length > 0) {
-        const calculated = calcMetricsV2(calcRows, { mode });
-        setMetrics(calculated);
-      }
+      const runCalc = async () => {
+        const calcRows = rows
+          .filter(r => r.ingredientData && r.quantity_g > 0)
+          .map(r => ({
+            ing: r.ingredientData!,
+            grams: r.quantity_g
+          }));
+
+        if (calcRows.length > 0) {
+          const calculated = await calcMetricsV2(calcRows, { mode });
+          setMetrics(calculated);
+        }
+      };
+      runCalc();
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, [rows, mode]);
 
-  const calculateMetrics = (): MetricsV2 | null => {
+  const calculateMetrics = async (): Promise<MetricsV2 | null> => {
     const validRows = rows.filter(r => r.ingredientData && r.quantity_g > 0);
-    
+
     if (validRows.length === 0) {
       return null;
     }
@@ -85,9 +88,9 @@ export function useRecipeMetrics({ rows, productType }: UseRecipeMetricsProps): 
       grams: r.quantity_g
     }));
 
-    const calculated = calcMetricsV2(calcRows, { mode });
+    const calculated = await calcMetricsV2(calcRows, { mode });
     setMetrics(calculated);
-    
+
     return calculated;
   };
 

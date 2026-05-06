@@ -4,7 +4,7 @@
  */
 
 import type { IngredientDB, IngredientEntry } from './types';
-import { supabase } from '@/integrations/supabase/client';
+import { apiGet } from '@/lib/apiClient';
 
 // ── Default Ingredient Database ──
 
@@ -54,37 +54,37 @@ export const INGREDIENT_DB: IngredientDB = {
 // ── Database Loader ──
 
 /**
- * Replace INGREDIENT_DB contents with rows from Supabase 'ingredients' table.
+ * Replace INGREDIENT_DB contents with rows from backend API.
  */
 export async function loadIngredientsFromSupabase(): Promise<void> {
-    const { data, error } = await supabase.from('ingredients').select('*');
-    if (error) {
+    try {
+        const data = await apiGet<any[]>('/api/ingredients');
+        if (!data || data.length === 0) {
+            console.warn('No ingredients found from API, keeping defaults.');
+            return;
+        }
+
+        // Do NOT clear hardcoded values!
+        // The AI and Sugar Optimizer explicitly use hardcoded keys like 'Sucrose/sugar' 
+        // and 'Glucose Syrup (40-42DE)'. If Supabase doesn't have an exact match, 
+        // the pipeline will lose their nutritional math and result in 0% sugar properties!
+
+        // Populate with DB rows
+        for (const row of data) {
+            INGREDIENT_DB[row.name] = {
+                fat_pct: row.fat_pct ?? 0,
+                msnf_pct: row.msnf_pct ?? 0,
+                sugars_pct: row.sugars_pct ?? 0,
+                water_pct: row.water_pct ?? 0,
+                category: row.category || 'other',
+                locked: row.category === 'stabilizer',
+                note: row.notes ?? '',
+                sp_coeff: row.sp_coeff,
+                pac_coeff: row.pac_coeff,
+            };
+        }
+    } catch (error) {
         console.error('Failed to load ingredients, falling back to defaults:', error);
-        return;
-    }
-    if (!data || data.length === 0) {
-        console.warn('No ingredients found in Supabase, keeping defaults.');
-        return;
-    }
-
-    // Do NOT clear hardcoded values!
-    // The AI and Sugar Optimizer explicitly use hardcoded keys like 'Sucrose/sugar' 
-    // and 'Glucose Syrup (40-42DE)'. If Supabase doesn't have an exact match, 
-    // the pipeline will lose their nutritional math and result in 0% sugar properties!
-
-    // Populate with DB rows
-    for (const row of data) {
-        INGREDIENT_DB[row.name] = {
-            fat_pct: row.fat_pct ?? 0,
-            msnf_pct: row.msnf_pct ?? 0,
-            sugars_pct: row.sugars_pct ?? 0,
-            water_pct: row.water_pct ?? 0,
-            category: row.category || 'other',
-            locked: row.category === 'stabilizer',
-            note: row.notes ?? '',
-            sp_coeff: row.sp_coeff,
-            pac_coeff: row.pac_coeff,
-        };
     }
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Thermometer, Snowflake, AlertCircle, Info } from 'lucide-react';
-import { recommendTemps, calculateIdealServeTemp, getTemperatureGuidance } from '@/lib/scoopability';
+import { recommendTemps, getTemperatureGuidance, type ScoopAdvice } from '@/lib/scoopability';
 import { previewTuningChanges } from '@/lib/autotune';
 import { Row } from '@/lib/optimize';
 import TemperatureGraphs from './calculator/TemperatureGraphs';
@@ -30,14 +30,27 @@ export default function TemperaturePanel({
   const [customTemp, setCustomTemp] = useState<number>(-14);
   const [tuningPreview, setTuningPreview] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [advice, setAdvice] = useState<ScoopAdvice | null>(null);
+  const [guidance, setGuidance] = useState<string[]>([]);
 
   const isMobile = useIsMobile();
-  const advice = recommendTemps(metrics, servingContext);
   const ctx = SERVING_CONTEXT[servingContext];
-  const guidance = getTemperatureGuidance(metrics);
 
-  const previewAutoTune = () => {
-    const preview = previewTuningChanges(recipe, customTemp);
+  // Fetch scoopability data from backend
+  useEffect(() => {
+    if (!metrics) return;
+    recommendTemps(metrics, servingContext)
+      .then(setAdvice)
+      .catch(err => console.error('Scoopability error:', err));
+    getTemperatureGuidance(metrics)
+      .then(setGuidance)
+      .catch(err => console.error('Guidance error:', err));
+  }, [metrics, servingContext]);
+
+  if (!advice) return null; // Loading state
+
+  const previewAutoTune = async () => {
+    const preview = await previewTuningChanges(recipe, customTemp);
     setTuningPreview(preview);
     setShowPreview(true);
   };

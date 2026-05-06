@@ -19,7 +19,8 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<Row[] | null>(null);
-  
+  const [generatedMetrics, setGeneratedMetrics] = useState<any | null>(null);
+
   const [targets, setTargets] = useState({
     sugars_pct: 16,
     fat_pct: 8,
@@ -30,52 +31,52 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
 
   const runReverseEngineering = async () => {
     setIsGenerating(true);
-    
+
     try {
       // Create initial recipe template with common ingredients
       // Note: These are placeholder ingredients - in production, fetch from database
       const initialRows: Row[] = [
-        { 
-          ing: { 
+        {
+          ing: {
             id: 'whole_milk', name: 'Whole Milk', category: 'dairy' as const,
             water_pct: 87.5, fat_pct: 3.5, msnf_pct: 9, sugars_pct: 0, other_solids_pct: 0, lactose_pct: 5
-          }, 
-          grams: 600, min: 400, max: 700 
+          },
+          grams: 600, min: 400, max: 700
         },
-        { 
-          ing: { 
+        {
+          ing: {
             id: 'cream_35', name: 'Cream 35%', category: 'dairy' as const,
             water_pct: 58, fat_pct: 35, msnf_pct: 7, sugars_pct: 0, other_solids_pct: 0, lactose_pct: 3
-          }, 
-          grams: 150, min: 50, max: 300 
+          },
+          grams: 150, min: 50, max: 300
         },
-        { 
-          ing: { 
+        {
+          ing: {
             id: 'sucrose', name: 'Sucrose', category: 'sugar' as const,
             water_pct: 0, fat_pct: 0, msnf_pct: 0, sugars_pct: 100, other_solids_pct: 0
-          }, 
-          grams: 120, min: 80, max: 180 
+          },
+          grams: 120, min: 80, max: 180
         },
-        { 
-          ing: { 
+        {
+          ing: {
             id: 'dextrose', name: 'Dextrose', category: 'sugar' as const,
             water_pct: 0, fat_pct: 0, msnf_pct: 0, sugars_pct: 100, other_solids_pct: 0
-          }, 
-          grams: 40, min: 20, max: 80 
+          },
+          grams: 40, min: 20, max: 80
         },
-        { 
-          ing: { 
+        {
+          ing: {
             id: 'skim_milk_powder', name: 'Skim Milk Powder', category: 'dairy' as const,
             water_pct: 4, fat_pct: 1, msnf_pct: 95, sugars_pct: 0, other_solids_pct: 0, lactose_pct: 52
-          }, 
-          grams: 40, min: 20, max: 60 
+          },
+          grams: 40, min: 20, max: 60
         },
-        { 
-          ing: { 
+        {
+          ing: {
             id: 'stabilizer', name: 'Stabilizer', category: 'other' as const,
             water_pct: 0, fat_pct: 0, msnf_pct: 0, sugars_pct: 0, other_solids_pct: 100
-          }, 
-          grams: 3, min: 2, max: 5 
+          },
+          grams: 3, min: 2, max: 5
         }
       ];
 
@@ -86,11 +87,12 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
         populationSize: 40
       };
 
-      const optimizedRecipe = advancedOptimize(initialRows, targets, config);
-      const metrics = calcMetricsV2(optimizedRecipe);
-      
+      const optimizedRecipe = await advancedOptimize(initialRows, targets, config);
+      const metrics = await calcMetricsV2(optimizedRecipe);
+
       setGeneratedRecipe(optimizedRecipe);
-      
+      setGeneratedMetrics(metrics);
+
       toast({
         title: "Recipe Generated",
         description: `Created recipe with ${metrics.totalSugars_pct.toFixed(1)}% sugars, ${metrics.fat_pct.toFixed(1)}% fat`,
@@ -136,7 +138,7 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
               <Target className="h-4 w-4" />
               Target Parameters
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Sugars %: {targets.sugars_pct}</Label>
@@ -200,8 +202,8 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
             </div>
           </div>
 
-          <Button 
-            onClick={runReverseEngineering} 
+          <Button
+            onClick={runReverseEngineering}
             disabled={isGenerating}
             className="w-full"
             size="lg"
@@ -229,35 +231,30 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
             </div>
 
             {/* Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
-              {(() => {
-                const metrics = calcMetricsV2(generatedRecipe);
-                return (
-                  <>
-                    <div className="text-center p-3 bg-primary/5 rounded-lg">
-                      <div className="text-xs text-muted-foreground">Sugars</div>
-                      <div className="text-lg font-semibold">{metrics.totalSugars_pct.toFixed(1)}%</div>
-                    </div>
-                    <div className="text-center p-3 bg-primary/5 rounded-lg">
-                      <div className="text-xs text-muted-foreground">Fat</div>
-                      <div className="text-lg font-semibold">{metrics.fat_pct.toFixed(1)}%</div>
-                    </div>
-                    <div className="text-center p-3 bg-primary/5 rounded-lg">
-                      <div className="text-xs text-muted-foreground">MSNF</div>
-                      <div className="text-lg font-semibold">{metrics.msnf_pct.toFixed(1)}%</div>
-                    </div>
-                    <div className="text-center p-3 bg-primary/5 rounded-lg">
-                      <div className="text-xs text-muted-foreground">TS</div>
-                      <div className="text-lg font-semibold">{metrics.ts_pct.toFixed(1)}%</div>
-                    </div>
-                    <div className="text-center p-3 bg-primary/5 rounded-lg">
-                      <div className="text-xs text-muted-foreground">FPDT</div>
-                      <div className="text-lg font-semibold">{metrics.fpdt.toFixed(1)}°C</div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+            {generatedMetrics && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-xs text-muted-foreground">Sugars</div>
+                  <div className="text-lg font-semibold">{generatedMetrics.totalSugars_pct.toFixed(1)}%</div>
+                </div>
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-xs text-muted-foreground">Fat</div>
+                  <div className="text-lg font-semibold">{generatedMetrics.fat_pct.toFixed(1)}%</div>
+                </div>
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-xs text-muted-foreground">MSNF</div>
+                  <div className="text-lg font-semibold">{generatedMetrics.msnf_pct.toFixed(1)}%</div>
+                </div>
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-xs text-muted-foreground">TS</div>
+                  <div className="text-lg font-semibold">{generatedMetrics.ts_pct.toFixed(1)}%</div>
+                </div>
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-xs text-muted-foreground">FPDT</div>
+                  <div className="text-lg font-semibold">{generatedMetrics.fpdt.toFixed(1)}°C</div>
+                </div>
+              </div>
+            )}
 
             {onApplyRecipe && (
               <Button onClick={applyRecipe} className="w-full" variant="outline">

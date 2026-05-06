@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { apiPost } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 import { IngredientService } from '@/services/ingredientService';
 import type { IngredientData } from '@/types/ingredients';
@@ -61,14 +61,10 @@ export function IntelligentCSVImporter() {
           const preview = results.data.slice(0, 15); // First 15 rows for analysis
 
           // Call AI analysis edge function
-          const { data, error } = await supabase.functions.invoke('analyze-csv', {
-            body: {
-              csvPreview: JSON.stringify(preview),
-              availableIngredients: ingredients
-            }
+          const data = await apiPost('/api/ai/analyze-csv', {
+            csvPreview: JSON.stringify(preview),
+            availableIngredients: ingredients
           });
-
-          if (error) throw error;
 
           if (!data.success) {
             throw new Error(data.error || 'Analysis failed');
@@ -114,30 +110,11 @@ export function IntelligentCSVImporter() {
         const recipe = analysis.recipes[i];
 
         // Get full ingredient data for calculations using pre-fetched map
-        const ingredientData = recipe.ingredients.map(ing =>
-          ingredientMap.get(ing.matched_id)
-        );
-
-        // Create recipe
-        const { data: newRecipe, error: recipeError } = await supabase
-          .from('recipes')
-          .insert({
-            recipe_name: recipe.name,
-            product_type: 'ice_cream',
-            user_id: user.id
-          } as any)
-          .select()
-          .single();
-
-        if (recipeError) throw recipeError;
-
-        // Insert ingredients with calculated nutritional data
-        const rows = recipe.ingredients.map((ing, idx) => {
+        const rowsToInsert = recipe.ingredients.map((ing, idx) => {
           const ingredientData = ingredientMap.get(ing.matched_id);
           const qty = ing.quantity;
 
           return {
-            recipe_id: newRecipe.id,
             ingredient: ing.matched_name,
             quantity_g: qty,
             sugars_g: ingredientData ? (qty * (Number(ingredientData.sugars_pct) / 100)) : 0,
@@ -148,14 +125,8 @@ export function IntelligentCSVImporter() {
           };
         });
 
-        const { error: rowsError } = await supabase
-          .from('recipe_rows')
-          .insert(rows);
-
-        if (rowsError) throw rowsError;
-
-        // Calculate and save metrics
-        const totals = rows.reduce((acc, r) => ({
+        // Calculate metrics
+        const totals = rowsToInsert.reduce((acc, r) => ({
           quantity: acc.quantity + r.quantity_g,
           sugars: acc.sugars + r.sugars_g,
           fat: acc.fat + r.fat_g,
@@ -164,30 +135,27 @@ export function IntelligentCSVImporter() {
           totalSolids: acc.totalSolids + r.total_solids_g
         }), { quantity: 0, sugars: 0, fat: 0, msnf: 0, otherSolids: 0, totalSolids: 0 });
 
-        const metrics = {
-          recipe_id: newRecipe.id,
-          total_quantity_g: totals.quantity,
-          total_sugars_g: totals.sugars,
-          total_fat_g: totals.fat,
-          total_msnf_g: totals.msnf,
-          total_other_solids_g: totals.otherSolids,
-          total_solids_g: totals.totalSolids,
-          sugars_pct: (totals.sugars / totals.quantity) * 100,
-          fat_pct: (totals.fat / totals.quantity) * 100,
-          msnf_pct: (totals.msnf / totals.quantity) * 100,
-          other_solids_pct: (totals.otherSolids / totals.quantity) * 100,
-          total_solids_pct: (totals.totalSolids / totals.quantity) * 100,
+        const metricsInfo = {
+          total_g: totals.quantity,
+          ts_g: totals.totalSolids,
+          ts_pct: totals.quantity > 0 ? (totals.totalSolids / totals.quantity) * 100 : 0,
+          totalSugars_pct: totals.quantity > 0 ? (totals.sugars / totals.quantity) * 100 : 0,
+          fat_pct: totals.quantity > 0 ? (totals.fat / totals.quantity) * 100 : 0,
+          msnf_pct: totals.quantity > 0 ? (totals.msnf / totals.quantity) * 100 : 0,
+          others_pct: totals.quantity > 0 ? (totals.otherSolids / totals.quantity) * 100 : 0,
           sp: 0,
           pac: 0,
           fpdt: 0,
-          pod_index: 0
+          pod: 0
         };
 
-        const { error: metricsError } = await supabase
-          .from('calculated_metrics')
-          .insert(metrics);
-
-        if (metricsError) console.error('Metrics save error:', metricsError);
+        // Send combined payload to our backend route
+        await apiPost('/api/recipes', {
+          recipe_name: recipe.name,
+          product_type: 'ice_cream',
+          rows: rowsToInsert,
+          metrics: metricsInfo
+        });
 
         setImportProgress(((i + 1) / total) * 100);
       }

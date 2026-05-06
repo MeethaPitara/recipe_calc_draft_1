@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,8 +17,20 @@ export default function MachineGuidance({
   machineType, 
   onMachineTypeChange 
 }: MachineGuidanceProps) {
-  const settings = getOptimalMachineSettings(metrics, machineType);
-  const validation = validateForMachine(metrics, machineType);
+  const [settings, setSettings] = useState<{ agingTime: string; drawTemp: string; overrunTarget: string; notes: string[] } | null>(null);
+  const [validation, setValidation] = useState<{ valid: boolean; warnings: string[]; recommendations: string[] }>({ valid: true, warnings: [], recommendations: [] });
+
+  useEffect(() => {
+    if (!metrics) return;
+    getOptimalMachineSettings(metrics, machineType)
+      .then(setSettings)
+      .catch(err => console.error('Machine settings error:', err));
+    validateForMachine(metrics, machineType)
+      .then(setValidation)
+      .catch(err => console.error('Machine validation error:', err));
+  }, [metrics, machineType]);
+
+  if (!settings) return null;
   
   return (
     <Card className="p-4 space-y-4">

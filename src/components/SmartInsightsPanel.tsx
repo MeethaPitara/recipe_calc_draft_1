@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { apiPost, apiGet } from '@/lib/apiClient';
 import { useAIUsageLimit } from '@/hooks/useAIUsageLimit';
 import { useQuery } from '@tanstack/react-query';
 
@@ -57,42 +57,15 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
   const { data: savedRecipes, isLoading: loadingRecipes } = useQuery({
     queryKey: ['user-recipes-for-analysis'],
     queryFn: async () => {
-      const { data: recipes, error } = await supabase
-        .from('recipes')
-        .select(`
-          id,
-          recipe_name,
-          product_type,
-          recipe_rows (
-            ingredient,
-            quantity_g,
-            sugars_g,
-            fat_g,
-            msnf_g,
-            other_solids_g,
-            total_solids_g
-          ),
-          calculated_metrics (
-            sugars_pct,
-            fat_pct,
-            msnf_pct,
-            total_solids_pct,
-            sp,
-            pac,
-            fpdt
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (error) {
+      try {
+        const recipes = await apiGet('/api/recipes/recent');
+        console.log('📚 Loaded recipes for analysis:', recipes?.length || 0);
+        return recipes || [];
+      } catch (error) {
         console.error('Error fetching recipes:', error);
         toast.error('Failed to load recipes from database');
         return [];
       }
-      
-      console.log('📚 Loaded recipes for analysis:', recipes?.length || 0);
-      return recipes || [];
     }
   });
 
@@ -106,8 +79,8 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
     const metricsToAnalyze = sourceMetrics || metrics;
 
     // Handle both Recipe type and array type
-    const hasRows = Array.isArray(recipeToAnalyze) 
-      ? recipeToAnalyze.length > 0 
+    const hasRows = Array.isArray(recipeToAnalyze)
+      ? recipeToAnalyze.length > 0
       : recipeToAnalyze?.rows && recipeToAnalyze.rows.length > 0;
 
     if (!hasRows) {
@@ -119,24 +92,17 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
 
     try {
       // Use override mode if provided, otherwise use analysisMode, then fallback to recipe property, then default
-      const finalProductType = overrideMode || analysisMode || productType || 
-                               (typeof recipeToAnalyze === 'object' && recipeToAnalyze.product_type) || 
-                               'ice_cream';
-      
-      console.log('🎯 Analyzing recipe with product type:', finalProductType);
-      
-      const { data, error } = await supabase.functions.invoke('analyze-recipe', {
-        body: {
-          recipe: recipeToAnalyze,
-          metrics: metricsToAnalyze,
-          productType: finalProductType
-        }
-      });
+      const finalProductType = overrideMode || analysisMode || productType ||
+        (typeof recipeToAnalyze === 'object' && recipeToAnalyze.product_type) ||
+        'ice_cream';
 
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to analyze recipe');
-      }
+      console.log('🎯 Analyzing recipe with product type:', finalProductType);
+
+      const data = await apiPost('/api/ai/analyze-recipe', {
+        recipe: recipeToAnalyze,
+        metrics: metricsToAnalyze,
+        productType: finalProductType
+      });
 
       if (!data) {
         throw new Error('No data returned from analysis');
@@ -179,8 +145,8 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
     };
 
     // Get metrics from calculated_metrics
-    const metricsArray = Array.isArray(selected.calculated_metrics) 
-      ? selected.calculated_metrics 
+    const metricsArray = Array.isArray(selected.calculated_metrics)
+      ? selected.calculated_metrics
       : (selected.calculated_metrics ? [selected.calculated_metrics] : []);
     const metricsData: Metrics = metricsArray.length > 0 ? metricsArray[0] : {};
 
@@ -258,8 +224,8 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
                   )}
                 </SelectContent>
               </Select>
-              <Button 
-                onClick={handleLoadRecipe} 
+              <Button
+                onClick={handleLoadRecipe}
                 disabled={!selectedRecipeId || isAnalyzing || !savedRecipes || savedRecipes.length === 0}
                 variant="outline"
               >
@@ -280,8 +246,8 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
           <Alert>
             <AlertDescription className="flex items-center justify-between">
               <span>Current recipe: {Array.isArray(recipe) ? 'From Calculator' : (recipe.recipe_name || 'Untitled')}</span>
-              <Button 
-                onClick={() => handleAIAnalysis(undefined, undefined, analysisMode)} 
+              <Button
+                onClick={() => handleAIAnalysis(undefined, undefined, analysisMode)}
                 disabled={isAnalyzing}
                 size="sm"
               >

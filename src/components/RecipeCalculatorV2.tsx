@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { apiPost, apiPut, apiGet, apiDelete } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -409,23 +409,26 @@ export default function RecipeCalculatorV2({
     if (rows.length === 0) return;
 
     const timer = setTimeout(() => {
-      // Silently calculate metrics without showing toast for auto-calculations
-      const calcRows: Row[] = rows
-        .filter(r => r.ingredientData && r.quantity_g > 0)
-        .map(r => ({
-          ing: r.ingredientData!,
-          grams: r.quantity_g,
-          min: 0,
-          max: 1000
-        }));
+      const runCalc = async () => {
+        // Silently calculate metrics without showing toast for auto-calculations
+        const calcRows: Row[] = rows
+          .filter(r => r.ingredientData && r.quantity_g > 0)
+          .map(r => ({
+            ing: r.ingredientData!,
+            grams: r.quantity_g,
+            min: 0,
+            max: 1000
+          }));
 
-      if (calcRows.length > 0) {
-        const mode = resolveMode(productType);
-        const calculated = calcMetricsV2(calcRows, { mode });
-        setMetrics(calculated);
-      } else {
-        setMetrics(null);
-      }
+        if (calcRows.length > 0) {
+          const mode = resolveMode(productType);
+          const calculated = await calcMetricsV2(calcRows, { mode });
+          setMetrics(calculated);
+        } else {
+          setMetrics(null);
+        }
+      };
+      runCalc();
     }, 500);
 
     return () => clearTimeout(timer);
@@ -813,30 +816,17 @@ export default function RecipeCalculatorV2({
     });
   };
 
-  const calculateMetrics = () => {
-    console.log('🧮 calculateMetrics called');
-
-    const totalRows = rows.length;
-    const rowsWithIngredientData = rows.filter(r => r.ingredientData).length;
-    const rowsWithoutData = totalRows - rowsWithIngredientData;
+  const calculateMetrics = async () => {
+    console.log('📊 calculateMetrics called manually');
     const validRows = rows.filter(r => r.ingredientData && r.quantity_g > 0);
 
-    console.log(`  Total rows: ${totalRows}`);
-    console.log(`  Rows with ingredientData: ${rowsWithIngredientData}`);
-    console.log(`  Rows without ingredientData: ${rowsWithoutData}`);
-    console.log(`  Valid rows (with data + grams > 0): ${validRows.length}`);
-
-    // More specific error messages
-    // Silenced as per user request to remove "stupid errors"
     if (validRows.length === 0) {
-      console.warn('🧮 Cannot calculate metrics: No valid rows with quantities and database data.');
+      toast({
+        title: 'Empty Recipe',
+        description: 'Add at least one valid ingredient to calculate metrics',
+        variant: 'destructive',
+      });
       return;
-    }
-
-    // Warn if some rows lack data (text-only ingredients)
-    // Silenced as per user request
-    if (rowsWithoutData > 0) {
-      console.warn(`⚠ ${rowsWithoutData} row(s) have no ingredientData and will be ignored.`);
     }
 
     // Convert rows to format expected by calc.v2
@@ -847,7 +837,7 @@ export default function RecipeCalculatorV2({
 
     // Use the comprehensive v2.1 science engine with central mode resolver
     const mode = resolveMode(productType);
-    const calculated = calcMetricsV2(calcRows, { mode });
+    const calculated = await calcMetricsV2(calcRows, { mode });
 
     setMetrics(calculated);
 
@@ -871,7 +861,7 @@ export default function RecipeCalculatorV2({
     }
   };
 
-  const balanceRecipe = () => {
+  const balanceRecipe = async () => {
     console.log('⚖ balanceRecipe called');
     console.log(`  Rows: ${rows.length}`);
     console.log(`  Has metrics: ${!!metrics}`);
@@ -1140,7 +1130,7 @@ export default function RecipeCalculatorV2({
         totalWeight: optRows.reduce((sum, r) => sum + r.grams, 0)
       });
 
-      const result = RecipeBalancerV2.balance(optRows, targets, availableIngredients, {
+      const result = await RecipeBalancerV2.balance(optRows, targets, availableIngredients, {
         maxIterations: 200, // Increased from 100
         tolerance,
         enableFeasibilityCheck: true,
@@ -1160,7 +1150,7 @@ export default function RecipeCalculatorV2({
       // PHASE 2: Enhanced error messages with actionable structured suggestions
       if (!result.success) {
         console.log('❌ Balancing failed, generating suggestions...');
-        const currentMetrics = calcMetricsV2(optRows, { mode: calcMode });
+        const currentMetrics = await calcMetricsV2(optRows, { mode: calcMode });
         const structuredSuggestions: BalancingSuggestion[] = [];
 
         // Calculate ACTUAL gaps between current and target
@@ -1279,7 +1269,7 @@ export default function RecipeCalculatorV2({
           .map(r => ({ ing: r.ing, grams: r.grams }));
 
         const recalcMode = resolveMode(productType);
-        const recalculatedMetrics = calcMetricsV2(recalcRows, { mode: recalcMode });
+        const recalculatedMetrics = await calcMetricsV2(recalcRows, { mode: recalcMode });
 
         setMetrics(recalculatedMetrics);
         console.log('🔄 Metrics auto-recalculated post-balance:', recalculatedMetrics);
@@ -1454,13 +1444,28 @@ export default function RecipeCalculatorV2({
         console.log('  🔧 Auto-creating ingredient with defaults:', defaults);
 
         // Auto-create ingredient in database
-        const { data: newIng, error } = await supabase
-          .from('ingredients')
-          .insert(defaults)
-          .select()
-          .single();
+        try {
+          const newIng = await apiPost('/api/ingredients', defaults);
 
-        if (error || !newIng) {
+          if (!newIng) {
+            throw new Error('Failed to create ingredient');
+          }
+
+          toast({
+            title: 'Ingredient Added',
+            description: `${newIng.name} has been added to the database.`,
+          });
+
+          console.log('  ✅ Ingredient auto-created:', newIng);
+
+          // Refresh ingredients list
+          await refetchIngredients();
+
+          // Re-apply suggestion with newly created ingredient - add small delay
+          setTimeout(() => applySuggestion(suggestion), 500);
+          return;
+
+        } catch (error: any) {
           console.error('  ❌ Failed to auto-create:', error);
           toast({
             title: '❌ Failed to add ingredient',
@@ -1469,19 +1474,6 @@ export default function RecipeCalculatorV2({
           });
           return;
         }
-
-        console.log('  ✅ Ingredient auto-created:', newIng);
-        toast({
-          title: '✨ Ingredient Added',
-          description: `${defaults.name} was automatically added to your database`,
-        });
-
-        // Refresh ingredients list
-        await refetchIngredients();
-
-        // Re-apply suggestion with newly created ingredient - add small delay
-        setTimeout(() => applySuggestion(suggestion), 500);
-        return;
       }
 
       // Fallback: show manual add dialog
@@ -1638,82 +1630,26 @@ export default function RecipeCalculatorV2({
 
       let recipeId = currentRecipeId;
 
-      if (!recipeId) {
-        // Create new recipe
-        const { data: recipe, error: recipeError } = await supabase
-          .from('recipes')
-          .insert({
-            recipe_name: recipeName,
-            product_type: productType,
-            user_id: user.id
-          } as any)
-          .select()
-          .single();
+      const payload = {
+        recipe_name: recipeName,
+        product_type: productType,
+        rows: rows,
+        metrics: metrics
+      };
 
-        if (recipeError) throw recipeError;
-        recipeId = recipe.id;
+      if (!recipeId) {
+        // Create new recipe via API
+        const result = await apiPost('/api/recipes', payload);
+        recipeId = result.id;
         setCurrentRecipeId(recipeId);
       } else {
-        // Update existing recipe
-        const { error: updateError } = await supabase
-          .from('recipes')
-          .update({ recipe_name: recipeName, product_type: productType })
-          .eq('id', recipeId);
-
-        if (updateError) throw updateError;
-
-        // Delete existing rows (CASCADE will handle related data)
-        await supabase.from('recipe_rows').delete().eq('recipe_id', recipeId);
-        await supabase.from('calculated_metrics').delete().eq('recipe_id', recipeId);
-      }
-
-      // Insert recipe rows
-      const { error: rowsError } = await supabase
-        .from('recipe_rows')
-        .insert(
-          rows.map(r => ({
-            recipe_id: recipeId,
-            ingredient: r.ingredient,
-            quantity_g: r.quantity_g,
-            sugars_g: r.sugars_g,
-            fat_g: r.fat_g,
-            msnf_g: r.msnf_g,
-            other_solids_g: r.other_solids_g,
-            total_solids_g: r.total_solids_g
-          }))
-        );
-
-      if (rowsError) throw rowsError;
-
-      // Insert calculated metrics
-      if (metrics) {
-        const { error: metricsError } = await supabase
-          .from('calculated_metrics')
-          .insert({
-            recipe_id: recipeId,
-            total_quantity_g: metrics.total_g,
-            total_sugars_g: metrics.totalSugars_g,
-            total_fat_g: metrics.fat_g,
-            total_msnf_g: metrics.msnf_g,
-            total_other_solids_g: metrics.other_g,
-            total_solids_g: metrics.ts_g,
-            sugars_pct: metrics.totalSugars_pct,
-            fat_pct: metrics.fat_pct,
-            msnf_pct: metrics.msnf_pct,
-            other_solids_pct: metrics.other_pct,
-            total_solids_pct: metrics.ts_pct,
-            sp: 0, // Legacy field
-            pac: 0, // Legacy field
-            fpdt: metrics.fpdt,
-            pod_index: metrics.pod_index
-          } as any);
-
-        if (metricsError) throw metricsError;
+        // Update existing recipe via API
+        await apiPut(`/api/recipes/${recipeId}`, payload);
       }
 
       toast({
-        title: 'Recipe saved',
-        description: `"${recipeName}" has been saved successfully`
+        title: 'Recipe Saved 🎉',
+        description: 'Successfully saved to your library'
       });
 
       // Save version history after successful save

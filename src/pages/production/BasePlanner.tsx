@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBasePlannerStore } from '@/store/useBasePlannerStore';
-import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/lib/auth/authService';
 import { useToast } from '@/hooks/use-toast';
 import { savePlanL2, getPlansL2, deletePlanL2, PlanL2 } from '@/lib/api/plans_l2';

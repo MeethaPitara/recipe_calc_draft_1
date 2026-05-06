@@ -10,15 +10,24 @@ import cors from 'cors';
 import { authRouter } from './routes/auth.js';
 import { ingredientsRouter } from './routes/ingredients.js';
 import { recipesRouter } from './routes/recipes.js';
+import { plansRouter } from './routes/plans.js';
 import { aiRouter } from './routes/ai.js';
 import { mlRouter } from './routes/ml.js';
+import { calcRouter } from './routes/calc.js';
+import { optimizeRouter } from './routes/optimize.js';
+import { eventsRouter } from './routes/events.js';
+import { productionRouter } from './routes/production.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ── Middleware ──
+const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+    : ['http://localhost:5173', 'http://localhost:8080'];
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:8080'],
+    origin: allowedOrigins,
     credentials: true,
 }));
 app.use(express.json({ limit: '10mb' })); // Large payloads for image upload (label scanner)
@@ -32,8 +41,13 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/ingredients', ingredientsRouter);
 app.use('/api/recipes', recipesRouter);
+app.use('/api/plans', plansRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/ml', mlRouter);
+app.use('/api/calc', calcRouter);
+app.use('/api/optimize', optimizeRouter);
+app.use('/api/events', eventsRouter);
+app.use('/api/production', productionRouter);
 
 // ── Global Error Handler ──
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

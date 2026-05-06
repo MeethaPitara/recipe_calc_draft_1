@@ -9,7 +9,7 @@ import { useIngredients } from '@/contexts/IngredientsContext';
 import { IngredientService } from '@/services/ingredientService';
 import { Plus, Loader2, Scan } from 'lucide-react';
 import type { IngredientData } from '@/types/ingredients';
-import { callGeminiVision } from '@/lib/ai/geminiClient';
+import { apiPost } from '@/lib/apiClient';
 
 interface AddIngredientDialogProps {
   onIngredientAdded?: (ingredient: IngredientData) => void;
@@ -161,16 +161,21 @@ Calculations rules (per 100g or 100ml):
 6. Convert all values to percentages of the total (per 100g equivalent).
 If a value is not explicitly on the label, derive it reasonably according to the ingredients or default to 0. Make sure the total of water_pct + sugars_pct + fat_pct + msnf_pct + other_solids_pct sum to closely 100.`;
 
-          const systemPrompt = "You are a specialized AI nutrition label analyzer for a Gelato formulation app. Return ONLY raw JSON.";
+          const response = await apiPost<{ result: string }>('/api/ai/vision', {
+            systemPrompt: "You are a specialized AI nutrition label analyzer for a Gelato formulation app. Return ONLY raw JSON.",
+            userPrompt: prompt,
+            base64Image: base64Data,
+            mimeType,
+          });
 
-          const response = await callGeminiVision(systemPrompt, prompt, base64Data, mimeType);
+          const responseText = response.result;
 
           let data;
           try {
-            const cleanJson = response.replace(/```json/i, '').replace(/```/g, '').trim();
+            const cleanJson = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
             data = JSON.parse(cleanJson);
           } catch (err) {
-            throw new Error("Failed to parse JSON out of response: " + response);
+            throw new Error("Failed to parse JSON out of response: " + responseText);
           }
 
           setFormData(prev => ({

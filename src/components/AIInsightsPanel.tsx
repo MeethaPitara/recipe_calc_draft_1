@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { supabase } from '@/integrations/supabase/client';
 import { isBackendReady } from '@/integrations/supabase/safeClient';
+import { apiPost } from '@/lib/apiClient';
 import { showApiErrorToast } from '@/lib/ui/errors';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -65,16 +65,12 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
       }
 
       // Use debounced values to prevent analyzing stale data
-      const { data, error: fnError } = await supabase.functions.invoke('analyze-recipe', {
-        body: { recipe: debouncedRecipe, metrics: debouncedMetrics, productType }
+      const data = await apiPost('/api/ai/analyze-recipe', {
+        recipe: debouncedRecipe, metrics: debouncedMetrics, productType
       });
 
-      if (fnError) {
-        throw fnError;
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
+      if (!data) {
+        throw new Error("No data returned");
       }
 
       setAnalysis(data);

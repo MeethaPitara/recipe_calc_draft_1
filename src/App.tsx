@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
 import { ThemeProvider } from "next-themes";
-import { mlScheduler } from "@/lib/mlTrainingScheduler";
 import ErrorBoundary from "./components/ui/error-boundary";
 import { IngredientsProvider } from "@/contexts/IngredientsContext";
 import { AuthProvider, useAuth } from "@/lib/auth/AuthContext";
@@ -42,15 +41,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  // Initialize ML auto-training scheduler
-  useEffect(() => {
-    console.log('🚀 Initializing ML training scheduler...');
-    mlScheduler.start().catch(err => {
-      console.log('ML scheduler initialization deferred:', err.message);
-    });
-
-    return () => mlScheduler.stop();
-  }, []);
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

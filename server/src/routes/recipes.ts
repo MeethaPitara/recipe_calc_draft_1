@@ -18,21 +18,105 @@ const router = Router();
 // All recipe routes require auth
 router.use(requireAuth as any);
 
-// ── GET / — List user's recipes ──
+// ── GET /stats — Get recipe statistics ──
+router.get('/stats', async (req, res) => {
+    try {
+        const [recipesRes, outcomesRes] = await Promise.all([
+            supabase.from('recipes').select('id', { count: 'exact', head: true }),
+            supabase.from('recipe_outcomes').select('id,outcome', { count: 'exact' })
+        ]);
+
+        const { data: outcomes } = await supabase.from('recipe_outcomes').select('outcome');
+        const successfulOutcomes = outcomes?.filter(o => o.outcome === 'success').length || 0;
+
+        res.json({
+            totalRecipes: recipesRes.count || 0,
+            totalOutcomes: outcomesRes.count || 0,
+            successfulOutcomes,
+            mlReady: successfulOutcomes >= 5
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── GET /recent — Get recent recipes with manual enrichment ──
+router.get('/recent', async (req, res) => {
+    try {
+        const { data: recipes, error: recipesError } = await supabase
+            .from('recipes')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (recipesError) throw recipesError;
+        if (!recipes || recipes.length === 0) return res.json([]);
+
+        const recipeIds = recipes.map(r => r.id);
+
+        const [rowsRes, metricsRes] = await Promise.all([
+            supabase.from('recipe_rows').select('*').in('recipe_id', recipeIds),
+            supabase.from('calculated_metrics').select('*').in('recipe_id', recipeIds)
+        ]);
+
+        const enriched = recipes.map(recipe => ({
+            ...recipe,
+            recipe_rows: rowsRes.data?.filter(row => row.recipe_id === recipe.id) || [],
+            calculated_metrics: metricsRes.data?.find(m => m.recipe_id === recipe.id) || null
+        }));
+
+        res.json(enriched);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── GET /export — Get all recipes with rows for CSV ──
+router.get('/export', async (req, res) => {
+    try {
+        const { data: recipes, error } = await supabase
+            .from('recipes')
+            .select(`
+              recipe_name,
+              recipe_rows (
+                ingredient, quantity_g, water_g, sugars_g, fat_g, msnf_g, other_solids_g, total_solids_g, lactose_g
+              )
+            `);
+
+        if (error) throw error;
+        res.json(recipes || []);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── GET / — List user's recipes with manual enrichment ──
 router.get('/', async (req, res) => {
     try {
-        const { data, error } = await supabase
+        const { data: recipes, error: recipesError } = await supabase
             .from('recipes')
             .select('*')
             .eq('user_id', req.user!.id)
-            .order('updated_at', { ascending: false });
+            .order('updated_at', { ascending: false })
+            .limit(50);
 
-        if (error) {
-            res.status(500).json({ error: error.message });
-            return;
-        }
+        if (recipesError) throw recipesError;
+        if (!recipes || recipes.length === 0) return res.json([]);
 
-        res.json(data || []);
+        const recipeIds = recipes.map(r => r.id);
+
+        const [rowsRes, metricsRes] = await Promise.all([
+            supabase.from('recipe_rows').select('*').in('recipe_id', recipeIds),
+            supabase.from('calculated_metrics').select('*').in('recipe_id', recipeIds)
+        ]);
+
+        const enriched = recipes.map(recipe => ({
+            ...recipe,
+            recipe_rows: rowsRes.data?.filter(row => row.recipe_id === recipe.id) || [],
+            calculated_metrics: metricsRes.data?.find(m => m.recipe_id === recipe.id) || null
+        }));
+
+        res.json(enriched);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -57,12 +141,17 @@ router.get('/:id', async (req, res) => {
             .select('*')
             .eq('recipe_id', req.params.id);
 
-        if (rowsError) {
-            res.status(500).json({ error: rowsError.message });
-            return;
-        }
+        const { data: metrics, error: metricsError } = await supabase
+            .from('calculated_metrics')
+            .select('*')
+            .eq('recipe_id', req.params.id)
+            .single();
 
-        res.json({ ...recipe, rows: rows || [] });
+        res.json({
+            ...recipe,
+            rows: rows || [],
+            metrics: metrics || null
+        });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -143,6 +232,16 @@ router.post('/', async (req, res) => {
             });
         }
 
+        // 4. Insert ML training outcome if requested
+        if (req.body.train) {
+            await supabase.from('recipe_outcomes').insert({
+                recipe_id: recipeId,
+                user_id: req.user!.id,
+                outcome: 'success',
+                notes: 'Imported from CSV/System'
+            });
+        }
+
         res.status(201).json({ id: recipeId, ...newRecipe });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -218,6 +317,23 @@ router.put('/:id', async (req, res) => {
         }
 
         res.json({ success: true, id: recipeId });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── POST /:id/outcome — Mark recipe as successful for ML ──
+router.post('/:id/outcome', async (req, res) => {
+    try {
+        const { error } = await supabase.from('recipe_outcomes').insert({
+            recipe_id: req.params.id,
+            user_id: req.user!.id,
+            outcome: req.body.outcome || 'success',
+            notes: req.body.notes || 'Marked from UI'
+        });
+
+        if (error) throw error;
+        res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

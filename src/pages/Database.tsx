@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiGet, apiPost } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 import { mlService } from '@/services/mlService';
 import Papa from 'papaparse';
@@ -277,19 +277,7 @@ export default function Database() {
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['database-stats'],
     queryFn: async () => {
-      const [recipesRes, outcomesRes] = await Promise.all([
-        supabase.from('recipes').select('id', { count: 'exact', head: true }),
-        supabase.from('recipe_outcomes').select('id,outcome', { count: 'exact' })
-      ]);
-
-      const successfulOutcomes = outcomesRes.data?.filter(o => o.outcome === 'success').length || 0;
-
-      return {
-        totalRecipes: recipesRes.count || 0,
-        totalOutcomes: outcomesRes.count || 0,
-        successfulOutcomes,
-        mlReady: successfulOutcomes >= 5
-      };
+      return apiGet('/api/recipes/stats');
     },
     refetchInterval: 5000,
     enabled: isAuthenticated
@@ -299,33 +287,7 @@ export default function Database() {
   const { data: recentRecipes } = useQuery({
     queryKey: ['recent-recipes'],
     queryFn: async () => {
-      const { data: recipes } = await supabase
-        .from('recipes')
-        .select(`
-          id,
-          recipe_name,
-          product_type,
-          created_at,
-          recipe_rows (
-            ingredient,
-            quantity_g,
-            sugars_g,
-            fat_g,
-            msnf_g,
-            other_solids_g,
-            total_solids_g
-          ),
-          calculated_metrics (
-            total_quantity_g,
-            sp,
-            pac,
-            fat_pct,
-            sugars_pct
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      return recipes || [];
+      return apiGet('/api/recipes/recent');
     },
     enabled: isAuthenticated
   });
@@ -426,37 +388,6 @@ export default function Database() {
               try {
                 console.log(`💾 Importing recipe: ${recipeName}`);
 
-                // Create recipe
-                const { data: recipe, error: recipeError } = await supabase
-                  .from('recipes')
-                  .insert({
-                    recipe_name: recipeName,
-                    product_type: 'ice_cream',
-                    user_id: user.id
-                  } as any)
-                  .select()
-                  .single();
-
-                if (recipeError) throw recipeError;
-
-                // Insert all rows
-                const { error: rowsError } = await supabase
-                  .from('recipe_rows')
-                  .insert(
-                    rows.map(r => ({
-                      recipe_id: recipe.id,
-                      ingredient: r['Ingredient'],
-                      quantity_g: r['Quantity (g)'],
-                      sugars_g: r['Sugars (g)'] || 0,
-                      fat_g: r['Fat (g)'] || 0,
-                      msnf_g: r['MSNF (g)'] || 0,
-                      other_solids_g: r['Other Solids (g)'] || 0,
-                      total_solids_g: r['Total Solids (g)'] || 0
-                    }))
-                  );
-
-                if (rowsError) throw rowsError;
-
                 // Calculate metrics
                 const totals = rows.reduce((acc, r) => ({
                   quantity: acc.quantity + (r['Quantity (g)'] || 0),
@@ -470,32 +401,39 @@ export default function Database() {
                 const sp = totals.quantity > 0 ? (totals.sugars / totals.quantity) * 100 : 0;
                 const pac = totals.quantity > 0 ? ((totals.sugars * 1.9) / totals.quantity) * 100 : 0;
 
-                // Store calculated metrics
-                await supabase
-                  .from('calculated_metrics')
-                  .insert({
-                    recipe_id: recipe.id,
-                    total_quantity_g: totals.quantity,
-                    total_sugars_g: totals.sugars,
-                    total_fat_g: totals.fat,
-                    total_msnf_g: totals.msnf,
-                    total_other_solids_g: totals.other,
-                    total_solids_g: totals.solids,
-                    sugars_pct: totals.quantity > 0 ? (totals.sugars / totals.quantity) * 100 : 0,
-                    fat_pct: totals.quantity > 0 ? (totals.fat / totals.quantity) * 100 : 0,
-                    msnf_pct: totals.quantity > 0 ? (totals.msnf / totals.quantity) * 100 : 0,
-                    other_solids_pct: totals.quantity > 0 ? (totals.other / totals.quantity) * 100 : 0,
-                    total_solids_pct: totals.quantity > 0 ? (totals.solids / totals.quantity) * 100 : 0,
-                    sp,
-                    pac
-                  });
+                // Create recipe via API payload
+                const metrics = {
+                  total_g: totals.quantity,
+                  ts_g: totals.solids,
+                  ts_pct: totals.quantity > 0 ? (totals.solids / totals.quantity) * 100 : 0,
+                  totalSugars_pct: totals.quantity > 0 ? (totals.sugars / totals.quantity) * 100 : 0,
+                  fat_pct: totals.quantity > 0 ? (totals.fat / totals.quantity) * 100 : 0,
+                  msnf_pct: totals.quantity > 0 ? (totals.msnf / totals.quantity) * 100 : 0,
+                  other_pct: totals.quantity > 0 ? (totals.other / totals.quantity) * 100 : 0,
+                  totalSugars_g: totals.sugars,
+                  fat_g: totals.fat,
+                  msnf_g: totals.msnf,
+                  other_g: totals.other,
+                  sp,
+                  pac
+                };
 
-                // Create outcome for ML training
-                await supabase.from('recipe_outcomes').insert({
-                  recipe_id: recipe.id,
-                  user_id: user.id,
-                  outcome: 'success',
-                  notes: 'Imported from CSV'
+                const formattedRows = rows.map(r => ({
+                  ingredient: r['Ingredient'],
+                  quantity_g: r['Quantity (g)'],
+                  sugars_g: r['Sugars (g)'] || 0,
+                  fat_g: r['Fat (g)'] || 0,
+                  msnf_g: r['MSNF (g)'] || 0,
+                  other_solids_g: r['Other Solids (g)'] || 0,
+                  total_solids_g: r['Total Solids (g)'] || 0
+                }));
+
+                await apiPost('/api/recipes', {
+                  recipe_name: recipeName,
+                  product_type: 'ice_cream',
+                  rows: formattedRows,
+                  metrics,
+                  train: true // Flags it for ML success outcome
                 });
 
                 imported++;
@@ -568,22 +506,7 @@ export default function Database() {
 
   const handleExportData = async () => {
     try {
-      const { data: recipes } = await supabase
-        .from('recipes')
-        .select(`
-          recipe_name,
-          recipe_rows (
-            ingredient,
-            quantity_g,
-            water_g,
-            sugars_g,
-            fat_g,
-            msnf_g,
-            other_solids_g,
-            total_solids_g,
-            lactose_g
-          )
-        `);
+      const recipes: any[] = await apiGet('/api/recipes/export');
 
       if (!recipes || recipes.length === 0) {
         toast({ title: 'No Data', description: 'No recipes to export', variant: 'destructive' });
@@ -891,10 +814,7 @@ export default function Database() {
                         variant="outline"
                         onClick={async () => {
                           try {
-                            const user = await authService.getUser();
-                            await supabase.from('recipe_outcomes').insert({
-                              recipe_id: recipe.id,
-                              user_id: user!.id,
+                            await apiPost(`/api/recipes/${recipe.id}/outcome`, {
                               outcome: 'success'
                             });
                             toast({ title: 'Marked Successful' });

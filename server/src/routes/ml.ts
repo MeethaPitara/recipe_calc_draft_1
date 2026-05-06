@@ -91,6 +91,14 @@ router.post('/train', async (req, res) => {
         };
 
         console.log('✅ Model training complete');
+
+        // Refresh materialized view for better query performance
+        try {
+            await (supabase as any).rpc('refresh_ml_training_dataset');
+        } catch (viewError) {
+            console.log('Note: Could not refresh training dataset view:', viewError);
+        }
+
         res.json(weights);
     } catch (e: any) {
         res.status(500).json({ error: e.message || 'Training failed' });
@@ -120,6 +128,27 @@ router.get('/export', async (_req, res) => {
         res.json(result);
     } catch (e: any) {
         res.status(500).json({ error: e.message || 'Export failed' });
+    }
+});
+
+router.get('/check-training', async (req, res) => {
+    try {
+        const { lastTrained } = req.query;
+        if (!lastTrained) {
+            return res.status(400).json({ error: 'Missing lastTrained date' });
+        }
+
+        const { count, error } = await supabase
+            .from('recipe_outcomes')
+            .select('*', { count: 'exact', head: true })
+            .eq('outcome', 'success')
+            .not('recipe_id', 'is', null)
+            .gt('created_at', lastTrained as string);
+
+        if (error) throw error;
+        res.json({ count: count || 0 });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message || 'Check failed' });
     }
 });
 

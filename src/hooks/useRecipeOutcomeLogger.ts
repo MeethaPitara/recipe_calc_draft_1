@@ -1,5 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost } from '@/lib/apiClient';
 
 /**
  * Hook for logging recipe outcomes for ML training
@@ -24,17 +24,13 @@ export const useRecipeOutcomeLogger = () => {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('log-recipe-outcome', {
-        body: {
-          recipeId,
-          outcome,
-          texture: actualTexture,
-          notes,
-          metrics,
-        },
+      const data = await apiPost('/api/recipes/LOG_OUTCOME', {
+        recipeId,
+        outcome,
+        texture: actualTexture,
+        notes,
+        metrics,
       });
-
-      if (error) throw error;
 
       toast({
         title: 'Feedback recorded',

@@ -66,26 +66,26 @@ export class EnhancedMLService {
 
     // CRITICAL PARAMETERS (40% of score)
     const criticalChecks = [
-      { 
-        key: 'ts', 
-        value: metrics.ts_add_pct, 
-        range: bands.ts, 
+      {
+        key: 'ts',
+        value: metrics.ts_add_pct,
+        range: bands.ts,
         weight: 15,
         label: 'Total Solids',
         unit: '%'
       },
-      { 
-        key: 'pac', 
-        value: metrics.pac, 
-        range: bands.pac, 
+      {
+        key: 'pac',
+        value: metrics.pac,
+        range: bands.pac,
         weight: 15,
         label: 'PAC (Anti-freeze)',
         unit: ''
       },
-      { 
-        key: 'sp', 
-        value: metrics.sp, 
-        range: bands.sp, 
+      {
+        key: 'sp',
+        value: metrics.sp,
+        range: bands.sp,
         weight: 10,
         label: 'Sweetness Point',
         unit: ''
@@ -94,27 +94,27 @@ export class EnhancedMLService {
 
     // COMPOSITION PARAMETERS (40% of score)
     const compositionChecks = [
-      { 
-        key: 'fat', 
-        value: metrics.fat_pct, 
-        range: bands.fat, 
+      {
+        key: 'fat',
+        value: metrics.fat_pct,
+        range: bands.fat,
         weight: 15,
         label: 'Fat Content',
         unit: '%',
         critical: productType !== 'sorbet'
       },
-      { 
-        key: 'sugars', 
-        value: metrics.sugars_pct, 
-        range: bands.sugars, 
+      {
+        key: 'sugars',
+        value: metrics.sugars_pct,
+        range: bands.sugars,
         weight: 15,
         label: 'Sugar Content',
         unit: '%'
       },
-      { 
-        key: 'msnf', 
-        value: metrics.msnf_pct, 
-        range: bands.msnf, 
+      {
+        key: 'msnf',
+        value: metrics.msnf_pct,
+        range: bands.msnf,
         weight: 10,
         label: 'MSNF (Milk Solids)',
         unit: '%',
@@ -147,21 +147,21 @@ export class EnhancedMLService {
 
     // EVALUATE ALL PARAMETERS
     const allChecks = [...criticalChecks, ...compositionChecks, ...optionalChecks];
-    
+
     allChecks.forEach(check => {
       const [min, max] = check.range;
       const value = check.value || 0;
-      
+
       if (value < min) {
         const deficit = ((min - value) / min) * 100;
         const penalty = (deficit / 100) * check.weight;
         score -= penalty;
 
-        const severity: 'critical' | 'high' | 'medium' = 
+        const severity: 'critical' | 'high' | 'medium' =
           deficit > 30 ? 'critical' : deficit > 15 ? 'high' : 'medium';
 
         warnings.push(`${check.label} too low: ${value.toFixed(1)}${check.unit} (target: ${min}-${max}${check.unit})`);
-        
+
         // Generate actionable improvement
         const suggestedIncrease = (min - value) * 1.1; // Add 10% buffer
         this.generateImprovement(check.key, 'increase', suggestedIncrease, check.label, severity, improvements);
@@ -171,11 +171,11 @@ export class EnhancedMLService {
         const penalty = (excess / 100) * check.weight;
         score -= penalty;
 
-        const severity: 'critical' | 'high' | 'medium' = 
+        const severity: 'critical' | 'high' | 'medium' =
           excess > 30 ? 'critical' : excess > 15 ? 'high' : 'medium';
 
         warnings.push(`${check.label} too high: ${value.toFixed(1)}${check.unit} (target: ${min}-${max}${check.unit})`);
-        
+
         // Generate actionable improvement
         const suggestedDecrease = (value - max) * 1.1; // Remove 10% buffer
         this.generateImprovement(check.key, 'decrease', suggestedDecrease, check.label, severity, improvements);
@@ -191,10 +191,10 @@ export class EnhancedMLService {
 
     // FINAL SCORE & STATUS
     score = Math.max(0, Math.min(100, score));
-    const status: 'pass' | 'warn' | 'fail' = 
-      score >= 85 ? 'pass' : 
-      score >= 65 ? 'warn' : 
-      'fail';
+    const status: 'pass' | 'warn' | 'fail' =
+      score >= 85 ? 'pass' :
+        score >= 65 ? 'warn' :
+          'fail';
 
     return {
       status,
@@ -213,12 +213,12 @@ export class EnhancedMLService {
    * SMART RECIPE OPTIMIZATION
    * Uses hill-climbing algorithm + scientific target ranges
    */
-  optimizeRecipe(
+  async optimizeRecipe(
     rows: { ing: IngredientData; grams: number }[],
     productType: string,
     targetMode: 'balanced' | 'soft' | 'firm' | 'custom' = 'balanced',
     customTargets?: Partial<OptimizeTarget>
-  ): OptimizationResult {
+  ): Promise<OptimizationResult> {
     const params = getActiveParameters();
     const productKey = this.mapProductType(productType);
     const bands = params.bands[productKey];
@@ -255,9 +255,9 @@ export class EnhancedMLService {
     }));
 
     // RUN OPTIMIZATION
-    const originalMetrics = calcMetricsV2(rows);
-    const optimized = optimizeRecipe(optimizeRows, targets, 'gelato', 150, 2);
-    const newMetrics = calcMetricsV2(optimized);
+    const originalMetrics = await calcMetricsV2(rows);
+    const optimized = await optimizeRecipe(optimizeRows, targets, 'gelato', 150, 2);
+    const newMetrics = await calcMetricsV2(optimized);
 
     // CALCULATE IMPROVEMENTS
     const improvements: string[] = [];
@@ -398,12 +398,12 @@ export class EnhancedMLService {
    * REVERSE ENGINEERING
    * Create recipe from target composition
    */
-  reverseEngineer(
+  async reverseEngineer(
     productType: string,
     targetComposition: Partial<{ fat_pct: number; msnf_pct: number; sugars_pct: number; ts_add_pct: number }>,
     availableIngredients: IngredientData[],
     totalBatchSize: number = 1000
-  ): { rows: Row[]; metrics: any; confidence: number } {
+  ): Promise<{ rows: Row[]; metrics: any; confidence: number }> {
     // Use scientific defaults if targets not provided
     const params = getActiveParameters();
     const productKey = this.mapProductType(productType);
@@ -455,7 +455,7 @@ export class EnhancedMLService {
     // Sugars (70% sucrose, 30% dextrose for texture)
     const currentWeight = rows.reduce((sum, r) => sum + r.grams, 0);
     const targetSugarGrams = (targets.sugars_pct / 100) * totalBatchSize;
-    
+
     if (sucrose) {
       sucrose.grams = targetSugarGrams * 0.70;
     }
@@ -471,8 +471,8 @@ export class EnhancedMLService {
     }
 
     // OPTIMIZE to exact targets
-    const optimized = optimizeRecipe(rows, targets, 'gelato', 200, 2);
-    const metrics = calcMetricsV2(optimized);
+    const optimized = await optimizeRecipe(rows, targets, 'gelato', 200, 2);
+    const metrics = await calcMetricsV2(optimized);
 
     // Calculate confidence based on how close we got
     const fatError = Math.abs(metrics.fat_pct - targets.fat_pct) / targets.fat_pct;

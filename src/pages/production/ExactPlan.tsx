@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { recipeService } from '@/services/recipeService';
 import { useIngredients } from '@/contexts/IngredientsContext';
-import { calculateDemandRun, Level3Input, Level3Output } from '@/lib/production/level3_engine';
+import { calculateDemandRun, type Level3Input, type Level3Output, type ProductionIngredient } from '@/lib/production/api';
 import AIRoundingPanel from '@/components/production/AIRoundingPanel';
-import type { ProductionIngredient } from '@/lib/production/productionValidator';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Printer, Calculator, ArrowRight, ArrowLeft, Beaker, Save, History, Trash2, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
-import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/lib/auth/authService';
 import { savePlanL3, getPlansL3, deletePlanL3 } from '@/lib/api/plans_l3';
 import {
@@ -75,30 +74,28 @@ const ExactPlan = () => {
             return;
         }
 
-        try {
-            // Map recipe rows to engine input format
-            const recipeItems = fullRecipe.rows.map((r: any) => ({
-                ingredientId: ingredients.find(i => i.name === r.ingredient)?.id || r.ingredient,
-                name: r.ingredient,
-                massGrams: r.quantity_g
-            }));
+        // Map recipe rows to engine input format
+        const recipeItems = fullRecipe.rows.map((r: any) => ({
+            ingredientId: ingredients.find(i => i.name === r.ingredient)?.id || r.ingredient,
+            name: r.ingredient,
+            massGrams: r.quantity_g
+        }));
 
-            const input: Level3Input = {
-                recipeItems,
-                targetUnits,
-                skuSizeLiters,
-                overrunPercent,
-                lossPercent,
-                density
-            };
+        const input: Level3Input = {
+            recipeItems,
+            targetUnits,
+            skuSizeLiters,
+            overrunPercent,
+            lossPercent,
+            density
+        };
 
-            const output = calculateDemandRun(input);
-            setCalculationResult(output);
-
-        } catch (error) {
-            console.error("Calculation failed:", error);
-            toast.error("Calculation failed. Please check inputs.");
-        }
+        calculateDemandRun(input)
+            .then(output => setCalculationResult(output))
+            .catch(error => {
+                console.error("Calculation failed:", error);
+                toast.error("Calculation failed. Please check inputs.");
+            });
 
     }, [fullRecipe, targetUnits, skuSizeLiters, overrunPercent, lossPercent, density, ingredients, selectedRecipeId]);
 

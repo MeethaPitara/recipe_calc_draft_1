@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LineChart,
     Line,
@@ -15,7 +15,7 @@ import {
     YAxis as RechartsYAxis,
     Cell as RechartsCell
 } from 'recharts';
-import { estimateFrozenWater, recommendServeTemp, getScoopableRange } from '@/lib/scoopability';
+import { getFreezingCurve, recommendServeTemp, getScoopableRange, estimateFrozenWater } from '@/lib/scoopability';
 import { Card, CardContent } from '@/components/ui/card';
 import { ServingContext, SERVING_CONTEXT, FPDT_TARGETS, TEMP_ZONES, AFP_TARGETS } from '@/lib/constants/tempTargets';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,28 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
     const ctx = SERVING_CONTEXT[servingContext];
     const targets = FPDT_TARGETS[servingContext][flavorCategory] || FPDT_TARGETS[servingContext]['dairy'];
     const afpTargets = AFP_TARGETS[flavorCategory] || AFP_TARGETS['dairy'];
+
+    const [curveData, setCurveData] = useState<{ temperature: number; frozenPct: number }[]>([]);
+    const [serveTemp, setServeTemp] = useState<number>(-12);
+    const [scoopRange, setScoopRange] = useState<{ min: number; max: number }>({ min: -18, max: -10 });
+    const [frozenAtRef, setFrozenAtRef] = useState<number>(0);
+
+    useEffect(() => {
+        if (!metrics) return;
+        // Fetch all scoopability data from backend
+        getFreezingCurve(metrics, servingContext)
+            .then(curve => setCurveData(curve.map(p => ({ temperature: p.tempC, frozenPct: p.frozenPct }))))
+            .catch(err => console.error('Freezing curve error:', err));
+        recommendServeTemp(metrics, servingContext)
+            .then(setServeTemp)
+            .catch(err => console.error('Serve temp error:', err));
+        getScoopableRange(metrics, servingContext)
+            .then(setScoopRange)
+            .catch(err => console.error('Scoop range error:', err));
+        estimateFrozenWater(metrics, ctx.referenceTemp)
+            .then(setFrozenAtRef)
+            .catch(err => console.error('Frozen water error:', err));
+    }, [metrics, servingContext]);
 
     // Graph 1: FPDT Breakdown Data
     const fpdtData = [
@@ -46,19 +68,6 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
         if (val >= targets.min - 0.5 && val <= targets.max + 0.5) return 'bg-amber-500/20 text-amber-600 dark:text-amber-400';
         return 'bg-rose-500/20 text-rose-600 dark:text-rose-400';
     };
-
-    // Graph 2: Freezing Curve Data
-    const curveData = [];
-    for (let t = -5; t >= -22; t -= 1) {
-        curveData.push({
-            temperature: t,
-            frozenPct: estimateFrozenWater(metrics, t)
-        });
-    }
-
-    // Interactivity for Graph 2
-    const serveTemp = recommendServeTemp(metrics, servingContext);
-    const scoopRange = getScoopableRange(metrics, servingContext);
 
     // Graph 3: Ruler Zones
     const zones = TEMP_ZONES[servingContext];
@@ -292,13 +301,13 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
                     <div className="flex justify-between items-center">
                         <span className="font-medium">At {ctx.label} ({ctx.referenceTemp}°C):</span>
                         <span className="flex items-center gap-1 font-bold">
-                            {estimateFrozenWater(metrics, ctx.referenceTemp).toFixed(1)}% frozen —
+                            {frozenAtRef.toFixed(1)}% frozen —
                             <span className={cn(
-                                estimateFrozenWater(metrics, ctx.referenceTemp) >= ctx.frozenZone_green[0] &&
-                                    estimateFrozenWater(metrics, ctx.referenceTemp) <= ctx.frozenZone_green[1] ? "text-emerald-600" : "text-amber-600"
+                                frozenAtRef >= ctx.frozenZone_green[0] &&
+                                    frozenAtRef <= ctx.frozenZone_green[1] ? "text-emerald-600" : "text-amber-600"
                             )}>
-                                {estimateFrozenWater(metrics, ctx.referenceTemp) >= ctx.frozenZone_green[0] &&
-                                    estimateFrozenWater(metrics, ctx.referenceTemp) <= ctx.frozenZone_green[1] ? "✅ SCOOPABLE" : "⚠️ FIRM"}
+                                {frozenAtRef >= ctx.frozenZone_green[0] &&
+                                    frozenAtRef <= ctx.frozenZone_green[1] ? "✅ SCOOPABLE" : "⚠️ FIRM"}
                             </span>
                         </span>
                     </div>

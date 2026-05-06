@@ -24,13 +24,41 @@ import {
     CollapsibleTrigger
 } from '@/components/ui/collapsible';
 import { Loader2, Wand2, CheckCircle, AlertCircle, ChevronDown, RotateCcw, ArrowRight } from 'lucide-react';
-import {
-    runAIProductionRounding,
-    RoundingResult,
-} from '@/lib/production/aiProductionRounder';
-import type { ProductionIngredient } from '@/lib/production/productionValidator';
+import { apiPost } from '@/lib/apiClient';
+import type { ProductionIngredient } from '@/lib/production/api';
 import { IngredientData } from '@/types/ingredients';
 import { useToast } from '@/hooks/use-toast';
+
+// Rounding result types (mirrored from backend response)
+export interface RoundingIteration {
+    iteration: number;
+    recipe: ProductionIngredient[];
+    report: {
+        allInRange: boolean;
+        totalError: number;
+        inRangeCount: number;
+        totalParams: number;
+        params: { param: string; value: number; min: number; max: number; inRange: boolean; error: number }[];
+    };
+    aiAction: string;
+}
+
+export interface RoundingResult {
+    success: boolean;
+    originalRecipe: ProductionIngredient[];
+    roundedRecipe: ProductionIngredient[];
+    bestReport: {
+        allInRange: boolean;
+        totalError: number;
+        inRangeCount: number;
+        totalParams: number;
+        params: { param: string; value: number; min: number; max: number; inRange: boolean; error: number }[];
+    };
+    iterations: RoundingIteration[];
+    totalIterations: number;
+    summary: string;
+    terminatedEarly: boolean;
+}
 
 interface AIRoundingPanelProps {
     /** Raw production recipe ingredients */
@@ -75,18 +103,34 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
         setProgressIteration(0);
 
         try {
-            const roundingResult = await runAIProductionRounding(
-                {
-                    ingredients,
-                    productType,
-                    availableIngredients,
-                    recipeName,
+            const response = await apiPost<{
+                success: boolean;
+                originalRecipe: ProductionIngredient[];
+                roundedRecipe: ProductionIngredient[];
+                summary: string;
+            }>('/api/ai/production-round', {
+                ingredients,
+                productType,
+                recipeName,
+            });
+
+            // Map to RoundingResult format for UI compatibility
+            const roundingResult: RoundingResult = {
+                success: response.success,
+                originalRecipe: ingredients,
+                roundedRecipe: response.roundedRecipe || ingredients,
+                bestReport: {
+                    allInRange: response.success,
+                    totalError: 0,
+                    inRangeCount: 0,
+                    totalParams: 0,
+                    params: [],
                 },
-                (iteration, status) => {
-                    setProgressIteration(iteration);
-                    setProgressStatus(status);
-                }
-            );
+                iterations: [],
+                totalIterations: 1,
+                summary: response.summary || 'Rounding complete',
+                terminatedEarly: false,
+            };
 
             setResult(roundingResult);
             onRoundingComplete?.(roundingResult);

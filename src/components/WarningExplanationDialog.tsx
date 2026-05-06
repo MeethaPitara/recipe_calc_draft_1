@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Loader2, BookOpen, Sparkles } from 'lucide-react';
-import { getSupabase } from '@/integrations/supabase/safeClient';
+import { apiPost } from '@/lib/apiClient';
 import { useToast } from '@/hooks/use-toast';
 import { showApiErrorToast } from '@/lib/ui/errors';
 import { logEvent, ANALYTICS_EVENTS } from '@/lib/analytics';
@@ -49,19 +49,16 @@ export const WarningExplanationDialog: React.FC<WarningExplanationDialogProps> =
     });
 
     try {
-      const supabase = await getSupabase();
-      const { data, error } = await supabase.functions.invoke('explain-warning', {
-        body: { warning, mode, metrics }
+      const data = await apiPost('/api/ai/explain-warning', {
+        warning, mode, metrics
       });
-
-      if (error) throw error;
 
       if (data?.error) {
         // Treat data.error as an error response with status code hints
-        const errorObj = { 
+        const errorObj = {
           message: data.error,
-          status: data.error.includes('Rate limit') ? 429 : 
-                  data.error.includes('credits') || data.error.includes('Payment') ? 402 : 500
+          status: data.error.includes('Rate limit') ? 429 :
+            data.error.includes('credits') || data.error.includes('Payment') ? 402 : 500
         };
         showApiErrorToast(errorObj, "Explanation Failed");
         onOpenChange(false);
@@ -131,9 +128,9 @@ export const WarningExplanationDialog: React.FC<WarningExplanationDialogProps> =
           {/* Additional Resources */}
           {!isLoading && explanation && (
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="flex-1"
                 onClick={() => window.open('/glossary', '_blank')}
               >

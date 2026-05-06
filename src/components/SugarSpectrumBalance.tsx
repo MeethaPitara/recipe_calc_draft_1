@@ -11,8 +11,36 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Info } from 'lucide-react';
-import { balanceSugarSpectrum } from '@/lib/legacy/calc';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+/** Pure math helper — sugar spectrum blend calculator (inlined from legacy/calc) */
+function balanceSugarSpectrum(
+  totalSugarGrams: number,
+  ratios: { sucrose: number; dextrose: number; glucose: number } = { sucrose: 70, dextrose: 10, glucose: 20 }
+) {
+  const total = ratios.sucrose + ratios.dextrose + ratios.glucose || 100;
+  const sucrose_g = (totalSugarGrams * ratios.sucrose) / total;
+  const dextrose_g = (totalSugarGrams * ratios.dextrose) / total;
+  const glucose_g = (totalSugarGrams * ratios.glucose) / total;
+
+  const coeffs = {
+    sucrose: { sp: 1.00, pac: 1.00 },
+    dextrose: { sp: 0.74, pac: 1.90 },
+    glucose_de60: { sp: 0.50, pac: 1.18 },
+  };
+
+  const expected_sp =
+    (sucrose_g / totalSugarGrams) * coeffs.sucrose.sp * 100 +
+    (dextrose_g / totalSugarGrams) * coeffs.dextrose.sp * 100 +
+    (glucose_g / totalSugarGrams) * coeffs.glucose_de60.sp * 100;
+
+  const expected_pac =
+    (sucrose_g / totalSugarGrams) * coeffs.sucrose.pac * 100 +
+    (dextrose_g / totalSugarGrams) * coeffs.dextrose.pac * 100 +
+    (glucose_g / totalSugarGrams) * coeffs.glucose_de60.pac * 100;
+
+  return { sucrose_g, dextrose_g, glucose_g, expected_sp, expected_pac };
+}
 
 interface SugarSpectrumBalanceProps {
   totalSugarGrams: number;

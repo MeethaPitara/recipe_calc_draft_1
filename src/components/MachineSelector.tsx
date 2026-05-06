@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,11 +19,23 @@ export default function MachineSelector({
   onMachineChange
 }: MachineSelectorProps) {
   const [machine, setMachine] = useState<'batch' | 'continuous'>(selectedMachine);
+  const [settings, setSettings] = useState<{ agingTime: string; drawTemp: string; overrunTarget: string; notes: string[] } | null>(null);
+  const [validation, setValidation] = useState<{ valid: boolean; warnings: string[]; recommendations: string[] }>({ valid: true, warnings: [], recommendations: [] });
 
   const isMobile = useIsMobile();
   const currentMachine = MACHINES[machine];
-  const settings = getOptimalMachineSettings(metrics, machine);
-  const validation = validateForMachine(metrics, machine);
+
+  useEffect(() => {
+    if (!metrics) return;
+    getOptimalMachineSettings(metrics, machine)
+      .then(setSettings)
+      .catch(err => console.error('Machine settings error:', err));
+    validateForMachine(metrics, machine)
+      .then(setValidation)
+      .catch(err => console.error('Machine validation error:', err));
+  }, [metrics, machine]);
+
+  if (!settings) return null;
 
   const handleMachineChange = (newMachine: 'batch' | 'continuous') => {
     setMachine(newMachine);

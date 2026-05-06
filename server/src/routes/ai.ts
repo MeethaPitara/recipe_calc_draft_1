@@ -732,4 +732,118 @@ router.get('/usage', async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════
+// NEW: Missing AI Endpoints (Migrated from Edge Functions)
+// ═══════════════════════════════════════════
+
+function parseGeminiJson(result: string): any {
+    const cleanStr = result.replace(/```json/gi, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanStr);
+}
+
+router.post('/analyze-recipe', async (req, res) => {
+    try {
+        const { recipe, metrics, productType } = req.body;
+        const systemPrompt = `You are a professional Gelato formulation expert.`;
+        const userPrompt = `Review this recipe:
+Product Type: ${productType || 'Unknown'}
+Recipe: ${JSON.stringify(recipe, null, 2)}
+Calculated Metrics: ${JSON.stringify(metrics, null, 2)}
+
+Provide a structured, JSON response evaluating this recipe. Highlight any flaws, suggest improvements, and give an overall rating.
+Expected JSON Schema:
+{
+    "overall_rating": "A string rating like 'Excellent', 'Good', 'Requires Tuning'",
+    "flavor_profile": "What does this taste like? What flavors dominate?",
+    "texture_prediction": "Is it creamy, icy, dense, or airy?",
+    "flaws": ["List of critical formulation flaws or warnings"],
+    "suggestions": ["List of actionable suggestions to improve the recipe"]
+}`;
+
+        const result = await callGemini(systemPrompt, userPrompt);
+        res.json({ success: true, analysis: parseGeminiJson(result) });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.post('/explain-warning', async (req, res) => {
+    try {
+        const { warning, mode, metrics } = req.body;
+        const systemPrompt = `You are a professional Gelato formulation expert.`;
+        const userPrompt = `The user's recipe triggered a calculation warning: "${warning}"
+Mode: ${mode || 'gelato'}
+Current Metrics: ${JSON.stringify(metrics, null, 2)}
+
+Explain WHY this warning is important for structural integrity or flavor, and provide EXACT, ACTIONABLE steps to resolve it. Be extremely clear and scientific.`;
+
+        const result = await callGemini(systemPrompt, userPrompt);
+        res.json({ success: true, explanation: result });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.post('/analyze-csv', async (req, res) => {
+    try {
+        const { csvPreview, availableIngredients } = req.body;
+        const systemPrompt = `You are an AI data matching assistant for a Gelato Database.`;
+        const userPrompt = `The user uploaded a CSV with the following data:
+${csvPreview}
+
+Available ingredient names in our database:
+${availableIngredients.map((i: any) => i.name).join(', ')}
+
+Please provide a structured JSON mapping that matches the columns and ingredients from the CSV to our database structure. Ignore missing data, make best effort guesses.
+Expected JSON Schema:
+{
+    "recommended_mapping": {
+        "csvColumnName": "databasePropName"
+    },
+    "ingredient_matches": {
+        "csvIngredientName": "databaseIngredientName"
+    }
+}`;
+
+        const result = await callGemini(systemPrompt, userPrompt);
+        res.json({ success: true, mapping: parseGeminiJson(result) });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.post('/paste-formulator', async (req, res) => {
+    try {
+        const { pasteType, category, mode, knownIngredients, constraints, targets } = req.body;
+        const systemPrompt = `You are a world-class ingredient paste formulator for artisanal gelato (e.g. Pistachio Paste, Hazelnut Paste, Fruit Pastes).`;
+        const userPrompt = `Task: Design a scientific formula for a commercial paste.
+Type: ${pasteType}
+Category: ${category}
+Mode: ${mode}
+Ingredients: ${knownIngredients || 'Not specified'}
+Constraints: ${constraints || 'None'}
+Targets: ${JSON.stringify(targets || {})}
+
+Return a JSON object matching this TypeScript interface exactly:
+export interface PasteFormula {
+  id: string;
+  name: string;
+  category: 'nut' | 'chocolate' | 'fruit' | 'dairy' | 'spice';
+  water_pct: number;
+  fat_pct: number;
+  sugars_pct: number;
+  msnf_pct: number;
+  other_solids_pct: number;
+  lab?: { brix_deg: number; aw_est: number; ph_est: number; lipid_type: 'saturated'|'unsaturated'|'mixed'; micron_size_est: number; };
+  composition: { ingredient: string; pct: number; role: string; process_notes?: string; }[];
+  process_steps: { step: number; action: string; temp_c?: number; time_min?: number; equipment?: string; critical_control_point: boolean; }[];
+}`;
+
+        const result = await callGemini(systemPrompt, userPrompt);
+        res.json({ success: true, recipe: parseGeminiJson(result) });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 export { router as aiRouter };

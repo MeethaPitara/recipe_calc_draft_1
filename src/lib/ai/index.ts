@@ -1,35 +1,11 @@
 /**
- * AI Pipeline — Barrel Export
- *
- * Usage:
- *   import { runAgent, runStage2Agent, optimizerTool, ... } from '@/lib/ai';
+ * AI Module — Types Only
+ * 
+ * All AI logic (pipelines, Gemini calls, LP optimizer) has been moved to the backend.
+ * This module now only exports types used by frontend UI components.
  */
 
-// ── Stage 1 Pipeline ──
-export { runAgent, optimizerTool } from './pipeline';
-
-// ── Stage 2 Pipeline ──
-export { runStage2Agent } from './pipelineStage2';
-export { searchForReferenceRecipe } from './recipeSearch';
-export { foodEngineerCreate } from './foodEngineerCreate';
-export { foodScientistReview } from './foodScientistReview';
-export { foodCritiqueReview } from './foodCritique';
-
-// Math utilities
-export { computeBatchSizing } from './batchSizing';
-export { computeRecipeMetrics } from './recipeMetrics';
-export { parseInstruction } from './instructionParser';
-export { runLpOptimizer } from './lpOptimizer';
-
-// AI agents (Stage 1 individual)
-export { foodEngineerPre } from './foodEngineer';
-export { foodScientistReason } from './foodScientist';
-export { callGemini, callGeminiWithSearch, resetGeminiClient } from './geminiClient';
-
-// Data
-export { INGREDIENT_DB, addIngredient } from './ingredientDb';
-
-// Types
+// Types only — no runtime logic
 export type {
     IngredientEntry,
     IngredientDB,
@@ -54,4 +30,3 @@ export type {
     Stage2AgentResult,
     RunStage2Options,
 } from './types';
-

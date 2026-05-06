@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { calculateAllocations, AllocationRequest, AllocationResult } from '@/lib/production/level2_engine';
+import { calculateAllocations, type AllocationRequest, type AllocationResult } from '@/lib/production/api';
 
 export interface AllocationRow {
     id: string;          // UUID for React keys
@@ -106,7 +106,7 @@ export const useBasePlannerStore = create<BasePlannerState>((set, get) => ({
         });
     },
 
-    calculate: () => {
+    calculate: async () => {
         const { baseIngredientId, totalBaseMassKg, rows } = get();
 
         // 1. Validation: Need base and mass to even try
@@ -133,7 +133,7 @@ export const useBasePlannerStore = create<BasePlannerState>((set, get) => ({
                 }))
             };
 
-            const result = calculateAllocations(input);
+            const result = await calculateAllocations(input);
             set({ engineOutput: result, calcError: null });
 
         } catch (err: any) {

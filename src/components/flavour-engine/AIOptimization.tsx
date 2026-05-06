@@ -15,7 +15,7 @@ interface AIOptimizationProps {
   allTargetsMet: boolean;
   suggestions: string[];
   isOptimizing: boolean;
-  onAutoOptimize: (algorithm: OptimizerConfig['algorithm']) => void;
+  onAutoOptimize: (algorithm: any) => void;
   onApplyResult?: (result: Row[]) => void;
   currentRows?: Row[];
   targets?: OptimizeTarget;
@@ -80,7 +80,7 @@ export default function AIOptimization({
         'Use Sugar Blend Optimizer to fine-tune sweetness profile.'
       ];
     }
-    
+
     return [
       'Recipe needs optimization. AI can automatically adjust ingredients to meet targets.',
       `Recommended algorithm: ${algorithmInfo[selectedAlgorithm].name} - ${algorithmInfo[selectedAlgorithm].description}`,
@@ -92,12 +92,12 @@ export default function AIOptimization({
 
   const runComparison = async () => {
     if (!currentRows || !targets) return;
-    
+
     setIsComparing(true);
     try {
-      const results = compareOptimizers(currentRows, targets);
+      const results = await compareOptimizers(currentRows, targets);
       setComparisonResults(results);
-      
+
       toast({
         title: "Comparison Complete",
         description: `Winner: ${algorithmInfo[results[0].algorithm as OptimizerConfig['algorithm']]?.name} with score ${results[0].score.toFixed(3)}`
@@ -116,7 +116,7 @@ export default function AIOptimization({
 
   const autoSelectBest = async () => {
     if (!currentRows || !targets || !onApplyResult) return;
-    
+
     setIsAutoSelecting(true);
     try {
       toast({
@@ -124,16 +124,16 @@ export default function AIOptimization({
         description: "Testing all 4 algorithms to find the optimal solution..."
       });
 
-      const results = compareOptimizers(currentRows, targets);
+      const results = await compareOptimizers(currentRows, targets);
       setComparisonResults(results);
-      
+
       // Get the best result (first in sorted array)
       const winner = results[0];
       const winnerName = algorithmInfo[winner.algorithm as OptimizerConfig['algorithm']]?.name;
-      
+
       // Apply the best result
       onApplyResult(winner.result);
-      
+
       toast({
         title: "✅ Best Algorithm Applied",
         description: `${winnerName} achieved the best score (${winner.score.toFixed(3)}) in ${winner.time.toFixed(0)}ms and has been applied to your recipe.`
@@ -173,7 +173,7 @@ export default function AIOptimization({
             <AlertDescription>
               <strong>{allTargetsMet ? 'Recipe Balanced ✓' : 'Optimization Needed'}</strong>
               <br />
-              {allTargetsMet 
+              {allTargetsMet
                 ? 'All parameters are within target ranges'
                 : 'Some parameters are outside target ranges'}
             </AlertDescription>
@@ -182,8 +182,8 @@ export default function AIOptimization({
           {/* Algorithm Selection */}
           <div>
             <Label>Optimization Algorithm</Label>
-            <Select 
-              value={selectedAlgorithm} 
+            <Select
+              value={selectedAlgorithm}
               onValueChange={(val) => setSelectedAlgorithm(val as OptimizerConfig['algorithm'])}
             >
               <SelectTrigger>
@@ -197,7 +197,7 @@ export default function AIOptimization({
                 ))}
               </SelectContent>
             </Select>
-            
+
             {/* Algorithm Details */}
             <div className="mt-3 p-4 bg-card-secondary rounded-lg space-y-2">
               <div className="flex items-center justify-between">
@@ -231,7 +231,7 @@ export default function AIOptimization({
 
           {/* Action Buttons */}
           <div className="space-y-3">
-            <Button 
+            <Button
               onClick={autoSelectBest}
               disabled={isOptimizing || isComparing || isAutoSelecting || !currentRows || !targets || !onApplyResult}
               className="w-full bg-gradient-to-r from-primary to-primary/80 hover:opacity-90"
@@ -251,7 +251,7 @@ export default function AIOptimization({
             </Button>
 
             <div className="grid grid-cols-2 gap-3">
-              <Button 
+              <Button
                 onClick={() => onAutoOptimize(selectedAlgorithm)}
                 disabled={isOptimizing || isComparing || isAutoSelecting}
                 variant="outline"
@@ -269,8 +269,8 @@ export default function AIOptimization({
                   </>
                 )}
               </Button>
-              
-              <Button 
+
+              <Button
                 onClick={runComparison}
                 disabled={isOptimizing || isComparing || isAutoSelecting || !currentRows || !targets}
                 variant="outline"
@@ -354,13 +354,13 @@ export default function AIOptimization({
                 ))}
               </TableBody>
             </Table>
-            
+
             <Alert className="mt-4">
               <TrendingUp className="h-4 w-4" />
               <AlertDescription>
                 <strong>Winner: {algorithmInfo[comparisonResults[0].algorithm as OptimizerConfig['algorithm']]?.name}</strong>
                 <br />
-                This algorithm achieved the best score ({comparisonResults[0].score.toFixed(3)}) 
+                This algorithm achieved the best score ({comparisonResults[0].score.toFixed(3)})
                 in {comparisonResults[0].time.toFixed(0)}ms.
                 {onApplyResult && (
                   <>
