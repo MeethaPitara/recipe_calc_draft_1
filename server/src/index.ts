@@ -22,27 +22,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ── Middleware ──
-const corsOriginEnv = process.env.CORS_ORIGIN?.trim();
-
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, server-to-server)
-        if (!origin) return callback(null, true);
-
-        // If CORS_ORIGIN is "*" or not set, allow all origins
-        if (!corsOriginEnv || corsOriginEnv === '*') {
-            return callback(null, origin);
-        }
-
-        // Check against whitelist
-        const allowedOrigins = corsOriginEnv.split(',').map(s => s.trim());
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, origin);
-        }
-
-        callback(new Error(`CORS: Origin ${origin} not allowed`));
+        // Always reflect the requesting origin (or allow if no origin)
+        callback(null, origin || true);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json({ limit: '10mb' })); // Large payloads for image upload (label scanner)
 
