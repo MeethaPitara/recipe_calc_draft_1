@@ -282,119 +282,23 @@ const Index = () => {
           </div>
 
           <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-            {/* Unified tab list - scrollable on mobile, wrapped on desktop */}
+            {/* We only have one tab now, so we can hide the tab list entirely, or just show Calculator */}
             <TabsList className={isMobile
               ? "w-full h-auto flex flex-nowrap gap-1.5 overflow-x-auto overflow-y-hidden py-3 bg-background/80 backdrop-blur-sm shadow-sm"
               : "w-full h-auto flex flex-wrap gap-2 p-2 bg-background/80 backdrop-blur-sm"
-            }
-              style={isMobile ? {
-                scrollSnapType: 'x mandatory',
-                WebkitOverflowScrolling: 'touch'
-              } : undefined}
-            >
+            }>
               <TabsTrigger
                 value="calculator"
                 className={isMobile
                   ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium ml-2'
                   : 'flex-1 min-w-[140px] font-medium'}
-                style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
               >
                 📊 Calculator
               </TabsTrigger>
-              {!showAdvanced && (
-                <>
-                  <TabsTrigger
-                    value="production"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    🏭 Production
-                  </TabsTrigger>
-                </>
-              )}
-              {showAdvanced && (
-                <>
-                  <TabsTrigger
-                    value="paste-studio"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    ✨ Paste Studio
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="costing"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    💰 Costing
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="converter"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    🔄 Converter
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="cost"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    💵 Cost Calc
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="production"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    🏭 Production
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="import"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    📥 Import
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="ml-training"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    🧠 ML Training
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="diagnostics"
-                    className={isMobile
-                      ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start'
-                      : 'flex-1 min-w-[140px] font-medium'}
-                    style={isMobile ? { scrollSnapAlign: 'start' } : undefined}
-                  >
-                    🔧 Diagnostics
-                  </TabsTrigger>
-                </>
-              )}
               {isMobile && (
                 <TabsTrigger
                   value="mobile-input"
                   className="text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start mr-2"
-                  style={{ scrollSnapAlign: 'start' }}
                 >
                   ➕ Quick Add
                 </TabsTrigger>
@@ -403,7 +307,7 @@ const Index = () => {
 
             <TabsContent value="calculator" className="mt-4 md:mt-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className={showAdvanced ? "lg:col-span-2 space-y-6" : "lg:col-span-3 space-y-6"}>
+                <div className="lg:col-span-2 space-y-6">
                   <RecipeCalculatorV2
                     onRecipeChange={(recipe, metrics, productType) => {
                       setCalculatorRecipe(recipe);
@@ -416,81 +320,18 @@ const Index = () => {
                     onNewRecipe={handleNewRecipe}
                   />
                 </div>
-                {showAdvanced && (
-                  <div className="lg:col-span-1">
-                    <AIInsightsPanel
-                      recipe={calculatorRecipe.map(r => ({
-                        ingredientId: r.ingredient,
-                        grams: r.quantity_g
-                      }))}
-                      metrics={calculatorMetrics}
-                      productType={calculatorProductType}
-                    />
-                  </div>
-                )}
+                <div className="lg:col-span-1">
+                  <AIInsightsPanel
+                    recipe={calculatorRecipe.map(r => ({
+                      ingredientId: r.ingredient,
+                      grams: r.quantity_g
+                    }))}
+                    metrics={calculatorMetrics}
+                    productType={calculatorProductType}
+                  />
+                </div>
               </div>
             </TabsContent>
-
-
-
-            {showAdvanced && (
-              <TabsContent value="paste-studio" className="mt-4 md:mt-6">
-                <PasteStudio />
-              </TabsContent>
-            )}
-
-            <TabsContent value="costing" className="mt-4 md:mt-6">
-              <CostingModule
-                ingredients={[
-                  { name: "Milk", weight: 600, costPerKg: 65 },
-                  { name: "Cream", weight: 250, costPerKg: 450 },
-                  { name: "Sugar", weight: 180, costPerKg: 50 },
-                  { name: "Egg Yolk", weight: 50, costPerKg: 800 },
-                  { name: "Vanilla Extract", weight: 5, costPerKg: 12000 },
-                ]}
-                recipeName="Sample Gelato Recipe"
-              />
-            </TabsContent>
-
-            {/* AI Engine tab removed - features consolidated into Calculator > Advanced Tools */}
-
-            {/* Base recipes feature removed - table dropped in Phase 1 cleanup */}
-
-            <TabsContent value="converter" className="mt-4 md:mt-6">
-              <UnitConverter />
-            </TabsContent>
-
-            <TabsContent value="cost" className="mt-4 md:mt-6">
-              <CostCalculator />
-            </TabsContent>
-
-            <TabsContent value="production" className="mt-4 md:mt-6">
-              <ProductionPlanner />
-            </TabsContent>
-
-            <TabsContent value="import" className="mt-4 md:mt-6">
-              <RecipeImporter />
-            </TabsContent>
-
-            {showAdvanced && (
-              <>
-                <TabsContent value="ml-training" className="mt-4 md:mt-6">
-                  <Card className="p-6">
-                    <div className="text-center space-y-4">
-                      <h3 className="text-lg font-semibold">Database & Recipe Analysis</h3>
-                      <p className="text-muted-foreground">Manage recipes, import data, and train analysis models</p>
-                      <Button onClick={() => navigate('/database')}>
-                        Open Database Manager
-                      </Button>
-                    </div>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="diagnostics" className="mt-4 md:mt-6">
-                  <DiagnosticsPanel />
-                </TabsContent>
-              </>
-            )}
 
             {isMobile && (
               <TabsContent value="mobile-input" className="mt-4">

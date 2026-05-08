@@ -357,11 +357,7 @@ export default function RecipeCalculatorV2({
   const [activeTab, setActiveTab] = useState('ai-insights');
 
   // Basic/Advanced mode toggle - simplified calculator view
-  const [basicMode, setBasicMode] = useState(() => {
-    // Default to basic mode for first-time users
-    const saved = localStorage.getItem('calculator-mode');
-    return saved ? saved === 'basic' : true;
-  });
+  const [basicMode, setBasicMode] = useState(false);
 
   // Use global ingredients context
   const { ingredients: availableIngredients, isLoading: loadingIngredients, refetch: refetchIngredients } = useIngredients();
@@ -1896,38 +1892,7 @@ export default function RecipeCalculatorV2({
             </div>
           </div>
 
-          {/* Basic/Advanced Mode Toggle */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <Label htmlFor="calculator-mode" className="text-sm text-muted-foreground">
-              Calculator Mode
-            </Label>
-            <div className="flex items-center gap-2">
-              <span className={cn("text-xs transition-colors", basicMode ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                Basic
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 px-2"
-                onClick={() => {
-                  const newMode = !basicMode;
-                  setBasicMode(newMode);
-                  localStorage.setItem('calculator-mode', newMode ? 'basic' : 'advanced');
-                  toast({
-                    title: newMode ? '📊 Basic Mode' : '🔧 Advanced Mode',
-                    description: newMode
-                      ? 'Showing essential calculator features only'
-                      : 'All optimization and analysis tools available'
-                  });
-                }}
-              >
-                {basicMode ? '➡️' : '⬅️'}
-              </Button>
-              <span className={cn("text-xs transition-colors", !basicMode ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                Advanced
-              </span>
-            </div>
-          </div>
+          {/* Basic/Advanced Mode Toggle Removed to force Advanced Mode */}
         </CardContent>
       </Card>
 
