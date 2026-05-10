@@ -295,6 +295,14 @@ const Index = () => {
               >
                 📊 Calculator
               </TabsTrigger>
+              <TabsTrigger
+                value="production"
+                className={isMobile
+                  ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium'
+                  : 'flex-1 min-w-[140px] font-medium'}
+              >
+                🏭 Production
+              </TabsTrigger>
               {isMobile && (
                 <TabsTrigger
                   value="mobile-input"
@@ -331,6 +339,10 @@ const Index = () => {
                   />
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="production" className="mt-4 md:mt-6">
+              <ProductionPlanner />
             </TabsContent>
 
             {isMobile && (
