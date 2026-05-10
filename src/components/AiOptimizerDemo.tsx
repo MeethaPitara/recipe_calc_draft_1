@@ -235,7 +235,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                                     {activeRecipe.map((item, i) => (
                                         <tr key={i} className="border-b last:border-0 border-border/50">
                                             <td className="py-1">{item.ingredient}</td>
-                                            <td className="text-right py-1 text-muted-foreground font-mono">{Number(item.quantity_g).toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                                            <td className="text-right py-1 text-muted-foreground font-mono">{Number(item.quantity_g).toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 1 })}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -344,10 +344,10 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                                     {result.diffs.map(d => (
                                         <tr key={d.ingredient}>
                                             <Td>{d.ingredient}</Td>
-                                            <Td>{d.original_g.toLocaleString()}</Td>
-                                            <Td>{d.proposed_g.toLocaleString()}</Td>
+                                            <Td>{d.original_g.toLocaleString('en-US', { useGrouping: false })}</Td>
+                                            <Td>{d.proposed_g.toLocaleString('en-US', { useGrouping: false })}</Td>
                                             <Td style={{ color: d.delta_g > 0 ? '#16a34a' : '#dc2626' }}>
-                                                {d.delta_g > 0 ? '+' : ''}{d.delta_g.toLocaleString()}
+                                                {d.delta_g > 0 ? '+' : ''}{d.delta_g.toLocaleString('en-US', { useGrouping: false })}
                                             </Td>
                                             <Td style={{ color: d.delta_g > 0 ? '#16a34a' : '#dc2626' }}>
                                                 {d.delta_pct > 0 ? '+' : ''}{d.delta_pct.toFixed(1)}%
@@ -376,7 +376,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                                             <tr key={name}>
                                                 <Td>{name}</Td>
                                                 <Td style={{ fontWeight: 600, color: '#16a34a' }}>
-                                                    {Number(qty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                    {Number(qty).toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 2 })}
                                                 </Td>
                                             </tr>
                                         ))}

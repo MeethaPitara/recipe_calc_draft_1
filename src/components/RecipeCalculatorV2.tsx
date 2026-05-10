@@ -354,7 +354,7 @@ export default function RecipeCalculatorV2({
 
 
   // Controlled tab state for consistent navigation
-  const [activeTab, setActiveTab] = useState('ai-insights');
+  const [activeTab, setActiveTab] = useState('analyzer');
 
   // Basic/Advanced mode toggle - simplified calculator view
   const [basicMode, setBasicMode] = useState(false);
@@ -2734,11 +2734,8 @@ export default function RecipeCalculatorV2({
                       🎯 Optimization Tools
                     </AccordionTrigger>
                     <AccordionContent>
-                      <Tabs defaultValue="pairings" className="w-full">
+                      <Tabs defaultValue="sugar-blend" className="w-full">
                         <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
-                          <TabsTrigger value="pairings" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                            🍫 Pairings
-                          </TabsTrigger>
                           <TabsTrigger value="sugar-blend" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
                             🍬 Sugar Blend
                           </TabsTrigger>
@@ -2748,65 +2745,7 @@ export default function RecipeCalculatorV2({
                           </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="pairings" className="mt-4">
-                          <PairingsDrawer
-                            selectedIngredient={selectedIngredientForPairing}
-                            availableIngredients={availableIngredients}
-                            currentMetrics={metrics}
-                            onAddIngredient={(ing, percentage) => {
-                              const totalMass = rows.reduce((sum, r) => sum + r.quantity_g, 0) || 1000;
-                              const gramsToAdd = (percentage / 100) * totalMass;
 
-                              const existingRow = rows.find(r => r.ingredient === ing.name);
-                              if (existingRow) {
-                                setRows(rows.map(r =>
-                                  r.ingredient === ing.name
-                                    ? { ...r, quantity_g: r.quantity_g + gramsToAdd }
-                                    : r
-                                ));
-                              } else {
-                                const newRow: IngredientRow = {
-                                  ingredientData: ing,
-                                  ingredient: ing.name,
-                                  quantity_g: gramsToAdd,
-                                  sugars_g: ((ing.sugars_pct ?? 0) / 100) * gramsToAdd,
-                                  fat_g: ((ing.fat_pct ?? 0) / 100) * gramsToAdd,
-                                  msnf_g: ((ing.msnf_pct ?? 0) / 100) * gramsToAdd,
-                                  other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * gramsToAdd,
-                                  total_solids_g: 0
-                                };
-                                newRow.total_solids_g = newRow.sugars_g + newRow.fat_g + newRow.msnf_g + newRow.other_solids_g;
-                                setRows([...rows, newRow]);
-                              }
-
-                              toast({
-                                title: "Pairing Added",
-                                description: `${ing.name} added at ${percentage}% (${gramsToAdd.toFixed(0)}g)`
-                              });
-                            }}
-                          />
-                          <div className="mt-4">
-                            <Label className="text-sm font-semibold mb-2 block">Select ingredient to analyze pairings:</Label>
-                            <Select
-                              value={selectedIngredientForPairing?.id || ''}
-                              onValueChange={(id) => {
-                                const ing = availableIngredients.find(i => i.id === id);
-                                setSelectedIngredientForPairing(ing || null);
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Choose an ingredient..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {rows.map((row) => row.ingredientData && (
-                                  <SelectItem key={row.ingredientData.id} value={row.ingredientData.id}>
-                                    {row.ingredientData.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TabsContent>
 
                         <TabsContent value="sugar-blend" className="mt-4">
                           {rows.length === 0 ? (
@@ -2882,9 +2821,6 @@ export default function RecipeCalculatorV2({
                     <AccordionContent>
                       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
-                          <TabsTrigger value="ai-insights" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                            🤖 AI Insights
-                          </TabsTrigger>
                           <TabsTrigger value="analyzer" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
                             🔬 Analyzer
                           </TabsTrigger>
@@ -2893,16 +2829,7 @@ export default function RecipeCalculatorV2({
                           </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="ai-insights" className="mt-4">
-                          <AIInsightsPanel
-                            recipe={rows.map(r => ({
-                              ingredientId: r.ingredientData?.id || r.ingredient,
-                              grams: r.quantity_g
-                            }))}
-                            metrics={metrics}
-                            productType={productType}
-                          />
-                        </TabsContent>
+
 
                         <TabsContent value="analyzer" className="mt-4">
                           {rows.length === 0 ? (
@@ -3003,14 +2930,7 @@ export default function RecipeCalculatorV2({
               ) : (
                 // Desktop: Single tab row with all tools
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="w-full h-auto flex flex-wrap lg:grid lg:grid-cols-7 gap-1 lg:gap-2 p-2 bg-background/80 backdrop-blur-sm">
-                    <TabsTrigger value="ai-insights" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                      🤖 AI Insights
-                      <Badge variant="secondary" className="ml-1 text-[10px]">NEW</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="pairings" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                      🍫 Pairings
-                    </TabsTrigger>
+                  <TabsList className="w-full h-auto flex flex-wrap lg:grid lg:grid-cols-5 gap-1 lg:gap-2 p-2 bg-background/80 backdrop-blur-sm">
                     <TabsTrigger value="temperature" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
                       🌡️ Temperature
                     </TabsTrigger>
@@ -3029,85 +2949,7 @@ export default function RecipeCalculatorV2({
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="ai-insights" className="mt-4">
-                    <AIInsightsPanel
-                      recipe={rows.map(r => ({
-                        ingredientId: r.ingredientData?.id || r.ingredient,
-                        grams: r.quantity_g
-                      }))}
-                      metrics={metrics}
-                      productType={productType}
-                    />
-                  </TabsContent>
 
-                  <TabsContent value="pairings" className="mt-4">
-                    {rows.length === 0 ? (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <p className="text-lg font-semibold mb-2">No Ingredients Added</p>
-                        <p className="text-sm">Add ingredients to your recipe to analyze flavor pairings</p>
-                      </div>
-                    ) : (
-                      <>
-                        <PairingsDrawer
-                          selectedIngredient={selectedIngredientForPairing}
-                          availableIngredients={availableIngredients}
-                          currentMetrics={metrics}
-                          onAddIngredient={(ing, percentage) => {
-                            const totalMass = rows.reduce((sum, r) => sum + r.quantity_g, 0) || 1000;
-                            const gramsToAdd = (percentage / 100) * totalMass;
-
-                            const existingRow = rows.find(r => r.ingredient === ing.name);
-                            if (existingRow) {
-                              setRows(rows.map(r =>
-                                r.ingredient === ing.name
-                                  ? { ...r, quantity_g: r.quantity_g + gramsToAdd }
-                                  : r
-                              ));
-                            } else {
-                              const newRow: IngredientRow = {
-                                ingredientData: ing,
-                                ingredient: ing.name,
-                                quantity_g: gramsToAdd,
-                                sugars_g: ((ing.sugars_pct ?? 0) / 100) * gramsToAdd,
-                                fat_g: ((ing.fat_pct ?? 0) / 100) * gramsToAdd,
-                                msnf_g: ((ing.msnf_pct ?? 0) / 100) * gramsToAdd,
-                                other_solids_g: ((ing.other_solids_pct ?? 0) / 100) * gramsToAdd,
-                                total_solids_g: 0
-                              };
-                              newRow.total_solids_g = newRow.sugars_g + newRow.fat_g + newRow.msnf_g + newRow.other_solids_g;
-                              setRows([...rows, newRow]);
-                            }
-
-                            toast({
-                              title: "Pairing Added",
-                              description: `${ing.name} added at ${percentage}% (${gramsToAdd.toFixed(0)}g)`
-                            });
-                          }}
-                        />
-                        <div className="mt-4">
-                          <Label className="text-sm font-semibold mb-2 block">Select ingredient to analyze pairings:</Label>
-                          <Select
-                            value={selectedIngredientForPairing?.id || ''}
-                            onValueChange={(id) => {
-                              const ing = availableIngredients.find(i => i.id === id);
-                              setSelectedIngredientForPairing(ing || null);
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Choose an ingredient..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {rows.map((row) => row.ingredientData && (
-                                <SelectItem key={row.ingredientData.id} value={row.ingredientData.id}>
-                                  {row.ingredientData.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </>
-                    )}
-                  </TabsContent>
 
                   <TabsContent value="temperature" className="mt-4">
                     {!metrics ? (

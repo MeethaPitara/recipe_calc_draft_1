@@ -292,7 +292,7 @@ export default function QuickProductionPlan() {
     }, [selectedRecipeId, recipes]);
 
     // -- Render Helpers --
-    const formatNumber = (num: number, decimals = 1) => num.toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+    const formatNumber = (num: number, decimals = 1) => num.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: decimals, minimumFractionDigits: decimals });
 
     const selectedRecipeName = recipes.find(r => r.id === selectedRecipeId)?.recipe_name || "Select Recipe";
 

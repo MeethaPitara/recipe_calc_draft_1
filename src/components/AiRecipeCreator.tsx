@@ -313,10 +313,10 @@ export default function AiRecipeCreator() {
                                     {result.diffs.map(d => (
                                         <tr key={d.ingredient}>
                                             <Td>{d.ingredient}</Td>
-                                            <Td>{d.original_g.toLocaleString()}</Td>
-                                            <Td>{d.proposed_g.toLocaleString()}</Td>
+                                            <Td>{d.original_g.toLocaleString('en-US', { useGrouping: false })}</Td>
+                                            <Td>{d.proposed_g.toLocaleString('en-US', { useGrouping: false })}</Td>
                                             <Td style={{ color: d.delta_g > 0 ? '#16a34a' : '#dc2626' }}>
-                                                {d.delta_g > 0 ? '+' : ''}{d.delta_g.toLocaleString()}
+                                                {d.delta_g > 0 ? '+' : ''}{d.delta_g.toLocaleString('en-US', { useGrouping: false })}
                                             </Td>
                                             <Td style={{ color: d.delta_g > 0 ? '#16a34a' : '#dc2626' }}>
                                                 {d.delta_pct > 0 ? '+' : ''}{d.delta_pct.toFixed(1)}%
@@ -345,7 +345,7 @@ export default function AiRecipeCreator() {
                                             <tr key={name}>
                                                 <Td>{name}</Td>
                                                 <Td style={{ fontWeight: 600, color: '#16a34a' }}>
-                                                    {Number(qty).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                    {Number(qty).toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 2 })}
                                                 </Td>
                                             </tr>
                                         ))}
