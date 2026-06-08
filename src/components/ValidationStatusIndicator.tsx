@@ -66,7 +66,7 @@ export function ValidationStatusIndicator() {
           <p className="text-xs">{status.description}</p>
           {validationModel && (
             <p className="text-xs text-muted-foreground mt-1">
-              Features: {Object.keys(validationModel.feature_importance || {}).length}
+             Features: {Object.keys(validationModel.feature_importance || {}).length}
             </p>
           )}
         </TooltipContent>

@@ -14,6 +14,8 @@ export interface IngredientRow {
   msnf_g: number;
   other_solids_g: number;
   total_solids_g: number;
+  isLocked?: boolean;
+  lockMode?: 'grams' | 'percentage';
 }
 
 export interface BalancingSuggestion {

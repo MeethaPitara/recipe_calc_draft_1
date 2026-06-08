@@ -42,12 +42,12 @@ export default function MachineGuidance({
         {validation.valid ? (
           <Badge className="bg-green-100 text-green-800">
             <CheckCircle2 className="h-3 w-3 mr-1" />
-            Compatible
+           Compatible
           </Badge>
         ) : (
           <Badge variant="destructive">
             <AlertCircle className="h-3 w-3 mr-1" />
-            Issues Found
+           Issues Found
           </Badge>
         )}
       </div>
@@ -83,7 +83,7 @@ export default function MachineGuidance({
           <div className="bg-muted rounded-lg p-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Clock className="h-3 w-3" />
-              Aging Time
+             Aging Time
             </div>
             <div className="font-semibold">{settings.agingTime}</div>
           </div>
@@ -91,7 +91,7 @@ export default function MachineGuidance({
           <div className="bg-muted rounded-lg p-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Thermometer className="h-3 w-3" />
-              Draw Temp
+             Draw Temp
             </div>
             <div className="font-semibold">{settings.drawTemp}</div>
           </div>
@@ -99,7 +99,7 @@ export default function MachineGuidance({
           <div className="bg-muted rounded-lg p-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Wind className="h-3 w-3" />
-              Overrun Target
+             Overrun Target
             </div>
             <div className="font-semibold">{settings.overrunTarget}</div>
           </div>
@@ -111,7 +111,7 @@ export default function MachineGuidance({
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-warning-foreground flex items-center gap-1">
             <AlertCircle className="h-4 w-4" />
-            Warnings
+           Warnings
           </h4>
           <div className="space-y-1">
             {validation.warnings.map((warning, idx) => (

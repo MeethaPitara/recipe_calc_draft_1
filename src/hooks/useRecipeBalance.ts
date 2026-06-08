@@ -141,7 +141,7 @@ export function useRecipeBalance({
       const ingredientValidation = validateRecipeIngredients(validRows);
       if (!ingredientValidation.valid) {
         toast({
-          title: '⚠️ Invalid Ingredient Data',
+          title: ' Invalid Ingredient Data',
           description: ingredientValidation.errors[0], // Show first error
           variant: 'destructive',
           duration: 6000
@@ -193,7 +193,7 @@ export function useRecipeBalance({
           });
 
           toast({
-            title: '🛠️ Gentle Prepass Applied',
+            title: ' Gentle Prepass Applied',
             description: prepassAutoFix.addedIngredients.map(a => `+ ${a.grams.toFixed(1)}g ${a.name}`).join(', '),
             duration: 3000
           });
@@ -226,7 +226,7 @@ export function useRecipeBalance({
           const errorInfo = getBalancingErrorInfo(failureReason);
 
           toast({
-            title: `⚠️ ${errorInfo.title}`,
+            title: ` ${errorInfo.title}`,
             description: `${errorInfo.description} ${errorInfo.suggestion}`,
             variant: 'destructive',
             duration: 8000
@@ -332,7 +332,7 @@ export function useRecipeBalance({
       setMetrics(recalculatedMetrics);
 
       toast({
-        title: `✅ ${mode === 'sorbet' ? 'Sorbet' : mode === 'ice_cream' ? 'Ice Cream' : mode === 'gelato' ? 'Gelato' : 'Kulfi'} Balanced (${result.strategy})`,
+        title: ` ${mode === 'sorbet' ? 'Sorbet' : mode === 'ice_cream' ? 'Ice Cream' : mode === 'gelato' ? 'Gelato' : 'Kulfi'} Balanced (${result.strategy})`,
         description: result.message,
         duration: 5000
       });
@@ -408,7 +408,7 @@ export function useRecipeBalance({
 
         if (error || !newIng) {
           toast({
-            title: '❌ Failed to add ingredient',
+            title: ' Failed to add ingredient',
             description: error?.message || 'Please add it manually',
             variant: 'destructive'
           });
@@ -416,7 +416,7 @@ export function useRecipeBalance({
         }
 
         toast({
-          title: '✨ Ingredient Added',
+          title: ' Ingredient Added',
           description: `${defaults.name} was automatically added to your database`,
         });
 
@@ -426,7 +426,7 @@ export function useRecipeBalance({
       }
 
       toast({
-        title: '❌ Ingredient Not Found',
+        title: ' Ingredient Not Found',
         description: `"${suggestion.ingredientName}" is not in your database.`,
         variant: 'destructive',
         duration: 6000
@@ -446,7 +446,7 @@ export function useRecipeBalance({
       ));
 
       toast({
-        title: '✅ Suggestion Applied',
+        title: ' Suggestion Applied',
         description: `Increased ${ingredient.name} from ${currentQty.toFixed(0)}g to ${newQty.toFixed(0)}g`,
         duration: 3000
       });
@@ -454,7 +454,7 @@ export function useRecipeBalance({
       setRows(prev => [...prev, createRowFromIngredient(ingredient, suggestion.quantityChange)]);
 
       toast({
-        title: '✅ Suggestion Applied',
+        title: ' Suggestion Applied',
         description: `Added ${suggestion.quantityChange.toFixed(0)}g ${ingredient.name} to recipe`,
         duration: 3000
       });
@@ -470,7 +470,7 @@ export function useRecipeBalance({
     setShowSuggestionsDialog(false);
 
     toast({
-      title: '✨ All Suggestions Applied',
+      title: ' All Suggestions Applied',
       description: 'Re-balancing recipe automatically...',
       duration: 3000
     });

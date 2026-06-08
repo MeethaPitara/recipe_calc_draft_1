@@ -143,12 +143,21 @@ export function SmartIngredientSearch({
       )}
       onClick={() => handleSelect(ing)}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
         <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span className="font-medium truncate">{ing.name}</span>
         {ing.is_custom && <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
+        {ing.formulation_warnings && ing.formulation_warnings.length > 0 && (
+          <div className="flex gap-1">
+            {ing.formulation_warnings.map((w, i) => (
+              <Badge key={i} variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                {w}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
-      <Badge variant="secondary" className="text-xs flex-shrink-0">
+      <Badge variant="secondary" className="text-xs flex-shrink-0 ml-2">
         {ing.category}
       </Badge>
     </div>
@@ -195,7 +204,7 @@ export function SmartIngredientSearch({
               <div className="flex items-center gap-2 mb-2 px-1">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase">
-                  Recent
+                 Recent
                 </h4>
               </div>
               <div className="space-y-1">
@@ -211,7 +220,7 @@ export function SmartIngredientSearch({
             // Search results
             <div>
               <h4 className="text-sm font-semibold text-muted-foreground uppercase mb-2 px-1">
-                Search Results
+               Search Results
               </h4>
               {filteredIngredients.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -225,7 +234,7 @@ export function SmartIngredientSearch({
                     onClick={() => setIsAddDialogOpen(true)}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Create "{searchQuery}"
+                   Create "{searchQuery}"
                   </Button>
                 </div>
               ) : (
@@ -238,7 +247,7 @@ export function SmartIngredientSearch({
             </div>
           ) : (
             // Grouped by category (when no search)
-            Object.entries(groupedIngredients).map(([category, items]) => (
+           Object.entries(groupedIngredients).map(([category, items]) => (
               <div key={category}>
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase mb-2 px-1">
                   {category}
@@ -258,7 +267,7 @@ export function SmartIngredientSearch({
       {/* Footer */}
       <div className="p-2 border-t bg-popover">
         <p className="text-xs text-center text-muted-foreground">
-          Use ↑↓ to navigate, Enter to select, Esc to close
+         Use ↑↓ to navigate, Enter to select, Esc to close
         </p>
       </div>
 

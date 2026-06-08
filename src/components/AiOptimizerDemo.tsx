@@ -20,6 +20,7 @@ import { INGREDIENT_DB } from '@/lib/ai/ingredientDb';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { SaveRecipeModal } from './SaveRecipeModal';
+import { AiExplanationPanel } from './AiExplanationPanel';
 
 // ── Default test data (from Cell 13 in the notebook) ──
 
@@ -167,7 +168,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                 name,
                 type,
                 result.optimized_recipe,
-                INGREDIENT_DB,
+               INGREDIENT_DB,
                 existingId
             );
 
@@ -220,7 +221,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                         <Alert className="mb-4 bg-primary/5 border-primary/20">
                             <CheckCircle className="h-4 w-4 text-primary" />
                             <AlertDescription className="text-xs">
-                                Using the recipe currently in your calculator above.
+                               Using the recipe currently in your calculator above.
                             </AlertDescription>
                         </Alert>
                         <div className="bg-muted/30 border rounded-md p-2 max-h-[140px] overflow-y-auto">
@@ -309,12 +310,12 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                     </div>
 
                     {/* Engineer Changes */}
-                    <Section title="🔧 Engineer Changes">
+                    <Section title=" Engineer Changes">
                         <p>{result.engineer_changes}</p>
                     </Section>
 
                     {/* Metrics Comparison */}
-                    <Section title="📊 Metrics">
+                    <Section title=" Metrics">
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr>
@@ -333,7 +334,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
 
                     {/* Diffs */}
                     {result.diffs.length > 0 && (
-                        <Section title="📋 Ingredient Changes">
+                        <Section title=" Ingredient Changes">
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr>
@@ -360,7 +361,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                     )}
 
                     {/* Final Recipe Output */}
-                    <Section title="✅ Final Optimized Recipe">
+                    <Section title=" Final Optimized Recipe">
                         <div className="bg-muted/10 border rounded-md p-1">
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
@@ -386,13 +387,11 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                     </Section>
 
                     {/* AI Analysis */}
-                    <Section title="🧬 Food Scientist Analysis">
-                        <div className="text-sm text-foreground/90 leading-relaxed space-y-3">
-                            {parseSimpleMarkdown(result.ai_analysis)}
-                        </div>
+                    <Section title=" Food Scientist Analysis">
+                        <AiExplanationPanel aiAnalysis={result.ai_analysis} />
                     </Section>      {/* Warnings */}
                     {result.warnings.length > 0 && (
-                        <Section title="⚠️ Warnings">
+                        <Section title=" Warnings">
                             <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
                                 {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
                             </ul>
@@ -407,7 +406,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                     <CardHeader className="py-3">
                         <CardTitle className="text-sm flex items-center gap-2">
                             <Save className="h-4 w-4" />
-                            Use Optimized Recipe
+                           Use Optimized Recipe
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-2">
@@ -418,7 +417,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                                 disabled={!result.optimized_recipe}
                             >
                                 <Zap className="h-4 w-4" />
-                                Apply to Calculator
+                               Apply to Calculator
                             </Button>
                         )}
                         <Button
@@ -428,7 +427,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                             disabled={!!saving}
                         >
                             {saving === 'new' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
-                            Save as New Recipe
+                           Save as New Recipe
                         </Button>
                         <Button
                             className="flex-1 gap-2"
@@ -436,7 +435,7 @@ export default function AiOptimizerDemo({ recipe, targetParams, idealRanges, cur
                             disabled={!!saving || selectedRecipeId === 'default'}
                         >
                             {saving === 'update' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                            Update Original
+                           Update Original
                         </Button>
                     </CardContent>
                     {saveMessage && (
@@ -485,8 +484,8 @@ function MetricRow({ label, before, after }: { label: string; before: number; af
     return (
         <tr>
             <Td style={{ fontWeight: 600 }}>{label}</Td>
-            <Td>{before.toFixed(3)}</Td>
-            <Td>{after.toFixed(3)}</Td>
+            <Td>{(before ?? 0).toFixed(3)}</Td>
+            <Td>{(after ?? 0).toFixed(3)}</Td>
         </tr>
     );
 }

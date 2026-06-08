@@ -58,7 +58,7 @@ export function exportBatchLogs(): string {
     'Timestamp,Recipe,Product Type,Machine,Draw Temp,Overrun %,Scoop Temp,Hardness,Panel Score,Notes',
     ...logs.map(log => [
       log.timestamp,
-      JSON.stringify(log.recipe).replace(/,/g, ';'),
+     JSON.stringify(log.recipe).replace(/,/g, ';'),
       log.productType,
       log.machineType,
       log.drawTempC || '',

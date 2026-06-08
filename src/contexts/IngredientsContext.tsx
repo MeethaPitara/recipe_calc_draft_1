@@ -25,7 +25,7 @@ export function IngredientsProvider({ children }: { children: React.ReactNode })
       setIsLoading(true);
       setError(null);
       if (import.meta.env.DEV) {
-        console.log('🔄 Loading ingredients from database (global context)...');
+        console.log(' Loading ingredients from database (global context)...');
       }
 
       const data = await IngredientService.getIngredients();
@@ -34,7 +34,7 @@ export function IngredientsProvider({ children }: { children: React.ReactNode })
 
 
       if (import.meta.env.DEV) {
-        console.log(`✅ Loaded ${data.length} ingredients globally`);
+        console.log(` Loaded ${data.length} ingredients globally`);
       }
 
       trace('IngredientsContext.tsx', 'loadIngredients', 'SET_STATE', { count: data.length, sample: data[0] });
@@ -50,7 +50,7 @@ export function IngredientsProvider({ children }: { children: React.ReactNode })
       }
       setHasLoadedOnce(true);
     } catch (err: any) {
-      console.error('❌ Failed to load ingredients:', err);
+      console.error(' Failed to load ingredients:', err);
       setError(err.message || 'Failed to load ingredients');
       toast({
         title: 'Failed to load ingredients',

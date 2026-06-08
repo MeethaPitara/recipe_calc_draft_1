@@ -720,7 +720,7 @@ export function RecipeTemplates({ onSelectTemplate, onStartFromScratch, availabl
         </div>
         <CardTitle className="text-2xl font-bold">Start Your Gelato Formula</CardTitle>
         <CardDescription className="text-base text-muted-foreground">
-          Choose a template to get started, or build your own recipe from scratch
+         Choose a template to get started, or build your own recipe from scratch
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 p-6">
@@ -742,7 +742,7 @@ export function RecipeTemplates({ onSelectTemplate, onStartFromScratch, availabl
               </CardHeader>
               <CardContent className="p-0">
                 <Button variant="outline" size="sm" className="w-full transition-all duration-200 ease-in-out">
-                  Use Template
+                 Use Template
                 </Button>
               </CardContent>
             </Card>
@@ -762,7 +762,7 @@ export function RecipeTemplates({ onSelectTemplate, onStartFromScratch, availabl
           onClick={onStartFromScratch}
         >
           <Sparkles className="h-5 w-5 mr-2" />
-          Start from Scratch
+         Start from Scratch
         </Button>
       </CardContent>
     </Card>

@@ -72,17 +72,17 @@ export const ProductionSummary = () => {
                                         {engineOutput.rows.map((r) => (
                                             <TableRow key={r.recipeId}>
                                                 {/* Note: recipeName is not on the row output, we might need to look it up or rely on order if ID not enough. 
-                                                    Actually, let's check level2_engine.ts. 
-                                                    Ah, rows has recipeId. 
-                                                    Wait, the UI needs a name. 
-                                                    The store has 'rows' (inputs) which has names.
-                                                    But engineOutput rows don't have name?
-                                                    Let's check level2_engine.ts again.
-                                                    In step 15: 
+                                                   Actually, let's check level2_engine.ts. 
+                                                   Ah, rows has recipeId. 
+                                                   Wait, the UI needs a name. 
+                                                   The store has 'rows' (inputs) which has names.
+                                                   But engineOutput rows don't have name?
+                                                   Let's check level2_engine.ts again.
+                                                   In step 15: 
                                                     rows: { recipeId: string; ... }
-                                                    It does NOT have recipeName.
+                                                   It does NOT have recipeName.
                                                     
-                                                    However, looking at the previous code:
+                                                   However, looking at the previous code:
                                                     key={r.recipeName}
                                                     title={r.recipeName}
                                                     {r.recipeName}
@@ -122,7 +122,7 @@ export const ProductionSummary = () => {
                                     }
                                     {engineOutput.rows.every(r => r.complementaryIngredients.length === 0) && (
                                         <div className="text-center py-8 text-muted-foreground italic">
-                                            No additional ingredients required for these allocations.
+                                           No additional ingredients required for these allocations.
                                         </div>
                                     )}
                                 </div>

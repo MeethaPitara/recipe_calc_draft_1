@@ -39,6 +39,21 @@ const createPlanRoutes = (level: string, tableName: string) => {
                 .single();
 
             if (error) throw error;
+
+            // Auto-lock the recipe if a recipe snapshot was tied to this production plan
+            if (req.body.original_recipe_id) {
+                const { error: lockError } = await supabase
+                    .from('recipes')
+                    .update({ is_production_locked: true, updated_at: new Date().toISOString() })
+                    .eq('id', req.body.original_recipe_id);
+                
+                if (lockError) {
+                    console.error('Failed to lock recipe during plan creation:', lockError);
+                    // Decide if we want to fail the whole plan creation. Usually it's better to just log and continue, 
+                    // or we could throw. Let's log it, as the plan itself was successfully created.
+                }
+            }
+
             res.status(201).json(data);
         } catch (e: any) {
             res.status(500).json({ error: e.message });

@@ -12,6 +12,7 @@ const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STR);
 export interface AuthUser {
     id: string;
     email: string;
+    role?: string;
 }
 
 // Extend Express Request
@@ -46,6 +47,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         req.user = {
             id: payload.sub,
             email: payload.email as string,
+            role: payload.role as string | undefined,
         };
 
         next();
@@ -67,6 +69,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
                 req.user = {
                     id: payload.sub,
                     email: payload.email as string,
+                    role: payload.role as string | undefined,
                 };
             }
         }

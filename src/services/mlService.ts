@@ -34,16 +34,16 @@ export class MLService {
 
   async trainModel(): Promise<ModelWeights> {
     try {
-      console.log('🧠 Starting ML training via backend...');
+      console.log(' Starting ML training via backend...');
       const weights = await apiPost<ModelWeights>('/api/ml/train');
 
       this.modelWeights = weights;
       localStorage.setItem('ml_model_weights', JSON.stringify(weights));
 
-      console.log('✅ Model training complete:', weights);
+      console.log(' Model training complete:', weights);
       return weights;
     } catch (error: any) {
-      console.error('❌ Training failed:', error);
+      console.error(' Training failed:', error);
       throw error;
     }
   }

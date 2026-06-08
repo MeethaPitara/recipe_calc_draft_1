@@ -292,7 +292,7 @@ export default function ReverseEngineerPaste() {
               <div className="p-4 bg-primary/5 rounded-lg">
                 <h4 className="font-medium mb-2">Gelato Application</h4>
                 <p className="text-sm text-muted-foreground">
-                  Recommended dosage: <span className="font-medium text-foreground">{recipe.gelato_dosage.recommended_pct}%</span>
+                 Recommended dosage: <span className="font-medium text-foreground">{recipe.gelato_dosage.recommended_pct}%</span>
                   {' '}(range: {recipe.gelato_dosage.min_pct}-{recipe.gelato_dosage.max_pct}%)
                 </p>
               </div>

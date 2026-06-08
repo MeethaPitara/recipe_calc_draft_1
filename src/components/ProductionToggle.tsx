@@ -80,7 +80,7 @@ export const ProductionToggle: React.FC<ProductionToggleProps> = ({
           title="Print Recipe (Cmd/Ctrl+P)"
         >
           <Printer className="h-4 w-4" />
-          Print
+         Print
         </Button>
       )}
     </div>

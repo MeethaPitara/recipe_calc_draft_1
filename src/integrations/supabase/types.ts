@@ -10,33 +10,42 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+   PostgrestVersion: "13.0.5"
   }
   public: {
-    Tables: {
+   Tables: {
       ai_usage_log: {
-        Row: {
+       Row: {
           created_at: string | null
           function_name: string
           id: string
           user_id: string | null
+          tokens_used: number | null
+          latency_ms: number | null
+          success: boolean | null
         }
-        Insert: {
+       Insert: {
           created_at?: string | null
           function_name: string
           id?: string
           user_id?: string | null
+          tokens_used?: number | null
+          latency_ms?: number | null
+          success?: boolean | null
         }
-        Update: {
+       Update: {
           created_at?: string | null
           function_name?: string
           id?: string
           user_id?: string | null
+          tokens_used?: number | null
+          latency_ms?: number | null
+          success?: boolean | null
         }
-        Relationships: []
+       Relationships: []
       }
       calculated_metrics: {
-        Row: {
+       Row: {
           created_at: string | null
           fat_pct: number
           fpdt: number | null
@@ -57,7 +66,7 @@ export type Database = {
           total_sugars_g: number
           updated_at: string | null
         }
-        Insert: {
+       Insert: {
           created_at?: string | null
           fat_pct: number
           fpdt?: number | null
@@ -78,7 +87,7 @@ export type Database = {
           total_sugars_g: number
           updated_at?: string | null
         }
-        Update: {
+       Update: {
           created_at?: string | null
           fat_pct?: number
           fpdt?: number | null
@@ -99,7 +108,7 @@ export type Database = {
           total_sugars_g?: number
           updated_at?: string | null
         }
-        Relationships: [
+       Relationships: [
           {
             foreignKeyName: "calculated_metrics_recipe_id_fkey"
             columns: ["recipe_id"]
@@ -109,32 +118,67 @@ export type Database = {
           },
         ]
       }
+      cost_records: {
+       Row: {
+          id: string
+          recipe_id: string | null
+          user_id: string
+          cost_per_kg: number | null
+          batch_size_g: number | null
+          recorded_at: string | null
+        }
+       Insert: {
+          id?: string
+          recipe_id?: string | null
+          user_id: string
+          cost_per_kg?: number | null
+          batch_size_g?: number | null
+          recorded_at?: string | null
+        }
+       Update: {
+          id?: string
+          recipe_id?: string | null
+          user_id?: string
+          cost_per_kg?: number | null
+          batch_size_g?: number | null
+          recorded_at?: string | null
+        }
+       Relationships: [
+          {
+            foreignKeyName: "cost_records_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       events: {
-        Row: {
+       Row: {
           created_at: string | null
           event: string
           id: string
           meta: Json | null
           user_id: string | null
         }
-        Insert: {
+       Insert: {
           created_at?: string | null
           event: string
           id?: string
           meta?: Json | null
           user_id?: string | null
         }
-        Update: {
+       Update: {
           created_at?: string | null
           event?: string
           id?: string
           meta?: Json | null
           user_id?: string | null
         }
-        Relationships: []
+       Relationships: []
       }
       ingredients: {
-        Row: {
+       Row: {
           category: string
           characterization_pct: number | null
           cost_per_kg: number | null
@@ -154,7 +198,7 @@ export type Database = {
           updated_at: string | null
           water_pct: number | null
         }
-        Insert: {
+       Insert: {
           category: string
           characterization_pct?: number | null
           cost_per_kg?: number | null
@@ -174,7 +218,7 @@ export type Database = {
           updated_at?: string | null
           water_pct?: number | null
         }
-        Update: {
+       Update: {
           category?: string
           characterization_pct?: number | null
           cost_per_kg?: number | null
@@ -194,10 +238,10 @@ export type Database = {
           updated_at?: string | null
           water_pct?: number | null
         }
-        Relationships: []
+       Relationships: []
       }
       recipe_outcomes: {
-        Row: {
+       Row: {
           actual_texture: string | null
           created_at: string | null
           id: string
@@ -206,7 +250,7 @@ export type Database = {
           recipe_id: string
           user_id: string
         }
-        Insert: {
+       Insert: {
           actual_texture?: string | null
           created_at?: string | null
           id?: string
@@ -215,7 +259,7 @@ export type Database = {
           recipe_id: string
           user_id: string
         }
-        Update: {
+       Update: {
           actual_texture?: string | null
           created_at?: string | null
           id?: string
@@ -224,7 +268,7 @@ export type Database = {
           recipe_id?: string
           user_id?: string
         }
-        Relationships: [
+       Relationships: [
           {
             foreignKeyName: "recipe_outcomes_recipe_id_fkey"
             columns: ["recipe_id"]
@@ -235,7 +279,7 @@ export type Database = {
         ]
       }
       recipe_rows: {
-        Row: {
+       Row: {
           created_at: string | null
           fat_g: number
           id: string
@@ -247,7 +291,7 @@ export type Database = {
           sugars_g: number
           total_solids_g: number
         }
-        Insert: {
+       Insert: {
           created_at?: string | null
           fat_g?: number
           id?: string
@@ -259,7 +303,7 @@ export type Database = {
           sugars_g?: number
           total_solids_g?: number
         }
-        Update: {
+       Update: {
           created_at?: string | null
           fat_g?: number
           id?: string
@@ -271,7 +315,7 @@ export type Database = {
           sugars_g?: number
           total_solids_g?: number
         }
-        Relationships: [
+       Relationships: [
           {
             foreignKeyName: "recipe_rows_recipe_id_fkey"
             columns: ["recipe_id"]
@@ -282,7 +326,7 @@ export type Database = {
         ]
       }
       production_plans_l1: {
-        Row: {
+       Row: {
           id: string
           user_email: string
           plan_name: string
@@ -292,7 +336,7 @@ export type Database = {
           recipe_snapshot: Json
           output_summary: Json
         }
-        Insert: {
+       Insert: {
           id?: string
           user_email: string
           plan_name: string
@@ -302,7 +346,7 @@ export type Database = {
           recipe_snapshot: Json
           output_summary: Json
         }
-        Update: {
+       Update: {
           id?: string
           user_email?: string
           plan_name?: string
@@ -312,7 +356,7 @@ export type Database = {
           recipe_snapshot?: Json
           output_summary?: Json
         }
-        Relationships: [
+       Relationships: [
           {
             foreignKeyName: "production_plans_l1_original_recipe_id_fkey"
             columns: ["original_recipe_id"]
@@ -322,7 +366,7 @@ export type Database = {
         ]
       }
       production_plans_l2: {
-        Row: {
+       Row: {
           id: string
           user_email: string
           plan_name: string
@@ -331,7 +375,7 @@ export type Database = {
           allocations_snapshot: Json
           results_snapshot: Json
         }
-        Insert: {
+       Insert: {
           id?: string
           user_email: string
           plan_name: string
@@ -340,7 +384,7 @@ export type Database = {
           allocations_snapshot: Json
           results_snapshot: Json
         }
-        Update: {
+       Update: {
           id?: string
           user_email?: string
           plan_name?: string
@@ -349,10 +393,10 @@ export type Database = {
           allocations_snapshot?: Json
           results_snapshot?: Json
         }
-        Relationships: []
+       Relationships: []
       }
       production_plans_l3: {
-        Row: {
+       Row: {
           id: string
           user_email: string
           plan_name: string
@@ -361,7 +405,7 @@ export type Database = {
           recipe_snapshot: Json
           results_snapshot: Json
         }
-        Insert: {
+       Insert: {
           id?: string
           user_email: string
           plan_name: string
@@ -370,7 +414,7 @@ export type Database = {
           recipe_snapshot: Json
           results_snapshot: Json
         }
-        Update: {
+       Update: {
           id?: string
           user_email?: string
           plan_name?: string
@@ -379,39 +423,129 @@ export type Database = {
           recipe_snapshot?: Json
           results_snapshot?: Json
         }
-        Relationships: []
+       Relationships: []
       }
       recipes: {
-        Row: {
+       Row: {
           created_at: string | null
           id: string
           product_type: string | null
           recipe_name: string
           updated_at: string | null
           user_id: string
+          cost_per_kg: number | null
         }
-        Insert: {
+       Insert: {
           created_at?: string | null
           id?: string
           product_type?: string | null
           recipe_name: string
           updated_at?: string | null
           user_id: string
+          cost_per_kg?: number | null
         }
-        Update: {
+       Update: {
           created_at?: string | null
           id?: string
           product_type?: string | null
           recipe_name?: string
           updated_at?: string | null
           user_id?: string
+          cost_per_kg?: number | null
         }
-        Relationships: []
+       Relationships: []
+      }
+      target_profiles: {
+       Row: {
+          id: string
+          user_id: string
+          name: string
+          product_type: string
+          ranges: Json
+          constraint_defaults: Json | null
+          created_at: string | null
+        }
+       Insert: {
+          id?: string
+          user_id: string
+          name: string
+          product_type: string
+          ranges: Json
+          constraint_defaults?: Json | null
+          created_at?: string | null
+        }
+       Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          product_type?: string
+          ranges?: Json
+          constraint_defaults?: Json | null
+          created_at?: string | null
+        }
+       Relationships: [
+          {
+            foreignKeyName: "target_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      }
+      solver_runs: {
+       Row: {
+          id: string
+          recipe_id: string | null
+          user_id: string | null
+          targets: Json | null
+          constraints: Json | null
+          result_status: string | null
+          result_rows: Json | null
+          run_at: string | null
+        }
+       Insert: {
+          id?: string
+          recipe_id?: string | null
+          user_id?: string | null
+          targets?: Json | null
+          constraints?: Json | null
+          result_status?: string | null
+          result_rows?: Json | null
+          run_at?: string | null
+        }
+       Update: {
+          id?: string
+          recipe_id?: string | null
+          user_id?: string | null
+          targets?: Json | null
+          constraints?: Json | null
+          result_status?: string | null
+          result_rows?: Json | null
+          run_at?: string | null
+        }
+       Relationships: [
+          {
+            foreignKeyName: "solver_runs_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solver_runs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
-    Views: {
+   Views: {
       ingredients_public: {
-        Row: {
+       Row: {
           category: string | null
           created_at: string | null
           fat_pct: number | null
@@ -428,7 +562,7 @@ export type Database = {
           updated_at: string | null
           water_pct: number | null
         }
-        Insert: {
+       Insert: {
           category?: string | null
           created_at?: string | null
           fat_pct?: number | null
@@ -445,7 +579,7 @@ export type Database = {
           updated_at?: string | null
           water_pct?: number | null
         }
-        Update: {
+       Update: {
           category?: string | null
           created_at?: string | null
           fat_pct?: number | null
@@ -462,13 +596,13 @@ export type Database = {
           updated_at?: string | null
           water_pct?: number | null
         }
-        Relationships: []
+       Relationships: []
       }
     }
-    Functions: {
+   Functions: {
       get_ingredient_with_cost: {
-        Args: { ingredient_id: string }
-        Returns: {
+       Args: { ingredient_id: string }
+       Returns: {
           category: string
           cost_per_kg: number
           created_at: string
@@ -489,18 +623,18 @@ export type Database = {
         }[]
       }
       has_role: {
-        Args: {
+       Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
-        Returns: boolean
+       Returns: boolean
       }
       refresh_ml_training_dataset: { Args: never; Returns: undefined }
     }
-    Enums: {
+   Enums: {
       app_role: "admin" | "moderator" | "user"
     }
-    CompositeTypes: {
+   CompositeTypes: {
       [_ in never]: never
     }
   }
@@ -518,22 +652,22 @@ export type Tables<
     schema: keyof DatabaseWithoutInternals
   }
   ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+   DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
   : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+   DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+     Row: infer R
     }
   ? R
   : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
+   DefaultSchema["Views"])
   ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
+   DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+     Row: infer R
     }
   ? R
   : never
@@ -552,13 +686,13 @@ export type TablesInsert<
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
+   Insert: infer I
   }
   ? I
   : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
   ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
+   Insert: infer I
   }
   ? I
   : never
@@ -577,13 +711,13 @@ export type TablesUpdate<
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
+   Update: infer U
   }
   ? U
   : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
   ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
+   Update: infer U
   }
   ? U
   : never
@@ -625,7 +759,7 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
+   Enums: {
       app_role: ["admin", "moderator", "user"],
     },
   },

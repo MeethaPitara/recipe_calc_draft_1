@@ -32,7 +32,7 @@ export const trace = (
 
     const logMessage = `[${timestamp}] [${file}:${functionName}] [${action}]`;
 
-    console.groupCollapsed(`🛑 TRACE: ${file} :: ${functionName} -> ${action}`);
+    console.groupCollapsed(` TRACE: ${file} :: ${functionName} -> ${action}`);
     console.log(logMessage);
     console.log('Data Snapshot:', typeof payload === 'object' ? JSON.parse(JSON.stringify(payload)) : payload);
     console.groupEnd();

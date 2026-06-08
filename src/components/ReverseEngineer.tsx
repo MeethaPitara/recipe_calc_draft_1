@@ -125,10 +125,10 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5 text-primary" />
-            Reverse Engineering
+           Reverse Engineering
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Define your target metrics and let AI generate a recipe that meets them
+           Define your target metrics and let AI generate a recipe that meets them
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -136,7 +136,7 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
           <div className="space-y-4">
             <h3 className="font-medium flex items-center gap-2">
               <Target className="h-4 w-4" />
-              Target Parameters
+             Target Parameters
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -258,7 +258,7 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
 
             {onApplyRecipe && (
               <Button onClick={applyRecipe} className="w-full" variant="outline">
-                Apply Recipe to Calculator
+               Apply Recipe to Calculator
               </Button>
             )}
           </CardContent>

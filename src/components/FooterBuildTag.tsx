@@ -31,11 +31,11 @@ export default function FooterBuildTag() {
   return (
     <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2 text-[10px] opacity-60 hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm px-2 py-1 rounded border border-border/50">
       <span className="font-mono">
-        Build: <span className="font-semibold">{sha.slice(0, 7)}</span>
+       Build: <span className="font-semibold">{sha.slice(0, 7)}</span>
       </span>
       <span className="text-muted-foreground">•</span>
       <span className="font-mono">
-        Cache: <span className="font-semibold">{version}</span>
+       Cache: <span className="font-semibold">{version}</span>
       </span>
       <span className="text-muted-foreground">•</span>
       <Button 
@@ -48,7 +48,7 @@ export default function FooterBuildTag() {
         {clearing ? (
           <>
             <Loader2 className="mr-1 h-2 w-2 animate-spin" />
-            Clearing...
+           Clearing...
           </>
         ) : (
           'Hard Refresh'

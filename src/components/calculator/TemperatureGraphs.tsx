@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    ReferenceLine,
-    BarChart,
-    Bar,
-    Cell,
-    XAxis as RechartsXAxis,
-    YAxis as RechartsYAxis,
-    Cell as RechartsCell
+   LineChart,
+   Line,
+   XAxis,
+   YAxis,
+   CartesianGrid,
+   Tooltip,
+   ResponsiveContainer,
+   ReferenceLine,
+   BarChart,
+   Bar,
+   Cell,
+   XAxis as RechartsXAxis,
+   YAxis as RechartsYAxis,
+   Cell as RechartsCell
 } from 'recharts';
 import { getFreezingCurve, recommendServeTemp, getScoopableRange, estimateFrozenWater } from '@/lib/scoopability';
 import { Card, CardContent } from '@/components/ui/card';
@@ -57,8 +57,8 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
     const fpdtData = [
         {
             name: 'FPDT',
-            Sugars: metrics.fpdse,
-            Salts: metrics.fpdsa,
+           Sugars: metrics.fpdse,
+           Salts: metrics.fpdsa,
             total: metrics.fpdt
         }
     ];
@@ -91,9 +91,9 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
                         <p className="text-[10px] text-muted-foreground mb-1">Target ({flavorCategory}): {afpTargets.min}–{afpTargets.max}</p>
                         <div className={cn("px-2 py-1 rounded text-xs font-bold",
                             metrics.afp_index >= afpTargets.min && metrics.afp_index <= afpTargets.max ? "bg-emerald-500/20 text-emerald-600" :
-                                Math.abs(metrics.afp_index - (afpTargets.min + afpTargets.max) / 2) < 5 ? "bg-amber-500/20 text-amber-600" : "bg-rose-500/20 text-rose-600"
+                               Math.abs(metrics.afp_index - (afpTargets.min + afpTargets.max) / 2) < 5 ? "bg-amber-500/20 text-amber-600" : "bg-rose-500/20 text-rose-600"
                         )}>
-                            {metrics.afp_index >= afpTargets.min && metrics.afp_index <= afpTargets.max ? "✅ IN RANGE" : "⚠️ ADJUST"}
+                            {metrics.afp_index >= afpTargets.min && metrics.afp_index <= afpTargets.max ? " IN RANGE" : " ADJUST"}
                         </div>
                     </div>
                 </CardContent>
@@ -102,7 +102,7 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
             {/* Graph 1: FPDT Breakdown */}
             <div className="space-y-3">
                 <h5 className="text-sm font-bold flex justify-between">
-                    FPDT Breakdown
+                   FPDT Breakdown
                     <span className="text-muted-foreground font-normal text-xs">Unit: °C</span>
                 </h5>
                 <div className="h-16 w-full relative">
@@ -149,7 +149,7 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> MSNF Salts: {metrics.fpdsa.toFixed(2)}°C</span>
                     </div>
                     <div className={cn("px-2 py-0.5 rounded font-bold", getFpdtZoneColor(metrics.fpdt))}>
-                        Target ({flavorCategory}): {targets.min}–{targets.max}°C
+                       Target ({flavorCategory}): {targets.min}–{targets.max}°C
                     </div>
                 </div>
             </div>
@@ -258,7 +258,7 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
                         }}
                     >
                         <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                            SCOOPABLE WINDOW
+                           SCOOPABLE WINDOW
                         </div>
                     </div>
 
@@ -307,7 +307,7 @@ export default function TemperatureGraphs({ metrics, servingContext, flavorCateg
                                     frozenAtRef <= ctx.frozenZone_green[1] ? "text-emerald-600" : "text-amber-600"
                             )}>
                                 {frozenAtRef >= ctx.frozenZone_green[0] &&
-                                    frozenAtRef <= ctx.frozenZone_green[1] ? "✅ SCOOPABLE" : "⚠️ FIRM"}
+                                    frozenAtRef <= ctx.frozenZone_green[1] ? " SCOOPABLE" : " FIRM"}
                             </span>
                         </span>
                     </div>

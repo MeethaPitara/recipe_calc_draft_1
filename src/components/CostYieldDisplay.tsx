@@ -62,7 +62,7 @@ export default function CostYieldDisplay({
       <div className="flex items-center justify-between">
         <h3 className="font-semibold flex items-center gap-2">
           <IndianRupee className="h-4 w-4 text-primary" />
-          Cost & Yield Analysis
+         Cost & Yield Analysis
         </h3>
         <Badge variant="outline" className="text-xs">
           {overrunPct}% overrun
@@ -75,7 +75,7 @@ export default function CostYieldDisplay({
         <div className="space-y-1">
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             <Beaker className="h-3 w-3" />
-            Base Cost/kg
+           Base Cost/kg
           </div>
           <div className="text-2xl font-bold text-primary">
             ₹{costPerKgBase.toFixed(2)}
@@ -85,7 +85,7 @@ export default function CostYieldDisplay({
         <div className="space-y-1">
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             <TrendingUp className="h-3 w-3" />
-            Finished Cost/L
+           Finished Cost/L
           </div>
           <div className="text-2xl font-bold text-accent-foreground">
             ₹{costPerLiterFinished.toFixed(2)}

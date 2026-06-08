@@ -32,10 +32,10 @@ export function BalancingDebugPanel({
             <Button variant="ghost" className="w-full justify-between p-0 hover:bg-transparent">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Bug className="h-4 w-4 text-muted-foreground" />
-                🐛 Balancing Debug Panel
+                Balancing Debug Panel
                 {lastStrategy && (
                   <Badge variant="outline" className="ml-2 text-xs">
-                    Strategy: {lastStrategy}
+                   Strategy: {lastStrategy}
                   </Badge>
                 )}
               </CardTitle>
@@ -63,24 +63,24 @@ export function BalancingDebugPanel({
               <div className="grid grid-cols-2 gap-1">
                 <div className="flex items-center gap-1">
                   <span className={diagnostics.hasWater ? 'text-success' : 'text-destructive'}>
-                    {diagnostics.hasWater ? '✓' : '✗'}
+                    {diagnostics.hasWater ? '' : ''}
                   </span>
                   <span>Water</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className={diagnostics.hasFatSource ? 'text-success' : 'text-destructive'}>
-                    {diagnostics.hasFatSource ? '✓' : '✗'}
+                    {diagnostics.hasFatSource ? '' : ''}
                   </span>
                   <span>Fat Source</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className={diagnostics.hasMSNFSource ? 'text-success' : 'text-destructive'}>
-                    {diagnostics.hasMSNFSource ? '✓' : '✗'}
+                    {diagnostics.hasMSNFSource ? '' : ''}
                   </span>
                   <span>MSNF Source</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-success">✓</span>
+                  <span className="text-success"></span>
                   <span>Sugars</span>
                 </div>
               </div>
@@ -116,7 +116,7 @@ export function BalancingDebugPanel({
               <div>
                 <div className="font-semibold text-muted-foreground mb-1">LP Solver Status</div>
                 <Badge variant={lpStatus === 'success' ? 'default' : 'destructive'}>
-                  {lpStatus === 'success' ? '✓ Success' : lpStatus === 'failed' ? '✗ Failed' : 'Not Attempted'}
+                  {lpStatus === 'success' ? ' Success' : lpStatus === 'failed' ? ' Failed' : 'Not Attempted'}
                 </Badge>
               </div>
             )}
@@ -133,7 +133,7 @@ export function BalancingDebugPanel({
             )}
 
             <div className="pt-2 border-t border-border text-[10px] text-muted-foreground">
-              Ingredient count: {diagnostics.ingredientCount || 0}
+             Ingredient count: {diagnostics.ingredientCount || 0}
             </div>
           </CardContent>
         </CollapsibleContent>

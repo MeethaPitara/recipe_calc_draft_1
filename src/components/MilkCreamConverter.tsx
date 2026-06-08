@@ -29,7 +29,7 @@ export const MilkCreamConverter: React.FC = () => {
           <CardTitle>Milk & Cream Converter</CardTitle>
         </div>
         <CardDescription>
-          Calculate exact volumes to reach target fat percentage
+         Calculate exact volumes to reach target fat percentage
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -95,7 +95,7 @@ export const MilkCreamConverter: React.FC = () => {
             className="w-32"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Typical: 5-10% during pasteurization (85°C for 30 min)
+           Typical: 5-10% during pasteurization (85°C for 30 min)
           </p>
         </div>
 
@@ -141,7 +141,7 @@ export const MilkCreamConverter: React.FC = () => {
         {result.notes.length > 0 && (
           <div className="space-y-2">
             {result.notes.map((note, idx) => (
-              <Alert key={idx} variant={note.startsWith('⚠️') ? 'destructive' : 'default'}>
+              <Alert key={idx} variant={note.startsWith('') ? 'destructive' : 'default'}>
                 <Info className="h-4 w-4" />
                 <AlertDescription>{note}</AlertDescription>
               </Alert>
@@ -151,7 +151,7 @@ export const MilkCreamConverter: React.FC = () => {
 
         {/* MSNF Info */}
         <div className="text-xs text-muted-foreground p-3 bg-primary/10 dark:bg-primary/20 rounded border border-primary/30">
-          <p><strong>💡 MSNF Handling:</strong> Milk solids non-fat (lactose + protein) will concentrate as water evaporates. For precise MSNF control, add SMP (Skim Milk Powder) separately after calculating base dairy.</p>
+          <p><strong> MSNF Handling:</strong> Milk solids non-fat (lactose + protein) will concentrate as water evaporates. For precise MSNF control, add SMP (Skim Milk Powder) separately after calculating base dairy.</p>
         </div>
       </CardContent>
     </Card>

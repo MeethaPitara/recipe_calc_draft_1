@@ -119,7 +119,7 @@ export const WarningTooltip: React.FC<WarningTooltipProps> = ({ warning, onReque
                     className="text-xs h-7 gap-1"
                   >
                     <BookOpen className="h-3 w-3" />
-                    Learn More
+                   Learn More
                   </Button>
                 </Link>
               )}
@@ -132,7 +132,7 @@ export const WarningTooltip: React.FC<WarningTooltipProps> = ({ warning, onReque
                   onClick={onRequestAIHelp}
                 >
                   <Sparkles className="h-3 w-3" />
-                  AI Help
+                 AI Help
                 </Button>
               )}
             </div>

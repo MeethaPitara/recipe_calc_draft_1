@@ -38,9 +38,9 @@ function runTests() {
         const check = (label: string, actual: number, expected: number, tolerance: number) => {
             const pass = isClose(actual, expected, tolerance);
             if (pass) {
-                console.log(`  ✅ ${label}: ${actual.toFixed(2)} (Expected: ${expected.toFixed(2)})`);
+                console.log(`   ${label}: ${actual.toFixed(2)} (Expected: ${expected.toFixed(2)})`);
             } else {
-                console.log(`  ❌ ${label}: ${actual.toFixed(2)} (Expected: ${expected.toFixed(2)}) - Diff: ${Math.abs(actual - expected).toFixed(4)}`);
+                console.log(`   ${label}: ${actual.toFixed(2)} (Expected: ${expected.toFixed(2)}) - Diff: ${Math.abs(actual - expected).toFixed(4)}`);
                 casePass = false;
                 allPass = false;
             }

@@ -160,7 +160,7 @@ export const AllocationRow = ({ row }: Props) => {
                                     </div>
                                     <div className="text-xs text-muted-foreground">units</div>
                                     <div className="text-[10px] text-slate-400 mt-1">
-                                        Uses ~{result.actualBaseConsumedKg.toFixed(1)}kg Base
+                                       Uses ~{result.actualBaseConsumedKg.toFixed(1)}kg Base
                                     </div>
                                 </>
                             ) : (
@@ -178,7 +178,7 @@ export const AllocationRow = ({ row }: Props) => {
                         </div>
                     ) : (
                         <div className="text-xs text-muted-foreground text-right italic">
-                            Waiting for calculation...
+                           Waiting for calculation...
                         </div>
                     )}
                 </div>

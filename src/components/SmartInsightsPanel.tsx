@@ -59,7 +59,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
     queryFn: async () => {
       try {
         const recipes = await apiGet('/api/recipes/recent');
-        console.log('📚 Loaded recipes for analysis:', recipes?.length || 0);
+        console.log(' Loaded recipes for analysis:', recipes?.length || 0);
         return recipes || [];
       } catch (error) {
         console.error('Error fetching recipes:', error);
@@ -96,7 +96,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
         (typeof recipeToAnalyze === 'object' && recipeToAnalyze.product_type) ||
         'ice_cream';
 
-      console.log('🎯 Analyzing recipe with product type:', finalProductType);
+      console.log(' Analyzing recipe with product type:', finalProductType);
 
       const data = await apiPost('/api/ai/analyze-recipe', {
         recipe: recipeToAnalyze,
@@ -132,7 +132,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
       return;
     }
 
-    console.log('🔍 Selected recipe for analysis:', selected);
+    console.log(' Selected recipe for analysis:', selected);
 
     // Build recipe data
     const recipeData: Recipe = {
@@ -150,8 +150,8 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
       : (selected.calculated_metrics ? [selected.calculated_metrics] : []);
     const metricsData: Metrics = metricsArray.length > 0 ? metricsArray[0] : {};
 
-    console.log('📊 Recipe data:', recipeData);
-    console.log('📈 Metrics data:', metricsData);
+    console.log(' Recipe data:', recipeData);
+    console.log(' Metrics data:', metricsData);
 
     if (!recipeData.rows || recipeData.rows.length === 0) {
       toast.error('This recipe has no ingredients to analyze');
@@ -166,41 +166,41 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Brain className="h-5 w-5" />
-          AI Recipe Insights
+         AI Recipe Insights
           {productType && (
             <Badge variant="outline" className="ml-auto text-xs">
-              Stored as: {productType === 'ice_cream' ? '🍦' : productType === 'gelato' || productType === 'gelato_white' ? '🍨' : productType === 'sorbet' ? '🍧' : productType}
+             Stored as: {productType === 'ice_cream' ? '' : productType === 'gelato' || productType === 'gelato_white' ? '' : productType === 'sorbet' ? '' : productType}
             </Badge>
           )}
         </CardTitle>
         <CardDescription>
-          Get intelligent recommendations and analysis powered by AI
+         Get intelligent recommendations and analysis powered by AI
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Analysis Mode Selector */}
         <div className="space-y-2 border-b pb-4">
           <Label htmlFor="analysis-mode" className="text-sm font-medium">
-            🔬 Analysis Mode
+            Analysis Mode
           </Label>
           <Select value={analysisMode} onValueChange={setAnalysisMode}>
             <SelectTrigger id="analysis-mode" className="bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ice_cream">🍦 Ice Cream Mode</SelectItem>
-              <SelectItem value="gelato">🍨 Gelato Mode</SelectItem>
-              <SelectItem value="gelato_white">🍨 Gelato (White Base)</SelectItem>
-              <SelectItem value="sorbet">🍧 Sorbet Mode</SelectItem>
+              <SelectItem value="ice_cream"> Ice Cream Mode</SelectItem>
+              <SelectItem value="gelato"> Gelato Mode</SelectItem>
+              <SelectItem value="gelato_white"> Gelato (White Base)</SelectItem>
+              <SelectItem value="sorbet"> Sorbet Mode</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Choose how to analyze this recipe's balance and parameters
+           Choose how to analyze this recipe's balance and parameters
           </p>
         </div>
         {/* Recipe selection from database */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">📚 Analyze Saved Recipe</label>
+          <label className="text-sm font-medium"> Analyze Saved Recipe</label>
           {loadingRecipes ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -230,13 +230,13 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
                 variant="outline"
               >
                 <Database className="h-4 w-4 mr-2" />
-                Analyze
+               Analyze
               </Button>
             </div>
           )}
           {savedRecipes && savedRecipes.length === 0 && !loadingRecipes && (
             <p className="text-xs text-muted-foreground">
-              No recipes in database. Create and save recipes in the Calculator tab first.
+             No recipes in database. Create and save recipes in the Calculator tab first.
             </p>
           )}
         </div>
@@ -254,12 +254,12 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing...
+                   Analyzing...
                   </>
                 ) : (
                   <>
                     <Brain className="h-4 w-4 mr-2" />
-                    Analyze in {analysisMode === 'ice_cream' ? 'Ice Cream' : analysisMode === 'gelato' ? 'Gelato' : analysisMode === 'gelato_white' ? 'Gelato (White)' : 'Sorbet'} Mode
+                   Analyze in {analysisMode === 'ice_cream' ? 'Ice Cream' : analysisMode === 'gelato' ? 'Gelato' : analysisMode === 'gelato_white' ? 'Gelato (White)' : 'Sorbet'} Mode
                   </>
                 )}
               </Button>
@@ -279,7 +279,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  Balance Assessment
+                 Balance Assessment
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -292,7 +292,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Lightbulb className="h-4 w-4 text-blue-500" />
-                    Texture Prediction
+                   Texture Prediction
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -306,7 +306,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Lightbulb className="h-4 w-4 text-green-500" />
-                    Optimization Suggestions
+                   Optimization Suggestions
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -327,7 +327,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-orange-500" />
-                    Risk Warnings
+                   Risk Warnings
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -345,7 +345,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-purple-500" />
-                    Recommended Adjustments
+                   Recommended Adjustments
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -367,7 +367,7 @@ export function SmartInsightsPanel({ recipe, metrics, productType }: SmartInsigh
           <Alert>
             <Brain className="h-4 w-4" />
             <AlertDescription>
-              Select a recipe from your database or use the calculator to create a recipe, then click "Analyze" to get AI-powered insights.
+             Select a recipe from your database or use the calculator to create a recipe, then click "Analyze" to get AI-powered insights.
             </AlertDescription>
           </Alert>
         )}

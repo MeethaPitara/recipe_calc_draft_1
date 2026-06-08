@@ -60,7 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <CardTitle className="text-2xl">Something went wrong</CardTitle>
               </div>
               <CardDescription>
-                We apologize for the inconvenience. The application encountered an unexpected error.
+               We apologize for the inconvenience. The application encountered an unexpected error.
               </CardDescription>
             </CardHeader>
             
@@ -73,7 +73,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
                     <details className="mt-2">
                       <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
-                        View stack trace
+                       View stack trace
                       </summary>
                       <pre className="mt-2 text-xs overflow-auto max-h-40 p-2 bg-muted rounded">
                         {this.state.errorInfo.componentStack}
@@ -96,10 +96,10 @@ export class ErrorBoundary extends Component<Props, State> {
             
             <CardFooter className="flex gap-3">
               <Button onClick={this.handleReset} variant="default">
-                Try Again
+               Try Again
               </Button>
               <Button onClick={this.handleReload} variant="outline">
-                Reload Page
+               Reload Page
               </Button>
             </CardFooter>
           </Card>

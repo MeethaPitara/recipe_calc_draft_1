@@ -123,7 +123,7 @@ export function IngredientSearch({ ingredients, onSelect, open, onOpenChange }: 
                 onClick={() => setIsAddDialogOpen(true)}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Create New Ingredient
+               Create New Ingredient
               </Button>
               {nearMatches.length > 0 && (
                 <div className="mt-2">

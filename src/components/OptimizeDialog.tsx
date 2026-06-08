@@ -64,10 +64,10 @@ export const OptimizeDialog: React.FC<OptimizeDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Recipe Optimization Preview
+           Recipe Optimization Preview
           </DialogTitle>
           <DialogDescription>
-            Review the suggested changes before applying to your recipe
+           Review the suggested changes before applying to your recipe
           </DialogDescription>
         </DialogHeader>
 
@@ -75,7 +75,7 @@ export const OptimizeDialog: React.FC<OptimizeDialogProps> = ({
           {!hasChanges ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
-                No optimization changes needed - recipe is already balanced!
+               No optimization changes needed - recipe is already balanced!
               </p>
             </div>
           ) : (
@@ -130,7 +130,7 @@ export const OptimizeDialog: React.FC<OptimizeDialogProps> = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+           Cancel
           </Button>
           <Button 
             onClick={() => {
@@ -139,7 +139,7 @@ export const OptimizeDialog: React.FC<OptimizeDialogProps> = ({
             }}
             disabled={!hasChanges}
           >
-            Apply Changes
+           Apply Changes
           </Button>
         </DialogFooter>
       </DialogContent>

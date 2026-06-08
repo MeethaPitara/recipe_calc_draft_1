@@ -79,14 +79,14 @@ export default function FDPowderGenerator({ paste, onExport }: FDPowderGenerator
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Snowflake className="h-5 w-5 text-info" />
-            Freeze-Dry Powder Generator
+           Freeze-Dry Powder Generator
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Convert paste to high-intensity powder for dosing into gelato
+           Convert paste to high-intensity powder for dosing into gelato
           </p>
         </div>
         <Badge variant="outline" className="text-xs">
-          Experimental
+         Experimental
         </Badge>
       </div>
 
@@ -105,7 +105,7 @@ export default function FDPowderGenerator({ paste, onExport }: FDPowderGenerator
             onChange={(e) => setAnticakingPct(Number(e.target.value))}
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Silicon dioxide or tapioca maltodextrin (typically 1-3%)
+           Silicon dioxide or tapioca maltodextrin (typically 1-3%)
           </p>
         </div>
 
@@ -121,7 +121,7 @@ export default function FDPowderGenerator({ paste, onExport }: FDPowderGenerator
             onChange={(e) => setDosageRate(Number(e.target.value))}
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Recommended: 3-8% for intense flavors
+           Recommended: 3-8% for intense flavors
           </p>
         </div>
       </div>
@@ -162,7 +162,7 @@ export default function FDPowderGenerator({ paste, onExport }: FDPowderGenerator
         className="w-full bg-gradient-primary"
       >
         <Download className="h-4 w-4 mr-2" />
-        Generate FD Powder Variant
+       Generate FD Powder Variant
       </Button>
     </Card>
   );

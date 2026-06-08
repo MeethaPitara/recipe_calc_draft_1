@@ -146,15 +146,15 @@ export default function PairingsDrawer({
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="synergy" className="text-xs">
                 <Sparkles className="h-3 w-3 mr-1" />
-                Synergy
+               Synergy
               </TabsTrigger>
               <TabsTrigger value="novel" className="text-xs">
                 <Zap className="h-3 w-3 mr-1" />
-                Novel
+               Novel
               </TabsTrigger>
               <TabsTrigger value="classic" className="text-xs">
                 <Star className="h-3 w-3 mr-1" />
-                Classic
+               Classic
               </TabsTrigger>
             </TabsList>
 
@@ -164,7 +164,7 @@ export default function PairingsDrawer({
                 
                 {pairings[category].length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground text-sm">
-                    No {category} pairings found. Try analyzing first.
+                   No {category} pairings found. Try analyzing first.
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -219,7 +219,7 @@ export default function PairingsDrawer({
                               onClick={() => handleAddSuggestion(pairing, 3)}
                               className="text-xs flex-1"
                             >
-                              Add 3%
+                             Add 3%
                             </Button>
                             <Button
                               size="sm"
@@ -227,7 +227,7 @@ export default function PairingsDrawer({
                               onClick={() => handleAddSuggestion(pairing, 5)}
                               className="text-xs flex-1"
                             >
-                              Add 5%
+                             Add 5%
                             </Button>
                             <Button
                               size="sm"

@@ -47,54 +47,54 @@ export default function WhyPanel({ metrics, previousMetrics, changes = [] }: Why
     // Initial explanations when no previous metrics
     if (metrics.pac < 22) {
       explanations.push(
-        `⚠️ Low PAC (${metrics.pac.toFixed(1)}) means the product will be very hard at typical cabinet temps (-18°C). Consider raising by adding dextrose or glucose syrup.`
+        ` Low PAC (${metrics.pac.toFixed(1)}) means the product will be very hard at typical cabinet temps (-18°C). Consider raising by adding dextrose or glucose syrup.`
       );
     }
     
     if (metrics.pac > 33) {
       explanations.push(
-        `⚠️ High PAC (${metrics.pac.toFixed(1)}) means the product will be too soft and may not hold its shape. Consider reducing dextrose and increasing sucrose.`
+        ` High PAC (${metrics.pac.toFixed(1)}) means the product will be too soft and may not hold its shape. Consider reducing dextrose and increasing sucrose.`
       );
     }
 
     if (metrics.sp < 12) {
       explanations.push(
-        `💡 Low SP (${metrics.sp.toFixed(1)}) indicates mild sweetness. Increase fructose or invert sugar for more sweetness punch without adding more total sugars.`
+        ` Low SP (${metrics.sp.toFixed(1)}) indicates mild sweetness. Increase fructose or invert sugar for more sweetness punch without adding more total sugars.`
       );
     }
 
     if (metrics.sp > 28) {
       explanations.push(
-        `⚠️ High SP (${metrics.sp.toFixed(1)}) may taste overly sweet. Replace some fructose with lactose or maltodextrin to reduce perceived sweetness while maintaining body.`
+        ` High SP (${metrics.sp.toFixed(1)}) may taste overly sweet. Replace some fructose with lactose or maltodextrin to reduce perceived sweetness while maintaining body.`
       );
     }
 
     if (metrics.ts_add_pct < 30) {
       explanations.push(
-        `⚠️ Total solids (${metrics.ts_add_pct.toFixed(1)}%) is low. This may result in icy texture. Increase MSNF or add stabilizers.`
+        ` Total solids (${metrics.ts_add_pct.toFixed(1)}%) is low. This may result in icy texture. Increase MSNF or add stabilizers.`
       );
     }
 
     if (metrics.water_pct > 70) {
       explanations.push(
-        `💧 High water content (${metrics.water_pct.toFixed(1)}%) increases ice crystal formation risk. Consider evaporation or adding more solids.`
+        ` High water content (${metrics.water_pct.toFixed(1)}%) increases ice crystal formation risk. Consider evaporation or adding more solids.`
       );
     }
   }
 
   // Add change-specific explanations
   changes.forEach(change => {
-    explanations.push(`🔄 ${change}`);
+    explanations.push(` ${change}`);
   });
 
   if (explanations.length === 0) {
     explanations.push(
-      '✅ Recipe is balanced. All parameters are within optimal ranges for smooth texture and proper scoopability.'
+      ' Recipe is balanced. All parameters are within optimal ranges for smooth texture and proper scoopability.'
     );
   }
 
   const getIcon = (text: string) => {
-    if (text.includes('⚠️')) return <AlertTriangle className="h-4 w-4 text-warning" />;
+    if (text.includes('')) return <AlertTriangle className="h-4 w-4 text-warning" />;
     if (text.includes('↑') || text.includes('increased') || text.includes('raised')) 
       return <TrendingUp className="h-4 w-4 text-success" />;
     if (text.includes('↓') || text.includes('decreased') || text.includes('lowered')) 
@@ -103,8 +103,8 @@ export default function WhyPanel({ metrics, previousMetrics, changes = [] }: Why
   };
 
   const getBadgeVariant = (text: string): "default" | "secondary" | "outline" | "destructive" => {
-    if (text.includes('⚠️')) return 'destructive';
-    if (text.includes('✅')) return 'default';
+    if (text.includes('')) return 'destructive';
+    if (text.includes('')) return 'default';
     return 'secondary';
   };
 
@@ -123,14 +123,14 @@ export default function WhyPanel({ metrics, previousMetrics, changes = [] }: Why
             className="flex items-start gap-2 p-3 bg-card/80 rounded-lg border border-border/50 hover:border-primary/30 transition-colors"
           >
             {getIcon(explanation)}
-            <p className="text-sm flex-1">{explanation.replace(/[⚠️💡💧🔄✅]/g, '').trim()}</p>
+            <p className="text-sm flex-1">{explanation.replace(/[]/g, '').trim()}</p>
           </div>
         ))}
       </div>
 
       <div className="pt-2 border-t border-border/50">
         <p className="text-xs text-muted-foreground italic">
-          💡 Pro tip: Small changes in sugar ratios have big impacts on texture. Always test and log batches to calibrate your system.
+          Pro tip: Small changes in sugar ratios have big impacts on texture. Always test and log batches to calibrate your system.
         </p>
       </div>
     </Card>

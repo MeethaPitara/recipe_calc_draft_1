@@ -113,7 +113,7 @@ export function RecipeBrowserDrawer({
         {!isAuthenticated ? (
           <Alert className="mt-4">
             <AlertDescription>
-              Please <a href="/auth" className="font-medium underline">sign in</a> to view your recipes
+             Please <a href="/auth" className="font-medium underline">sign in</a> to view your recipes
             </AlertDescription>
           </Alert>
         ) : (
@@ -134,7 +134,7 @@ export function RecipeBrowserDrawer({
             ) : filteredRecipes.length === 0 ? (
               <Alert>
                 <AlertDescription>
-                  No recipes found. Import recipes or create new ones to get started.
+                 No recipes found. Import recipes or create new ones to get started.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -213,7 +213,7 @@ export function RecipeBrowserDrawer({
                               onOpenChange(false);
                             }}
                           >
-                            Load Recipe
+                           Load Recipe
                           </Button>
                         )}
                         <Button

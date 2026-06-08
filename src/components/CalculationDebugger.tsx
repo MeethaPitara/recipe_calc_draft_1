@@ -34,7 +34,7 @@ export default function CalculationDebugger({ recipe, metrics, show = true }: Ca
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Info className="h-4 w-4" />
-          Calculation Debugger
+         Calculation Debugger
           <Badge variant="outline" className="text-xs">Dev Only</Badge>
         </CardTitle>
       </CardHeader>

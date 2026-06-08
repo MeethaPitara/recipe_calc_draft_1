@@ -12,6 +12,7 @@ import {
   calculateCostBreakdown,
   calculatePricingStrategies,
   calculateCostPerServing,
+  calculateChannelPricing,
   exportToCSV,
   downloadCSV,
   DEFAULT_COSTING_PARAMS,
@@ -38,6 +39,11 @@ export const CostingModule = ({ ingredients, recipeName = "Recipe" }: CostingMod
     return calculatePricingStrategies(costBreakdown, params.batchSize);
   }, [costBreakdown, params.batchSize]);
 
+  // Calculate channel pricing
+  const channelPricing = useMemo(() => {
+    return calculateChannelPricing(costBreakdown, params.batchSize, params.channels);
+  }, [costBreakdown, params.batchSize, params.channels]);
+
   // Calculate cost per serving
   const costPerServing = useMemo(() => {
     return calculateCostPerServing(costBreakdown.totalCost, params.batchSize);
@@ -52,7 +58,7 @@ export const CostingModule = ({ ingredients, recipeName = "Recipe" }: CostingMod
   const customMargin = (customProfit / customPrice) * 100;
 
   const handleExport = () => {
-    const csvContent = exportToCSV(costBreakdown, pricingStrategies, params.batchSize);
+    const csvContent = exportToCSV(costBreakdown, pricingStrategies, channelPricing, params.batchSize);
     downloadCSV(csvContent, `${recipeName.toLowerCase().replace(/\s+/g, '-')}-cost-analysis.csv`);
     
     toast({
@@ -72,10 +78,10 @@ export const CostingModule = ({ ingredients, recipeName = "Recipe" }: CostingMod
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
-            Costing Parameters
+           Costing Parameters
           </CardTitle>
           <CardDescription>
-            Configure batch size, waste factors, and overhead costs
+           Configure batch size, waste factors, and overhead costs
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -140,10 +146,10 @@ export const CostingModule = ({ ingredients, recipeName = "Recipe" }: CostingMod
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Cost Breakdown
+           Cost Breakdown
           </CardTitle>
           <CardDescription>
-            Detailed cost analysis for {recipeName}
+           Detailed cost analysis for {recipeName}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -243,10 +249,10 @@ export const CostingModule = ({ ingredients, recipeName = "Recipe" }: CostingMod
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Pricing Strategies
+           Pricing Strategies
           </CardTitle>
           <CardDescription>
-            Recommended pricing based on different strategies
+           Recommended pricing based on different strategies
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -279,11 +285,38 @@ export const CostingModule = ({ ingredients, recipeName = "Recipe" }: CostingMod
 
           <Separator />
 
+          {/* Channel Pricing */}
+          <div>
+            <h4 className="font-semibold mb-3">Channel Pricing</h4>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Channel</TableHead>
+                  <TableHead className="text-right">Margin (%)</TableHead>
+                  <TableHead className="text-right">Selling Price/kg (₹)</TableHead>
+                  <TableHead className="text-right">Gross Profit/kg (₹)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {channelPricing.map((channel, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="font-medium">{channel.name}</TableCell>
+                    <TableCell className="text-right">{channel.marginPct}%</TableCell>
+                    <TableCell className="text-right font-medium">₹{channel.sellingPrice.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-green-600">₹{channel.grossProfit.toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <Separator />
+
           {/* Custom Pricing Calculator */}
           <div>
             <h4 className="font-semibold mb-3 flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Custom Pricing Calculator
+             Custom Pricing Calculator
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -323,7 +356,7 @@ export const CostingModule = ({ ingredients, recipeName = "Recipe" }: CostingMod
         <CardContent className="pt-6">
           <Button onClick={handleExport} className="w-full" size="lg">
             <Download className="mr-2 h-4 w-4" />
-            Export Cost Analysis to CSV
+           Export Cost Analysis to CSV
           </Button>
         </CardContent>
       </Card>

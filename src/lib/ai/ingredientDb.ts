@@ -71,7 +71,7 @@ export async function loadIngredientsFromSupabase(): Promise<void> {
 
         // Populate with DB rows
         for (const row of data) {
-            INGREDIENT_DB[row.name] = {
+           INGREDIENT_DB[row.name] = {
                 fat_pct: row.fat_pct ?? 0,
                 msnf_pct: row.msnf_pct ?? 0,
                 sugars_pct: row.sugars_pct ?? 0,
@@ -97,7 +97,7 @@ export function addIngredient(
     name: string,
     props: Partial<IngredientEntry> & { fat_pct: number; water_pct: number }
 ): void {
-    INGREDIENT_DB[name] = {
+   INGREDIENT_DB[name] = {
         fat_pct: props.fat_pct,
         msnf_pct: props.msnf_pct ?? 0,
         sugars_pct: props.sugars_pct ?? 0,

@@ -50,7 +50,7 @@ export function RecipeImporter() {
       setAvailableIngredients(ingredients);
 
       // Parse CSV/Excel file
-      Papa.parse(file, {
+     Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
@@ -203,10 +203,10 @@ export function RecipeImporter() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Recipe Importer
+         Recipe Importer
         </CardTitle>
         <CardDescription>
-          Import recipes from Excel/CSV files. Expected format: Recipe Name, Ingredient, Grams
+         Import recipes from Excel/CSV files. Expected format: Recipe Name, Ingredient, Grams
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -225,7 +225,7 @@ export function RecipeImporter() {
             {isLoading && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Parsing file...
+               Parsing file...
               </div>
             )}
           </div>
@@ -234,7 +234,7 @@ export function RecipeImporter() {
         {step === 'preview' && (
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
-              Found {parsedRecipes.length} recipe(s). Review ingredient mappings below:
+             Found {parsedRecipes.length} recipe(s). Review ingredient mappings below:
             </div>
 
             <div className="max-h-96 overflow-y-auto space-y-4">
@@ -266,10 +266,10 @@ export function RecipeImporter() {
 
             <div className="flex gap-2">
               <Button onClick={() => { setStep('upload'); setParsedRecipes([]); }} variant="outline">
-                Cancel
+               Cancel
               </Button>
               <Button onClick={handleImport}>
-                Import {parsedRecipes.length} Recipe(s)
+               Import {parsedRecipes.length} Recipe(s)
               </Button>
             </div>
           </div>
@@ -289,7 +289,7 @@ export function RecipeImporter() {
               <span>Import complete!</span>
             </div>
             <Button onClick={() => { setStep('upload'); setParsedRecipes([]); setFile(null); }}>
-              Import More Recipes
+             Import More Recipes
             </Button>
           </div>
         )}

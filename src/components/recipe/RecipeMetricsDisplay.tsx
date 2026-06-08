@@ -58,7 +58,7 @@ function CoreMetric({
               {value.toFixed(1)}%
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              Target: {min}–{max}%
+             Target: {min}–{max}%
             </div>
           </div>
         </TooltipTrigger>
@@ -91,7 +91,7 @@ function getMetricExplanation(metric: string, value: number, target?: [number, n
       default: return "";
     }
   }
-  return "✓ Within optimal range for great texture and scoopability";
+  return " Within optimal range for great texture and scoopability";
 }
 
 function getBadgeVariant(
@@ -181,7 +181,7 @@ export function RecipeMetricsDisplay({ metrics, getConstraints }: RecipeMetricsD
         {metrics.warnings && metrics.warnings.length > 0 && (
           <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">
-              ⚠️ Warnings ({metrics.warnings.length})
+              Warnings ({metrics.warnings.length})
             </p>
             <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
               {metrics.warnings.slice(0, 5).map((warning, i) => (

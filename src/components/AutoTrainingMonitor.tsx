@@ -55,7 +55,7 @@ export function AutoTrainingMonitor() {
       setLastTrainedAt(weights.trained_at);
       setOutcomeCount(0);
       
-      toast.success('🎉 Model auto-trained!', {
+      toast.success(' Model auto-trained!', {
         description: `Accuracy: ${Math.round(weights.accuracy * 100)}%. Predictions improved!`,
       });
     } catch (error: any) {
@@ -109,7 +109,7 @@ export function AutoTrainingMonitor() {
             {outcomeCount >= 5 && !isTraining && (
               <Button size="sm" onClick={handleAutoTrain} className="gap-2">
                 <Zap className="h-4 w-4" />
-                Train Now
+               Train Now
               </Button>
             )}
           </div>

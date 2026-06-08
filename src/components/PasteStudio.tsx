@@ -189,7 +189,7 @@ export default function PasteStudio() {
           </div>
           <Button onClick={runAdvisor} className="bg-gradient-primary text-primary-foreground shadow-elegant" aria-label="Run AI-powered preservation analysis">
             <Beaker className="h-4 w-4 mr-2" />
-            Run Preservation Advisor
+           Run Preservation Advisor
           </Button>
         </header>
 
@@ -233,7 +233,7 @@ export default function PasteStudio() {
                 </div>
                 <Button onClick={addComponent} variant="outline" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Component
+                 Add Component
                 </Button>
               </div>
 
@@ -440,16 +440,16 @@ export default function PasteStudio() {
                 <Sparkles className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">AI Scientific Recipe Generator</h3>
                 <p className="text-muted-foreground mb-6">
-                  Generate industry-standard recipes with scientific citations, process parameters, and gelato compatibility analysis.
+                 Generate industry-standard recipes with scientific citations, process parameters, and gelato compatibility analysis.
                 </p>
                 <div className="flex gap-4 justify-center">
                   <Button onClick={() => generateAIFormulation('standard')} disabled={isGenerating}>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Generate Recipe
+                   Generate Recipe
                   </Button>
                   <Button onClick={() => generateAIFormulation('ai_discovery')} disabled={isGenerating} variant="outline">
                     <BookOpen className="h-4 w-4 mr-2" />
-                    Discover Novel Pairing
+                   Discover Novel Pairing
                   </Button>
                 </div>
               </Card>
@@ -469,7 +469,7 @@ export default function PasteStudio() {
                     {scientificRecipe.novel_pairing?.discovered && (
                       <Badge className="bg-gradient-primary text-primary-foreground">
                         <Sparkles className="h-3 w-3 mr-1" />
-                        Novel Pairing
+                       Novel Pairing
                       </Badge>
                     )}
                   </div>
@@ -538,12 +538,12 @@ export default function PasteStudio() {
                           <div className="font-medium">{step.action}</div>
                           {(step.temperature || step.time) && (
                             <div className="flex gap-4 text-sm text-muted-foreground mt-1">
-                              {step.temperature && <span>🌡️ {step.temperature}°C</span>}
-                              {step.time && <span>⏱️ {step.time} min</span>}
+                              {step.temperature && <span> {step.temperature}°C</span>}
+                              {step.time && <span>⏱ {step.time} min</span>}
                             </div>
                           )}
                           {step.critical_control && (
-                            <div className="text-sm text-warning mt-1">⚠️ {step.critical_control}</div>
+                            <div className="text-sm text-warning mt-1"> {step.critical_control}</div>
                           )}
                           <div className="text-sm text-muted-foreground mt-2">{step.rationale}</div>
                           <div className="flex gap-2 mt-1">
@@ -615,7 +615,7 @@ export default function PasteStudio() {
                   <p className="text-muted-foreground mb-4">Run the Preservation Advisor to get recommendations</p>
                   <Button onClick={runAdvisor} className="bg-gradient-primary">
                     <Beaker className="h-4 w-4 mr-2" />
-                    Analyze Preservation Options
+                   Analyze Preservation Options
                   </Button>
                 </div>
               ) : (
@@ -682,7 +682,7 @@ export default function PasteStudio() {
                   ))}
                   
                   <div className="text-xs text-muted-foreground mt-4 p-3 bg-warning/10 rounded-lg border border-warning/20">
-                    ⚠️ <strong>Important:</strong> These are guidance recommendations only. All thermal processes must be validated by a qualified process authority for commercial use.
+                     <strong>Important:</strong> These are guidance recommendations only. All thermal processes must be validated by a qualified process authority for commercial use.
                   </div>
                 </div>
               )}
@@ -786,11 +786,11 @@ export default function PasteStudio() {
                 <Card className="p-4">
                   <h4 className="font-medium mb-2">Save as Ingredient</h4>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Add this paste to your ingredient database for use in gelato formulations.
+                   Add this paste to your ingredient database for use in gelato formulations.
                   </p>
                   <Button onClick={exportAsIngredient} className="w-full bg-success text-success-foreground">
                     <Download className="h-4 w-4 mr-2" />
-                    Export to Ingredients DB
+                   Export to Ingredients DB
                   </Button>
                 </Card>
                 
@@ -798,7 +798,7 @@ export default function PasteStudio() {
                 <div className="space-y-4">
                   <h4 className="font-medium">Gelato Base Impact Preview</h4>
                   <p className="text-sm text-muted-foreground">
-                    See how this paste affects a standard gelato base at different inclusion rates:
+                   See how this paste affects a standard gelato base at different inclusion rates:
                   </p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -811,7 +811,7 @@ export default function PasteStudio() {
                           <div>Fat: +{((composed.fat_pct * percentage) / 100).toFixed(1)}%</div>
                         </div>
                         <Button variant="outline" size="sm" className="mt-3" aria-label={`Auto-balance gelato base with ${percentage}% inclusion`}>
-                          Auto-balance Base
+                         Auto-balance Base
                         </Button>
                       </Card>
                     ))}

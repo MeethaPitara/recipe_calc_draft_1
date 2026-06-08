@@ -20,21 +20,21 @@ const ProductSelector = ({ selectedProduct, onProductChange }: ProductSelectorPr
             className="flex items-center gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
           >
             <IceCream className="h-4 w-4" />
-            Ice Cream
+           Ice Cream
           </TabsTrigger>
           <TabsTrigger 
             value="gelato"
             className="flex items-center gap-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white"
           >
             <Snowflake className="h-4 w-4" />
-            Gelato
+           Gelato
           </TabsTrigger>
           <TabsTrigger 
             value="sorbet"
             className="flex items-center gap-2 data-[state=active]:bg-pink-500 data-[state=active]:text-white"
           >
             <Cherry className="h-4 w-4" />
-            Sorbet
+           Sorbet
           </TabsTrigger>
         </TabsList>
       </Tabs>

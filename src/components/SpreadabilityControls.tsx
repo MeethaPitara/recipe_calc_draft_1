@@ -51,8 +51,8 @@ export default function SpreadabilityControls({ paste, viscosityData }: Spreadab
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs text-xs">
-                  Calculated from total solids, fat, and sugar composition.
-                  Higher values = thicker consistency.
+                 Calculated from total solids, fat, and sugar composition.
+                 Higher values = thicker consistency.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -134,7 +134,7 @@ export default function SpreadabilityControls({ paste, viscosityData }: Spreadab
           </div>
         </div>
         <p className="text-xs text-muted-foreground italic mt-2">
-          Use glucose DE42-60 for spreadable texture with anti-crystallization properties
+         Use glucose DE42-60 for spreadable texture with anti-crystallization properties
         </p>
       </div>
     </Card>

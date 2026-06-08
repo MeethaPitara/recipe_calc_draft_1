@@ -11,17 +11,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
+   Table,
+   TableBody,
+   TableCell,
+   TableHead,
+   TableHeader,
+   TableRow
 } from '@/components/ui/table';
 import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger
+   Collapsible,
+   CollapsibleContent,
+   CollapsibleTrigger
 } from '@/components/ui/collapsible';
 import { Loader2, Wand2, CheckCircle, AlertCircle, ChevronDown, RotateCcw, ArrowRight } from 'lucide-react';
 import { apiPost } from '@/lib/apiClient';
@@ -136,7 +136,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
             onRoundingComplete?.(roundingResult);
 
             toast({
-                title: roundingResult.success ? '✅ Rounding Complete' : '⚠ Best Effort Rounding',
+                title: roundingResult.success ? ' Rounding Complete' : ' Best Effort Rounding',
                 description: roundingResult.summary,
                 duration: 5000,
             });
@@ -168,7 +168,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
             <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                     <Wand2 className="h-4 w-4 text-amber-600" />
-                    AI Production Rounding
+                   AI Production Rounding
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -176,9 +176,9 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
                 {/* Description */}
                 {!result && !isRunning && (
                     <p className="text-xs text-muted-foreground">
-                        Rounds mathematical quantities to practical production numbers (nearest 50/100g)
+                       Rounds mathematical quantities to practical production numbers (nearest 50/100g)
                         and verifies that target parameters (fat%, MSNF%, sugar%, etc.) remain within range.
-                        Uses up to 5 AI iterations to optimize.
+                       Uses up to 5 AI iterations to optimize.
                     </p>
                 )}
 
@@ -198,7 +198,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
                         ) : (
                             <>
                                 <Wand2 className="h-4 w-4" />
-                                Round & Validate Quantities
+                               Round & Validate Quantities
                             </>
                         )}
                     </Button>
@@ -214,7 +214,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
                             </div>
                             {progressIteration > 0 && (
                                 <div className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                                    Iteration {progressIteration} of 5
+                                   Iteration {progressIteration} of 5
                                 </div>
                             )}
                         </div>
@@ -241,7 +241,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
                                     <div>{result.summary}</div>
                                     <div className="mt-1 flex gap-2">
                                         <Badge variant="outline" className="text-[10px]">
-                                            {result.bestReport.inRangeCount}/{result.bestReport.totalParams} params ✓
+                                            {result.bestReport.inRangeCount}/{result.bestReport.totalParams} params 
                                         </Badge>
                                         <Badge variant="outline" className="text-[10px]">
                                             {result.totalIterations} iteration{result.totalIterations !== 1 ? 's' : ''}
@@ -295,7 +295,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
                         {/* Param Validation Details */}
                         <div className="space-y-1">
                             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                Parameter Check
+                               Parameter Check
                             </div>
                             <div className="grid grid-cols-2 gap-1.5">
                                 {result.bestReport.params.map((p, i) => (
@@ -342,7 +342,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
                                                         variant={iter.report.allInRange ? 'default' : 'secondary'}
                                                         className="text-[10px] h-4"
                                                     >
-                                                        {iter.report.inRangeCount}/{iter.report.totalParams} ✓
+                                                        {iter.report.inRangeCount}/{iter.report.totalParams} 
                                                     </Badge>
                                                 </div>
                                                 <div className="text-muted-foreground">{iter.aiAction}</div>
@@ -361,7 +361,7 @@ export const AIRoundingPanel: React.FC<AIRoundingPanelProps> = ({
                             className="w-full gap-2 text-xs"
                         >
                             <RotateCcw className="h-3 w-3" />
-                            Reset & Try Again
+                           Reset & Try Again
                         </Button>
                     </div>
                 )}

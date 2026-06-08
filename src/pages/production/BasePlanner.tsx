@@ -15,21 +15,21 @@ import { ProductionSummary } from '@/components/production/base-planner/Producti
 import { TopStatsBar } from '@/components/production/base-planner/TopStatsBar';
 import { Button } from '@/components/ui/button';
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
+   Sheet,
+   SheetContent,
+   SheetDescription,
+   SheetHeader,
+   SheetTitle,
+   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
+   Dialog,
+   DialogContent,
+   DialogDescription,
+   DialogFooter,
+   DialogHeader,
+   DialogTitle,
+   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -168,14 +168,14 @@ const BasePlanner = () => {
                         <DialogTrigger asChild>
                             <Button disabled={!engineOutput} variant="outline" className="gap-2">
                                 <Save className="h-4 w-4" />
-                                Save Plan
+                               Save Plan
                             </Button>
                         </DialogTrigger>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Save Allocation Plan</DialogTitle>
                                 <DialogDescription>
-                                    Save this base allocation scenario for later.
+                                   Save this base allocation scenario for later.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
@@ -202,14 +202,14 @@ const BasePlanner = () => {
                         <SheetTrigger asChild>
                             <Button variant="outline" className="gap-2">
                                 <History className="h-4 w-4" />
-                                History
+                               History
                             </Button>
                         </SheetTrigger>
                         <SheetContent>
                             <SheetHeader>
                                 <SheetTitle>Saved Allocations</SheetTitle>
                                 <SheetDescription>
-                                    Previous Level-2 plans.
+                                   Previous Level-2 plans.
                                 </SheetDescription>
                             </SheetHeader>
                             <ScrollArea className="h-[calc(100vh-8rem)] mt-4 pr-4">
@@ -258,7 +258,7 @@ const BasePlanner = () => {
                 {/* --- Left Panel: Available Recipes (Zone 1) --- */}
                 {/* Renamed "Zone 1" in PRD is basically the supply header, which TopStatsBar covers, 
                     and then Zone 2 is the demand grid.
-                    The "AvailableRecipesPanel" acts as the tool to ADD to the demand grid. 
+                   The "AvailableRecipesPanel" acts as the tool to ADD to the demand grid. 
                 */}
                 <div className="xl:col-span-4 h-full">
                     <AvailableRecipesPanel />

@@ -27,23 +27,23 @@ export const EnhancedWarningsPanel = ({ warnings, onRequestAIHelp, mode = 'gelat
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
             <Info className="h-5 w-5" />
-            <span className="font-medium">All parameters within optimal ranges! ✓</span>
+            <span className="font-medium">All parameters within optimal ranges! </span>
           </div>
         </CardContent>
       </Card>
     );
   }
   
-  const critical = warnings.filter(w => w.includes('⚠️'));
-  const troubleshooting = warnings.filter(w => w.includes('🔧'));
-  const info = warnings.filter(w => !w.includes('⚠️') && !w.includes('🔧'));
+  const critical = warnings.filter(w => w.includes(''));
+  const troubleshooting = warnings.filter(w => w.includes(''));
+  const info = warnings.filter(w => !w.includes('') && !w.includes(''));
   
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <AlertCircle className="h-5 w-5" />
-          Warnings & Suggestions
+         Warnings & Suggestions
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -56,7 +56,7 @@ export const EnhancedWarningsPanel = ({ warnings, onRequestAIHelp, mode = 'gelat
                 {critical.map((w, i) => (
                   <li key={i} className="text-sm">
                     <div className="flex items-start gap-2">
-                      <span className="flex-1">{w.replace('⚠️', '').trim()}</span>
+                      <span className="flex-1">{w.replace('', '').trim()}</span>
                       <div className="flex gap-1">
                         <WarningTooltip warning={w} onRequestAIHelp={onRequestAIHelp} />
                         <Button
@@ -85,7 +85,7 @@ export const EnhancedWarningsPanel = ({ warnings, onRequestAIHelp, mode = 'gelat
                 {troubleshooting.map((w, i) => (
                   <li key={i} className="text-sm">
                     <div className="flex items-start gap-2">
-                      <span className="flex-1">{w.replace('🔧', '').trim()}</span>
+                      <span className="flex-1">{w.replace('', '').trim()}</span>
                       <div className="flex gap-1">
                         <WarningTooltip warning={w} onRequestAIHelp={onRequestAIHelp} />
                         <Button

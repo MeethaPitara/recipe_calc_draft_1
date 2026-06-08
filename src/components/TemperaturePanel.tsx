@@ -91,7 +91,7 @@ export default function TemperaturePanel({
         <div className="flex items-center gap-2">
           <Thermometer className={isMobile ? 'h-4 w-4' : 'h-5 w-5 text-primary'} />
           <h3 className={`font-bold ${isMobile ? 'text-sm' : 'text-lg'}`}>
-            Temperature & Scoopability
+           Temperature & Scoopability
           </h3>
         </div>
 
@@ -102,7 +102,7 @@ export default function TemperaturePanel({
             className="text-[10px] h-7 px-3 uppercase font-bold tracking-tighter"
             onClick={() => setServingContext('home_freezer')}
           >
-            🏠 Home Freezer
+            Home Freezer
           </Button>
           <Button
             variant={servingContext === 'gelateria' ? 'default' : 'ghost'}
@@ -110,7 +110,7 @@ export default function TemperaturePanel({
             className="text-[10px] h-7 px-3 uppercase font-bold tracking-tighter"
             onClick={() => setServingContext('gelateria')}
           >
-            🍨 Gelateria
+            Gelateria
           </Button>
         </div>
       </div>
@@ -154,7 +154,7 @@ export default function TemperaturePanel({
           <div className="flex items-start gap-2 text-xs border-t border-primary/10 pt-2">
             <AlertCircle className="h-4 w-4 mt-0.5 text-rose-500" />
             <p className="text-muted-foreground font-medium">
-              ⚠️ Warning: Product is too hard at {ctx.referenceTemp}°C. This may lead to iciness or brittle texture. Increase PAC.
+              Warning: Product is too hard at {ctx.referenceTemp}°C. This may lead to iciness or brittle texture. Increase PAC.
             </p>
           </div>
         )}
@@ -162,7 +162,7 @@ export default function TemperaturePanel({
           <div className="flex items-start gap-2 text-xs border-t border-primary/10 pt-2">
             <AlertCircle className="h-4 w-4 mt-0.5 text-purple-500" />
             <p className="text-muted-foreground font-medium">
-              ⚠️ Warning: Product is too soft at {ctx.referenceTemp}°C. Risk of rapid melting and lack of structural integrity. Decrease PAC.
+              Warning: Product is too soft at {ctx.referenceTemp}°C. Risk of rapid melting and lack of structural integrity. Decrease PAC.
             </p>
           </div>
         )}
@@ -203,7 +203,7 @@ export default function TemperaturePanel({
             className="h-8 text-xs font-bold"
             disabled={!recipe.length}
           >
-            Preview Calibration
+           Preview Calibration
           </Button>
         </div>
 
@@ -212,14 +212,14 @@ export default function TemperaturePanel({
             <div className="flex items-center justify-between">
               <h5 className="text-[10px] font-bold uppercase tracking-tighter">Auto-tune Delta Preview</h5>
               <Badge variant="outline" className="text-[9px]">
-                CALIBRATED TO {customTemp}°C
+               CALIBRATED TO {customTemp}°C
               </Badge>
             </div>
 
             {tuningPreview.changes.length > 0 ? (
               <div className="space-y-3">
                 <div className="text-[10px] text-muted-foreground">
-                  Frozen water at {customTemp}°C will shift from {advice.frozenWaterAtServe_pct.toFixed(1)}% → {tuningPreview.metrics.frozenWaterAtTarget.toFixed(1)}%
+                 Frozen water at {customTemp}°C will shift from {advice.frozenWaterAtServe_pct.toFixed(1)}% → {tuningPreview.metrics.frozenWaterAtTarget.toFixed(1)}%
                 </div>
 
                 <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-2">
@@ -240,7 +240,7 @@ export default function TemperaturePanel({
                     size="sm"
                     className="flex-1 h-8 text-[11px] font-bold shadow-lg shadow-primary/20"
                   >
-                    Commit Changes
+                   Commit Changes
                   </Button>
                   <Button
                     onClick={() => setShowPreview(false)}
@@ -248,14 +248,14 @@ export default function TemperaturePanel({
                     size="sm"
                     className="h-8 text-[11px]"
                   >
-                    Discard
+                   Discard
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="text-[11px] text-muted-foreground flex items-center gap-2 p-2">
                 <AlertCircle className="h-4 w-4" />
-                No calibration needed - current FPDT already satisfies this temperature
+               No calibration needed - current FPDT already satisfies this temperature
               </div>
             )}
           </div>

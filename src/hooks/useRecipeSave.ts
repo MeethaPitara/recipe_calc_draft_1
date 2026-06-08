@@ -102,7 +102,7 @@ export function useRecipeSave({
       }
 
       toast({
-        title: currentRecipeId ? '✓ Recipe Updated' : '✓ Recipe Saved',
+        title: currentRecipeId ? ' Recipe Updated' : ' Recipe Saved',
         description: `"${recipeName}" saved successfully`
       });
     } catch (error: any) {

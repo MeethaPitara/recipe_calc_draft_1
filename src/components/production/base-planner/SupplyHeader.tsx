@@ -33,9 +33,9 @@ export const SupplyHeader = () => {
             <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                     <div className={`p-2 rounded-lg ${isOverAllocated ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'} dark:bg-opacity-20`}>
-                        📦
+                        
                     </div>
-                    Base Supply Configuration
+                   Base Supply Configuration
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -72,7 +72,7 @@ export const SupplyHeader = () => {
                 <div className="space-y-2">
                     <div className="flex justify-between text-sm font-medium">
                         <span className={isOverAllocated ? "text-red-600" : "text-blue-600"}>
-                            Allocated: {allocatedMass.toFixed(1)} kg ({totalAllocatedPct.toFixed(1)}%)
+                           Allocated: {allocatedMass.toFixed(1)} kg ({totalAllocatedPct.toFixed(1)}%)
                         </span>
                         <span className={isOverAllocated ? "text-red-600 font-bold" : "text-muted-foreground"}>
                             {remainingMass >= 0
@@ -90,7 +90,7 @@ export const SupplyHeader = () => {
                     />
                     {isOverAllocated && (
                         <p className="text-xs text-red-500 font-medium animate-pulse">
-                            Warning: You have allocated more base than is available!
+                           Warning: You have allocated more base than is available!
                         </p>
                     )}
                 </div>

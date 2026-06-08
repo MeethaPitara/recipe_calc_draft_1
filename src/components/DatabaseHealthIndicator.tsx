@@ -28,7 +28,7 @@ export function DatabaseHealthIndicator({
       <Alert className="bg-success/10 border-success/20">
         <CheckCircle2 className="h-4 w-4 text-success" />
         <AlertDescription className="text-sm font-medium text-success-foreground">
-          ✅ All essential ingredients available
+          All essential ingredients available
         </AlertDescription>
       </Alert>
     );
@@ -45,10 +45,10 @@ export function DatabaseHealthIndicator({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Database className="h-4 w-4" />
-          Database Health Check
+         Database Health Check
           {health.healthy ? (
             <Badge variant="default" className="bg-success text-success-foreground">
-              Ready
+             Ready
             </Badge>
           ) : (
             <Badge variant="destructive">
@@ -66,7 +66,7 @@ export function DatabaseHealthIndicator({
               <XCircle className="h-4 w-4 text-destructive" />
             )}
             <span className={health.hasWater ? 'text-success-foreground' : 'text-muted-foreground'}>
-              Water (diluent)
+             Water (diluent)
             </span>
           </div>
 
@@ -77,7 +77,7 @@ export function DatabaseHealthIndicator({
               <XCircle className="h-4 w-4 text-destructive" />
             )}
             <span className={health.hasCream35OrButter ? 'text-success-foreground' : 'text-muted-foreground'}>
-              Cream/Butter (fat)
+             Cream/Butter (fat)
             </span>
           </div>
 
@@ -88,14 +88,14 @@ export function DatabaseHealthIndicator({
               <XCircle className="h-4 w-4 text-destructive" />
             )}
             <span className={health.hasSMP ? 'text-success-foreground' : 'text-muted-foreground'}>
-              SMP (MSNF)
+             SMP (MSNF)
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
             <span className="text-success-foreground">
-              Sugars
+             Sugars
             </span>
           </div>
         </div>
@@ -121,7 +121,7 @@ export function DatabaseHealthIndicator({
               onClick={() => navigate('/database')}
             >
               <Database className="h-4 w-4 mr-2" />
-              Add Missing Ingredients
+             Add Missing Ingredients
             </Button>
           </>
         )}

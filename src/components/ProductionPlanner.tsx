@@ -103,7 +103,7 @@ export default function ProductionPlanner() {
 
     // Apply waste factor
     const wasteMultiplier = 1 + (wasteFactor / 100);
-    Object.keys(ingredientTotals).forEach(key => {
+   Object.keys(ingredientTotals).forEach(key => {
       ingredientTotals[key] *= wasteMultiplier;
     });
 
@@ -142,7 +142,7 @@ export default function ProductionPlanner() {
       {!isAuthenticated && (
         <Alert>
           <AlertDescription>
-            Please <a href="/auth" className="font-medium underline">sign in</a> to use production planner
+           Please <a href="/auth" className="font-medium underline">sign in</a> to use production planner
           </AlertDescription>
         </Alert>
       )}
@@ -220,7 +220,7 @@ export default function ProductionPlanner() {
             ) : recipes.length === 0 ? (
               <Alert>
                 <AlertDescription>
-                  No recipes available. Import or create recipes first.
+                 No recipes available. Import or create recipes first.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -323,7 +323,7 @@ export default function ProductionPlanner() {
             {allocations.length === 0 && (
               <Alert>
                 <AlertDescription>
-                  Add recipes from the list to create a production plan
+                 Add recipes from the list to create a production plan
                 </AlertDescription>
               </Alert>
             )}
@@ -338,7 +338,7 @@ export default function ProductionPlanner() {
               <CardTitle>Procurement List</CardTitle>
               <Button onClick={exportProcurementList} variant="outline">
                 <Download className="mr-2 h-4 w-4" />
-                Export CSV
+               Export CSV
               </Button>
             </div>
           </CardHeader>

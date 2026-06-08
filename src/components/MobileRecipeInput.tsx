@@ -171,7 +171,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            Quick Recipe Builder
+           Quick Recipe Builder
           </CardTitle>
         </CardHeader>
         
@@ -184,7 +184,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
               onClick={() => setInputMethod('manual')}
               className="text-xs px-2"
             >
-              Manual
+             Manual
             </Button>
             <Button
               variant={inputMethod === 'voice' ? 'default' : 'outline'}
@@ -193,7 +193,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
               className="text-xs px-2"
             >
               <Mic className="h-3 w-3 mr-1" />
-              Voice
+             Voice
             </Button>
             <Button
               variant={inputMethod === 'photo' ? 'default' : 'outline'}
@@ -202,7 +202,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
               className="text-xs px-2"
             >
               <Camera className="h-3 w-3 mr-1" />
-              Photo
+             Photo
             </Button>
           </div>
 
@@ -273,42 +273,42 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs p-2 justify-center"
                 onClick={() => quickAddWithDefaults('Heavy Cream', 500, 'ml')}
               >
-                Heavy Cream (500ml)
+               Heavy Cream (500ml)
               </Badge>
               <Badge
                 variant="outline"
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs p-2 justify-center"
                 onClick={() => quickAddWithDefaults('Whole Milk', 250, 'ml')}
               >
-                Milk (250ml)
+               Milk (250ml)
               </Badge>
               <Badge
                 variant="outline"
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs p-2 justify-center"
                 onClick={() => quickAddWithDefaults('Sugar', 120, 'g')}
               >
-                Sugar (120g)
+               Sugar (120g)
               </Badge>
               <Badge
                 variant="outline"
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs p-2 justify-center"
                 onClick={() => quickAddWithDefaults('Egg Yolks', 100, 'g')}
               >
-                Egg Yolks (100g)
+               Egg Yolks (100g)
               </Badge>
               <Badge
                 variant="outline"
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs p-2 justify-center"
                 onClick={() => quickAddWithDefaults('Vanilla Extract', 5, 'ml')}
               >
-                Vanilla (5ml)
+               Vanilla (5ml)
               </Badge>
               <Badge
                 variant="outline"
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs p-2 justify-center"
                 onClick={() => quickAddWithDefaults('Stabilizer', 2, 'g')}
               >
-                Stabilizer (2g)
+               Stabilizer (2g)
               </Badge>
             </div>
           </div>
@@ -365,7 +365,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
                 </select>
                 <Button onClick={addIngredient} size="sm" className="text-xs">
                   <Plus className="h-3 w-3 mr-1" />
-                  Add
+                 Add
                 </Button>
               </div>
             </div>
@@ -377,7 +377,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
             className="w-full"
             disabled={!recipeName.trim() || ingredients.length === 0}
           >
-            Create Recipe ({ingredients.length} ingredients)
+           Create Recipe ({ingredients.length} ingredients)
           </Button>
 
           {/* Quick Actions */}
@@ -390,7 +390,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
                 setRecipeName('');
               }}
             >
-              Clear All
+             Clear All
             </Button>
             <Button 
               variant="outline" 
@@ -411,7 +411,7 @@ const MobileRecipeInput = ({ onRecipeCreated }: MobileRecipeInputProps) => {
                 });
               }}
             >
-              Load Sample
+             Load Sample
             </Button>
           </div>
         </CardContent>

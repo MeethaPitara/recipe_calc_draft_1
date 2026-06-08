@@ -81,10 +81,10 @@ export const WarningExplanationDialog: React.FC<WarningExplanationDialogProps> =
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            AI Warning Explanation
+           AI Warning Explanation
           </DialogTitle>
           <DialogDescription>
-            Understanding and fixing formulation issues
+           Understanding and fixing formulation issues
           </DialogDescription>
         </DialogHeader>
 
@@ -95,7 +95,7 @@ export const WarningExplanationDialog: React.FC<WarningExplanationDialogProps> =
               <div className="flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-orange-900 dark:text-orange-100">
-                  {warning.replace(/⚠️|🔧/g, '').trim()}
+                  {warning.replace(/|/g, '').trim()}
                 </p>
               </div>
             </CardContent>
@@ -108,7 +108,7 @@ export const WarningExplanationDialog: React.FC<WarningExplanationDialogProps> =
                 <div className="flex flex-col items-center justify-center gap-4">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <p className="text-sm text-muted-foreground">
-                    AI is analyzing the issue...
+                   AI is analyzing the issue...
                   </p>
                 </div>
               </CardContent>
@@ -135,7 +135,7 @@ export const WarningExplanationDialog: React.FC<WarningExplanationDialogProps> =
                 onClick={() => window.open('/glossary', '_blank')}
               >
                 <BookOpen className="h-4 w-4 mr-2" />
-                View Glossary
+               View Glossary
               </Button>
             </div>
           )}

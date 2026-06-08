@@ -135,7 +135,7 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Target className="h-5 w-5 text-blue-600" />
-            Product Targets & Validation
+           Product Targets & Validation
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -156,7 +156,7 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <p className="text-xs text-muted-foreground cursor-help">
-                  Applies target bands for this base and tunes validation accordingly.
+                 Applies target bands for this base and tunes validation accordingly.
                 </p>
               </TooltipTrigger>
               <TooltipContent>
@@ -169,7 +169,7 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
           <div className="space-y-3">
             <div className="text-sm font-medium flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              Live Validation
+             Live Validation
             </div>
 
             {parameters.map(({ key, label, value, max }) => {

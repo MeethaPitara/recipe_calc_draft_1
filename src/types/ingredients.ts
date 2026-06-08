@@ -1,3 +1,11 @@
+export type VerificationStatus =
+  | 'verified'        // Checked and usable
+  | 'supplier_data'   // Based on spec sheet
+  | 'lab_tested'      // Based on lab testing
+  | 'estimated'       // Use carefully
+  | 'ai_estimated'    // Not final
+  | 'user_entered';   // Needs review
+
 export type IngredientCategory =
   | 'dairy' | 'sugar' | 'stabilizer' | 'fruit' | 'flavor' | 'fat' | 'other'
   | 'Indian Sweets' | 'Flavorings and Condiments' | 'Gelato flavors' | 'Nuts and Seeds' | 'Fruits' | 'Dairy Products'
@@ -20,6 +28,9 @@ export type IngredientData = {
   fat_pct: number;
   msnf_pct?: number;
   other_solids_pct?: number;
+
+  // Protein (% of ingredient mass). Overrides 0.36×MSNF fallback for this ingredient.
+  protein_pct?: number;
 
   // Coefficients (optional; sucrose baseline 1.00)
   sp_coeff?: number;
@@ -45,6 +56,11 @@ export type IngredientData = {
   tags?: string[];
   user_email?: string;
   is_custom?: boolean;
+  verification_status?: VerificationStatus;
+  verified_at?: string;    // ISO date string
+  verified_source?: string; // e.g. "Amul spec sheet", "NDDB lab"
+  supplier_data_sheet_url?: string;
+  formulation_warnings?: string[];
 };
 
 export interface Ingredient {

@@ -14,6 +14,10 @@ export interface ProductionInput {
     overrunPct: number;
     lossPct: number;
     mixDensity: number;
+    fillWeightG?: number;
+    wasteFactorPct?: number;
+    machineCapacityKgPerHour?: number;
+    packagingItems?: { name: string; unitsNeededPerSku: number }[];
 }
 
 export interface ProductionOutput {
@@ -21,8 +25,13 @@ export interface ProductionOutput {
         totalUnits: number;
         plannedVolume: number;
         mixRequiredKg: number;
+        unitsFromFillWeight?: number;
+        expectedWasteKg?: number;
+        estimatedRunTimeHours?: number;
     };
     scaledRecipe: { ingredientId?: string; name?: string; ingredient?: string; quantity_g: number }[];
+    packagingRequirements?: { name: string; totalUnits: number }[];
+    qaChecklist?: string[];
 }
 
 export interface AllocationRequest {
@@ -79,24 +88,31 @@ export interface Level3Input {
         name: string;
         massGrams: number;
     }[];
-    targetUnits: number;
-    skuSizeLiters: number;
+    cup100mlCount: number;
+    tub500mlCount: number;
     overrunPercent: number;
-    lossPercent: number;
+    processLossPercent: number;
+    evaporationLossPercent: number;
+    machineCapacityLiters: number;
     density: number;
 }
 
 export interface Level3Output {
     stats: {
-        targetUnits: number;
+        cup100mlCount: number;
+        tub500mlCount: number;
         packedFrozenLiters: number;
         requiredMixLiters: number;
         requiredMixKg: number;
+        numberOfBatches: number;
+        batchSizeLiters: number;
+        batchSizeKg: number;
     };
     scaledRecipe: {
         ingredientId: string;
         name: string;
         requiredMassKg: number;
+        perBatchMassKg: number;
         percentage: number;
     }[];
     totalMassKg: number;

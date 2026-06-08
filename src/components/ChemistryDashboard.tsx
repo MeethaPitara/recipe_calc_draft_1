@@ -35,7 +35,7 @@ export function ChemistryDashboard({ recipe, metrics }: ChemistryDashboardProps)
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Beaker className="h-5 w-5" />
-            Chemistry Analysis
+           Chemistry Analysis
           </CardTitle>
           <CardDescription>Deep ingredient composition analysis</CardDescription>
         </CardHeader>
@@ -43,7 +43,7 @@ export function ChemistryDashboard({ recipe, metrics }: ChemistryDashboardProps)
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              No recipe loaded. Go to the Calculator tab and create a recipe, then click "Analyze Chemistry" to see detailed analysis here.
+             No recipe loaded. Go to the Calculator tab and create a recipe, then click "Analyze Chemistry" to see detailed analysis here.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -57,7 +57,7 @@ export function ChemistryDashboard({ recipe, metrics }: ChemistryDashboardProps)
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Beaker className="h-5 w-5" />
-            Chemistry Analysis
+           Chemistry Analysis
           </CardTitle>
           <CardDescription>Deep ingredient composition analysis</CardDescription>
         </CardHeader>
@@ -65,7 +65,7 @@ export function ChemistryDashboard({ recipe, metrics }: ChemistryDashboardProps)
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Recipe contains ingredients without complete data. Please ensure all ingredients are selected from the ingredient database.
+             Recipe contains ingredients without complete data. Please ensure all ingredients are selected from the ingredient database.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -91,7 +91,7 @@ export function ChemistryDashboard({ recipe, metrics }: ChemistryDashboardProps)
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Beaker className="h-5 w-5" />
-            Recipe Chemistry Overview
+           Recipe Chemistry Overview
           </CardTitle>
           <CardDescription>Complete composition analysis</CardDescription>
         </CardHeader>

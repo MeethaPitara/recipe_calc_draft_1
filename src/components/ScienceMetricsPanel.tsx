@@ -1,12 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { ResponsiveContainer, RadialBarChart, RadialBar, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Legend } from "recharts";
+import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Legend } from "recharts";
 import { useState, useEffect } from "react";
 import { fetchThermoMetrics, type ThermoMetricsResult } from "@/services/metricsService";
-import { Loader2 } from "lucide-react";
 import { showApiErrorToast } from "@/lib/ui/errors";
-import { safeDivide, clamp } from "@/lib/math";
 import { Badge } from "@/components/ui/badge";
+import { MetricDiagnosisCard } from "@/components/MetricDiagnosisCard";
+import { diagnoseMetrics } from "@/lib/diagnosis/metricRules";
 
 export default function ScienceMetricsPanel({
   podIndex, fpdt, mode,
@@ -22,7 +22,6 @@ export default function ScienceMetricsPanel({
   serveTempC?: number;
 }) {
   const [thermoMetrics, setThermoMetrics] = useState<ThermoMetricsResult | null>(null);
-  const [isLoadingThermo, setIsLoadingThermo] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
 
   // Track screen width for responsive chart labels
@@ -41,21 +40,18 @@ export default function ScienceMetricsPanel({
     
     const loadThermoMetrics = async () => {
       try {
-        setIsLoadingThermo(true);
         const result = await fetchThermoMetrics({ rows, mode, serveTempC });
         setThermoMetrics(result);
       } catch (error) {
         console.error('Failed to fetch thermo metrics:', error);
         showApiErrorToast(error, "Thermo Metrics Failed");
-      } finally {
-        setIsLoadingThermo(false);
       }
     };
 
     loadThermoMetrics();
   }, [rows, mode, serveTempC]);
+
   const podVal = Math.max(0, Math.min(150, Math.round(podIndex)));
-  const [lo, hi] = mode==="gelato"? [2.5,3.5] : [2.0,2.5];
   
   const sugarData = [
     { name:"Sucrose", value:sucrose_g, fill:"hsl(var(--chart-1))" },
@@ -81,160 +77,27 @@ export default function ScienceMetricsPanel({
     other: { label: "Other", color: "hsl(var(--chart-5))" },
   };
 
-  const TargetBar = ({ label, value, min, max }:{label:string; value:number; min:number; max:number}) => {
-    const safeValue = isFinite(value) ? value : 0;
-    const ok = safeValue >= min && safeValue <= max;
-    const width = clamp(safeValue, 0, 100);
-    
-    return (
-      <div className="mb-2">
-        <div className="flex justify-between text-xs mb-1">
-          <span>{label}</span><span>{safeValue.toFixed(1)}% (target {min}–{max}%)</span>
-        </div>
-        <div className="h-2 bg-muted rounded overflow-hidden">
-          <div className={`h-2 ${ok?'bg-success':'bg-warning'}`} style={{ width: `${width}%` }} />
-        </div>
-      </div>
-    );
-  };
+  const waterFrozenVal = thermoMetrics ? thermoMetrics.base.waterFrozenPct : NaN;
+  const fpdtVal = thermoMetrics ? thermoMetrics.base.FPDT : fpdt;
+
+  const diagnoses = diagnoseMetrics({
+    podIndex: podVal,
+    fpdt: fpdtVal,
+    waterFrozenPct: waterFrozenVal,
+    fatPct,
+    msnfPct,
+    sugarsPct,
+    otherPct,
+    mode
+  });
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <Card className="p-4">
-        <div className="text-sm font-medium mb-2">POD Index</div>
-        <div className="text-xs text-muted-foreground mb-3">per 100g sugars</div>
-        <div className="min-h-[140px]">
-          <ChartContainer config={{ pod: { label: "POD", color: "hsl(var(--primary))" } }} className="h-[140px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart 
-                innerRadius="60%" 
-                outerRadius="90%" 
-                data={[{ name:'POD', value: podVal, fill: podVal >= 80 && podVal <= 120 ? "hsl(var(--success))" : "hsl(var(--warning))" }]}
-                startAngle={180}
-                endAngle={0}
-              >
-                <RadialBar 
-                  dataKey="value" 
-                  cornerRadius={10}
-                  background={{ fill: "hsl(var(--muted))" }}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-              </RadialBarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </div>
-        <div className="text-center mt-2">
-          <div className="text-2xl font-bold">{podVal}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Ideal: 80–120 | Sucrose baseline: 100
-          </div>
-        </div>
-      </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {diagnoses.map((d) => (
+        <MetricDiagnosisCard key={d.label} {...d} />
+      ))}
 
-      <Card className="p-4">
-        <div className="text-sm font-medium mb-2">Freezing Point Depression (FPDT)</div>
-        {isLoadingThermo ? (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : thermoMetrics ? (
-          <div className="space-y-3">
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-xs text-muted-foreground">Base FPDT</div>
-                <div className="text-2xl font-bold">{thermoMetrics.base.FPDT.toFixed(2)}°C</div>
-              </div>
-              {thermoMetrics.adjusted.hardeningEffect > 0 && (
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Adjusted</div>
-                  <div className="text-lg font-semibold text-primary">{thermoMetrics.adjusted.FPDT.toFixed(2)}°C</div>
-                </div>
-              )}
-            </div>
-            
-            {/* Thermometer visualization */}
-            <div className="relative h-4 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-400 overflow-hidden border border-border">
-              {/* Ideal range indicator */}
-              <div 
-                className="absolute top-0 h-full bg-success/30 border-x-2 border-success"
-                style={{ 
-                  left: `${clamp(safeDivide((lo - 1.0), 3.5) * 100, 0, 100)}%`,
-                  width: `${clamp(safeDivide((hi - lo), 3.5) * 100, 0, 100)}%`
-                }}
-              />
-              {/* Current value marker */}
-              <div 
-                className="absolute top-0 h-full w-1 bg-foreground"
-                style={{ left: `${clamp(safeDivide((thermoMetrics.base.FPDT - 1.0), 3.5) * 100, 0, 100)}%` }}
-              />
-            </div>
-            
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>1.0°C</span>
-              <span className="text-success font-medium">Target: {lo}–{hi}°C</span>
-              <span>4.5°C</span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-            Add ingredients to calculate
-          </div>
-        )}
-      </Card>
-
-      <Card className="p-4">
-        <div className="text-sm font-medium mb-2">Water Frozen @ {serveTempC}°C</div>
-        {isLoadingThermo ? (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : thermoMetrics ? (
-          <div className="space-y-3">
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-xs text-muted-foreground">Base</div>
-                <div className="text-2xl font-bold">{thermoMetrics.base.waterFrozenPct.toFixed(1)}%</div>
-              </div>
-              {thermoMetrics.adjusted.hardeningEffect > 0 && (
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Adjusted</div>
-                  <div className="text-lg font-semibold text-primary">{thermoMetrics.adjusted.waterFrozenPct.toFixed(1)}%</div>
-                </div>
-              )}
-            </div>
-            
-            {/* Progress bar visualization */}
-            <div className="relative h-4 rounded-full bg-muted overflow-hidden border border-border">
-              <div 
-                className={`h-full transition-all ${
-                  thermoMetrics.base.waterFrozenPct >= 65 && thermoMetrics.base.waterFrozenPct <= 75 
-                    ? 'bg-success' 
-                    : 'bg-primary'
-                }`}
-                style={{ width: `${thermoMetrics.base.waterFrozenPct}%` }} 
-              />
-            </div>
-            
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">0%</span>
-              <span className="text-success font-medium">Ideal: 65-75%</span>
-              <span className="text-muted-foreground">100%</span>
-            </div>
-            
-            {thermoMetrics.adjusted.hardeningEffect > 0 && (
-              <div className="text-xs text-muted-foreground pt-1 border-t">
-                Hardening effect: +{thermoMetrics.adjusted.hardeningEffect.toFixed(2)}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-            Add ingredients to calculate
-          </div>
-        )}
-      </Card>
-
-      <Card className="p-4">
+      <Card className="p-4 lg:col-span-1">
         <div className="text-sm font-medium mb-4">Sugar Spectrum (grams)</div>
         <div className="min-h-[140px]">
           <ChartContainer config={sugarChartConfig} className="h-[200px] w-full">
@@ -271,7 +134,7 @@ export default function ScienceMetricsPanel({
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-4 lg:col-span-2">
         <div className="text-sm font-medium mb-4">Mix Composition (%)</div>
         <div className="min-h-[140px]">
           <ChartContainer config={compChartConfig} className="h-[220px] w-full">
@@ -324,14 +187,7 @@ export default function ScienceMetricsPanel({
           )}
         </div>
       </Card>
-
-      <Card className="p-3">
-        <div className="text-sm font-medium mb-2">Targets</div>
-        <TargetBar label="Total Solids" value={sugarsPct+fatPct+msnfPct+otherPct} min={mode==='gelato'?36:38} max={mode==='gelato'?45:42} />
-        <TargetBar label="Fat" value={fatPct} min={mode==='gelato'?6:10} max={mode==='gelato'?9:12} />
-        <TargetBar label="MSNF" value={msnfPct} min={mode==='gelato'?10:18} max={mode==='gelato'?12:25} />
-        <TargetBar label="Total Sugars" value={sugarsPct} min={mode==='gelato'?16:18} max={mode==='gelato'?22:22} />
-      </Card>
     </div>
   );
 }
+

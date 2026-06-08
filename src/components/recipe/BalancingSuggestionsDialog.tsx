@@ -64,10 +64,10 @@ export function BalancingSuggestionsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-primary" />
-            Recipe Needs Adjustment
+           Recipe Needs Adjustment
           </DialogTitle>
           <DialogDescription>
-            Your recipe is out of balance. Apply these specific fixes:
+           Your recipe is out of balance. Apply these specific fixes:
           </DialogDescription>
         </DialogHeader>
 
@@ -117,7 +117,7 @@ export function BalancingSuggestionsDialog({
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
         >
           <Sparkles className="h-5 w-5 mr-2" />
-          Apply All Fixes ({suggestions.length} changes, +{totalGramsToAdd.toFixed(0)}g)
+         Apply All Fixes ({suggestions.length} changes, +{totalGramsToAdd.toFixed(0)}g)
         </Button>
 
         <div className="space-y-2 max-h-[300px] overflow-y-auto py-2">
@@ -157,7 +157,7 @@ export function BalancingSuggestionsDialog({
                   className="flex-shrink-0"
                 >
                   <Check className="h-4 w-4 mr-1" />
-                  Apply
+                 Apply
                 </Button>
               </div>
             );
@@ -170,7 +170,7 @@ export function BalancingSuggestionsDialog({
             onClick={() => onOpenChange(false)}
             className="flex-1"
           >
-            Cancel
+           Cancel
           </Button>
           <Button 
             variant="outline"
@@ -178,7 +178,7 @@ export function BalancingSuggestionsDialog({
             className="flex-1"
           >
             <Wand2 className="h-4 w-4 mr-2" />
-            Apply All
+           Apply All
           </Button>
         </div>
       </DialogContent>

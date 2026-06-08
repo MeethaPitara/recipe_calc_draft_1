@@ -69,10 +69,10 @@ const CostCalculator = () => {
       <CardHeader className="bg-gradient-to-r from-warning/10 to-warning/5 dark:from-warning/20 dark:to-warning/10">
         <CardTitle className="flex items-center gap-2">
           <IndianRupee className="h-5 w-5 text-yellow-600" />
-          Cost Calculator
+         Cost Calculator
         </CardTitle>
         <CardDescription>
-          Calculate ingredient costs and suggested pricing for your ice cream recipes
+         Calculate ingredient costs and suggested pricing for your ice cream recipes
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6">
@@ -82,7 +82,7 @@ const CostCalculator = () => {
               <Label className="text-base font-semibold">Recipe Ingredients</Label>
               <Button onClick={calculateCosts} size="sm" className="bg-yellow-600 hover:bg-yellow-700">
                 <Calculator className="h-4 w-4 mr-2" />
-                Calculate
+               Calculate
               </Button>
             </div>
             
@@ -160,7 +160,7 @@ const CostCalculator = () => {
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <IndianRupee className="h-5 w-5" />
-                  Pricing Analysis
+                 Pricing Analysis
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">

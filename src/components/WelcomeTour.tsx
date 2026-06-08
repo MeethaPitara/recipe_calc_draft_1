@@ -111,12 +111,12 @@ export function WelcomeTour({ open: controlledOpen, onOpenChange }: WelcomeTourP
 
         <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
           <Button variant="ghost" onClick={handleSkip} className="transition-all duration-200 ease-in-out">
-            Skip Tour
+           Skip Tour
           </Button>
           <Button onClick={handleNext} className="transition-all duration-200 ease-in-out">
             {step < steps.length - 1 ? (
               <>
-                Next <ArrowRight className="ml-2 h-4 w-4" />
+               Next <ArrowRight className="ml-2 h-4 w-4" />
               </>
             ) : (
               'Get Started'

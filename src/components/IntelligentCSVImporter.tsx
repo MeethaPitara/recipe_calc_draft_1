@@ -56,7 +56,7 @@ export function IntelligentCSVImporter() {
       const ingredients = await IngredientService.getIngredients();
 
       // Parse CSV to get preview
-      Papa.parse(file, {
+     Papa.parse(file, {
         complete: async (results) => {
           const preview = results.data.slice(0, 15); // First 15 rows for analysis
 
@@ -182,10 +182,10 @@ export function IntelligentCSVImporter() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Brain className="h-5 w-5" />
-          AI-Powered CSV Importer
+         AI-Powered CSV Importer
         </CardTitle>
         <CardDescription>
-          Upload any CSV format - AI will automatically detect structure and extract recipes
+         Upload any CSV format - AI will automatically detect structure and extract recipes
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -194,8 +194,8 @@ export function IntelligentCSVImporter() {
             <Alert>
               <Sparkles className="h-4 w-4" />
               <AlertDescription>
-                This intelligent importer uses AI to understand any CSV format automatically.
-                No need to format your data - just upload and let AI do the work!
+               This intelligent importer uses AI to understand any CSV format automatically.
+               No need to format your data - just upload and let AI do the work!
               </AlertDescription>
             </Alert>
 
@@ -213,7 +213,7 @@ export function IntelligentCSVImporter() {
             {file && (
               <Button onClick={analyzeCSV} disabled={isAnalyzing} className="w-full">
                 <Brain className="h-4 w-4 mr-2" />
-                Analyze with AI
+               Analyze with AI
               </Button>
             )}
           </div>
@@ -226,7 +226,7 @@ export function IntelligentCSVImporter() {
               <div>
                 <h3 className="font-semibold mb-1">AI is analyzing your CSV...</h3>
                 <p className="text-sm text-muted-foreground">
-                  Detecting format, identifying recipes, and matching ingredients
+                 Detecting format, identifying recipes, and matching ingredients
                 </p>
               </div>
             </div>
@@ -285,11 +285,11 @@ export function IntelligentCSVImporter() {
                 onClick={() => { setStep('upload'); setAnalysis(null); setFile(null); }}
                 variant="outline"
               >
-                Cancel
+               Cancel
               </Button>
               <Button onClick={handleImport} disabled={isImporting} className="flex-1">
                 <Upload className="h-4 w-4 mr-2" />
-                Import {analysis.recipes.length} Recipe(s)
+               Import {analysis.recipes.length} Recipe(s)
               </Button>
             </div>
           </div>
@@ -312,11 +312,11 @@ export function IntelligentCSVImporter() {
               <div>
                 <h3 className="font-semibold mb-1">Import Complete!</h3>
                 <p className="text-sm text-muted-foreground">
-                  All recipes have been successfully imported
+                 All recipes have been successfully imported
                 </p>
               </div>
               <Button onClick={() => { setStep('upload'); setAnalysis(null); setFile(null); }}>
-                Import More Recipes
+               Import More Recipes
               </Button>
             </div>
           </div>

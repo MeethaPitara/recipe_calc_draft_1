@@ -106,7 +106,7 @@ export const EnhancedModeSelector = ({ mode, onChange }: EnhancedModeSelectorPro
           <div className="flex items-center justify-between">
             <Label className="text-base font-semibold flex items-center gap-2">
               <Icon className="h-5 w-5 text-primary" />
-              Product Mode
+             Product Mode
             </Label>
             <Badge variant="secondary">{currentConfig.badge}</Badge>
           </div>
@@ -117,7 +117,7 @@ export const EnhancedModeSelector = ({ mode, onChange }: EnhancedModeSelectorPro
             </SelectTrigger>
             <SelectContent>
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                BASE PRODUCTS
+               BASE PRODUCTS
               </div>
               {(Object.entries(productConfig) as [EnhancedProductMode, typeof productConfig[EnhancedProductMode]][])
                 .filter(([_, config]) => config.category === 'base')
@@ -134,7 +134,7 @@ export const EnhancedModeSelector = ({ mode, onChange }: EnhancedModeSelectorPro
                 })}
               
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">
-                FINISHED PRODUCTS
+               FINISHED PRODUCTS
               </div>
               {(Object.entries(productConfig) as [EnhancedProductMode, typeof productConfig[EnhancedProductMode]][])
                 .filter(([_, config]) => config.category === 'finished')
@@ -151,7 +151,7 @@ export const EnhancedModeSelector = ({ mode, onChange }: EnhancedModeSelectorPro
                 })}
               
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">
-                REGIONAL STYLES
+               REGIONAL STYLES
               </div>
               {(Object.entries(productConfig) as [EnhancedProductMode, typeof productConfig[EnhancedProductMode]][])
                 .filter(([_, config]) => config.category === 'regional')

@@ -1,3 +1,11 @@
+export type VerificationStatus =
+  | 'verified'
+  | 'supplier_data'
+  | 'lab_tested'
+  | 'estimated'
+  | 'ai_estimated'
+  | 'user_entered';
+
 export type IngredientCategory =
   | 'dairy' | 'sugar' | 'stabilizer' | 'fruit' | 'flavor' | 'fat' | 'other'
   | 'Indian Sweets' | 'Flavorings and Condiments' | 'Gelato flavors' | 'Nuts and Seeds' | 'Fruits' | 'Dairy Products'
@@ -20,6 +28,10 @@ export type IngredientData = {
   fat_pct: number;
   msnf_pct?: number;
   other_solids_pct?: number;
+
+  // Protein (% of ingredient mass). If set, overrides the 0.36×MSNF fallback for this ingredient.
+  // Only set on SMP, whey powder, mawa, condensed milk, etc. where you have lab data.
+  protein_pct?: number;
 
   // Coefficients (optional; sucrose baseline 1.00)
   sp_coeff?: number;
@@ -45,6 +57,11 @@ export type IngredientData = {
   tags?: string[];
   user_email?: string;
   is_custom?: boolean;
+  verification_status?: VerificationStatus;
+  verified_at?: string;
+  verified_source?: string;
+  supplier_data_sheet_url?: string;
+  formulation_warnings?: string[];
 };
 
 export interface Ingredient {

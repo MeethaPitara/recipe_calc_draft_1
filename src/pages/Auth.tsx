@@ -129,7 +129,7 @@ const Auth = () => {
           </div>
           <CardTitle className="text-2xl text-center">MeethaPitara</CardTitle>
           <CardDescription className="text-center">
-            Sign in to access your recipe formulations
+           Sign in to access your recipe formulations
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -173,7 +173,7 @@ const Auth = () => {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
+                 Sign In
                 </Button>
               </form>
             </TabsContent>
@@ -182,7 +182,7 @@ const Auth = () => {
               <form onSubmit={handleSignUp} className="space-y-4">
                 <Alert>
                   <AlertDescription>
-                    Create an account to save and manage your proprietary recipes securely.
+                   Create an account to save and manage your proprietary recipes securely.
                   </AlertDescription>
                 </Alert>
                 <div className="space-y-2">
@@ -215,12 +215,12 @@ const Auth = () => {
                     <p className="text-sm text-destructive">{errors.password}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Must be at least 6 characters
+                   Must be at least 6 characters
                   </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
+                 Create Account
                 </Button>
               </form>
             </TabsContent>
@@ -250,10 +250,10 @@ const Auth = () => {
               }}
             >
               <UserCircle className="mr-2 h-4 w-4" />
-              Continue as Guest
+             Continue as Guest
             </Button>
             <p className="text-xs text-center text-muted-foreground">
-              No account needed — recipes will be saved under a shared guest profile.
+             No account needed — recipes will be saved under a shared guest profile.
             </p>
           </div>
         </CardContent>

@@ -37,14 +37,14 @@ export const WarningsSidebar: React.FC<WarningsSidebarProps> = ({
         title: 'Critical Issue'
       };
     }
-    if (warning.includes('⚠️')) {
+    if (warning.includes('')) {
       return {
         type: 'warning',
         icon: <AlertTriangle className="h-4 w-4" />,
         title: 'Warning'
       };
     }
-    if (warning.includes('💡')) {
+    if (warning.includes('')) {
       return {
         type: 'info',
         icon: <Lightbulb className="h-4 w-4" />,
@@ -66,7 +66,7 @@ export const WarningsSidebar: React.FC<WarningsSidebarProps> = ({
           {allWarnings.length === 0 && (
             <Badge className="bg-green-500">
               <CheckCircle className="h-3 w-3 mr-1" />
-              All Clear
+             All Clear
             </Badge>
           )}
           {allWarnings.length > 0 && (
@@ -82,7 +82,7 @@ export const WarningsSidebar: React.FC<WarningsSidebarProps> = ({
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertTitle className="text-green-900">Perfect!</AlertTitle>
             <AlertDescription className="text-green-800">
-              Your recipe looks balanced with no issues detected. All parameters are within optimal ranges.
+             Your recipe looks balanced with no issues detected. All parameters are within optimal ranges.
             </AlertDescription>
           </Alert>
         ) : (
@@ -90,8 +90,8 @@ export const WarningsSidebar: React.FC<WarningsSidebarProps> = ({
             {allWarnings.map((warning, idx) => {
               const { type, icon, title } = categorizeWarning(warning);
               const cleanWarning = warning
-                .replace(/⚠️/g, '')
-                .replace(/💡/g, '')
+                .replace(//g, '')
+                .replace(//g, '')
                 .trim();
 
               return (

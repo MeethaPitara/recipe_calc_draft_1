@@ -20,7 +20,7 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptim
       <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <Sparkles className="h-4 w-4" />
-          Quick Access Tools
+         Quick Access Tools
         </CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-3">
@@ -104,7 +104,7 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptim
         >
           <Wand2 className="h-5 w-5 text-amber-500" />
           <div className="text-center">
-            <div className="font-medium text-xs">✨ Optimizer</div>
+            <div className="font-medium text-xs"> Optimizer</div>
             <div className="text-xs text-muted-foreground">LP Solver</div>
           </div>
           {hasRecipe ? (
@@ -119,7 +119,7 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptim
           className="h-auto py-3 flex flex-col items-center gap-2"
           onClick={() => navigate('/production/quick-plan', { state: { recipe: currentRecipe } })}
         >
-          <div className="h-5 w-5 flex items-center justify-center">🏭</div>
+          <div className="h-5 w-5 flex items-center justify-center"></div>
           <div className="text-center">
             <div className="font-medium text-xs">Production</div>
             <div className="text-xs text-muted-foreground">Quick Plan</div>
@@ -131,7 +131,7 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptim
           className="h-auto py-3 flex flex-col items-center gap-2"
           onClick={() => navigate('/production/base-planner')}
         >
-          <div className="h-5 w-5 flex items-center justify-center">🏭</div>
+          <div className="h-5 w-5 flex items-center justify-center"></div>
           <div className="text-center">
             <div className="font-medium text-xs">Level 2</div>
             <div className="text-xs text-muted-foreground">Base Planner</div>
@@ -143,7 +143,7 @@ export function QuickAccessPanel({ onNavigate, hasRecipe, currentRecipe, onOptim
           className="h-auto py-3 flex flex-col items-center gap-2"
           onClick={() => navigate('/production/exact-plan')}
         >
-          <div className="h-5 w-5 flex items-center justify-center">🎯</div>
+          <div className="h-5 w-5 flex items-center justify-center"></div>
           <div className="text-center">
             <div className="font-medium text-xs">Level 3</div>
             <div className="text-xs text-muted-foreground">Exact Batch</div>

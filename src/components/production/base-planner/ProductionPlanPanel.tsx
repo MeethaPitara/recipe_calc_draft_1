@@ -37,7 +37,7 @@ export const ProductionPlanPanel = () => {
                 {rows.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={reset} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Clear Plan
+                       Clear Plan
                     </Button>
                 )}
             </CardHeader>
@@ -86,7 +86,7 @@ export const ProductionPlanPanel = () => {
                 {/* 2. Allocation Status / Warnings */}
                 {isOverAllocated && (
                     <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-md font-medium">
-                        Warning: Allocations exceed 100% ({totalAllocatedPct.toFixed(1)}%)
+                       Warning: Allocations exceed 100% ({totalAllocatedPct.toFixed(1)}%)
                     </div>
                 )}
                 {!isOverAllocated && totalAllocatedPct < 100 && rows.length > 0 && (
@@ -101,7 +101,7 @@ export const ProductionPlanPanel = () => {
 
                     {rows.length === 0 ? (
                         <div className="border-2 border-dashed rounded-xl p-8 text-center text-muted-foreground bg-slate-50 dark:bg-slate-900/50">
-                            Select recipes from the left panel to start planning.
+                           Select recipes from the left panel to start planning.
                         </div>
                     ) : (
                         <div className="space-y-3">

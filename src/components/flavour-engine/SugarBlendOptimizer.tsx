@@ -35,7 +35,7 @@ const SugarBlendOptimizer = ({ productType, totalSugarAmount, onOptimizedBlend }
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-warning-foreground">
           <Beaker className="h-5 w-5" />
-          Sugar Blend Optimizer
+         Sugar Blend Optimizer
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -80,7 +80,7 @@ const SugarBlendOptimizer = ({ productType, totalSugarAmount, onOptimizedBlend }
           disabled={totalSugarAmount <= 0}
         >
           <Calculator className="h-4 w-4 mr-2" />
-          Optimize Sugar Blend
+         Optimize Sugar Blend
         </Button>
 
         {/* Optimized Blend Results */}
@@ -88,7 +88,7 @@ const SugarBlendOptimizer = ({ productType, totalSugarAmount, onOptimizedBlend }
           <div className="space-y-2 mt-4 p-3 bg-warning/20 dark:bg-warning/30 rounded-lg">
             <h4 className="font-semibold text-sm text-warning-foreground flex items-center gap-1">
               <Zap className="h-3 w-3" />
-              Optimized Blend for {desiredTexture} texture
+             Optimized Blend for {desiredTexture} texture
             </h4>
             <div className="space-y-1">
               {Object.entries(optimizedBlend).map(([sugarType, amount]) => (

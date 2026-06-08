@@ -84,6 +84,18 @@ export async function apiDelete<T = any>(path: string): Promise<T> {
 }
 
 /**
+ * Generic PATCH request
+ */
+export async function apiPatch<T = any>(path: string, body?: any): Promise<T> {
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'PATCH',
+        headers: buildHeaders(),
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    return handleResponse<T>(res);
+}
+
+/**
  * API_BASE export for external usage if needed
  */
 export { API_BASE };

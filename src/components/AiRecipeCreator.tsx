@@ -103,7 +103,7 @@ export default function AiRecipeCreator() {
                 name,
                 type,
                 result.optimized_recipe,
-                INGREDIENT_DB
+               INGREDIENT_DB
             );
 
             setSaveMessage({ type: 'success', text: 'Recipe saved successfully to your database!' });
@@ -136,7 +136,7 @@ export default function AiRecipeCreator() {
                             disabled={loading}
                         />
                         <p className="text-xs text-muted-foreground">
-                            Describe the recipe you want. Our AI will find a similar recipe from your database
+                           Describe the recipe you want. Our AI will find a similar recipe from your database
                             (or research online) and build a new one from scratch.
                         </p>
                     </CardContent>
@@ -230,25 +230,25 @@ export default function AiRecipeCreator() {
                             <div className="flex items-center gap-2">
                                 <Badge variant={result.critique_verdict === 'approved' ? 'default' : 'secondary'}
                                     className={result.critique_verdict === 'approved' ? 'bg-green-600' : 'bg-amber-600'}>
-                                    {result.critique_verdict === 'approved' ? '✅ Approved' : '⚠️ Needs Revision'}
+                                    {result.critique_verdict === 'approved' ? ' Approved' : ' Needs Revision'}
                                 </Badge>
                                 <span className="text-sm font-medium">
-                                    Confidence: {result.critique_confidence}%
+                                   Confidence: {result.critique_confidence}%
                                 </span>
                             </div>
                             <span className="text-sm text-muted-foreground">
-                                Solver: {result.solver_status}
+                               Solver: {result.solver_status}
                             </span>
                         </div>
                     </div>
 
                     {/* Reference Recipe */}
-                    <Section title="🔍 Reference Recipe">
+                    <Section title=" Reference Recipe">
                         {result.reference_recipe_name ? (
                             <div className="space-y-2">
                                 <p className="flex items-center gap-2">
-                                    <Badge variant="outline">📖 {result.reference_recipe_name}</Badge>
-                                    {result.used_web_search && <Badge variant="secondary" className="text-xs">🌐 Web Search Used</Badge>}
+                                    <Badge variant="outline"> {result.reference_recipe_name}</Badge>
+                                    {result.used_web_search && <Badge variant="secondary" className="text-xs"> Web Search Used</Badge>}
                                 </p>
                                 <p className="text-sm text-muted-foreground">{result.search_reasoning}</p>
                             </div>
@@ -256,7 +256,7 @@ export default function AiRecipeCreator() {
                             <div className="space-y-2">
                                 <p className="flex items-center gap-2">
                                     <Badge variant="secondary">No DB match</Badge>
-                                    <Badge variant="secondary" className="text-xs">🌐 Web Search Used</Badge>
+                                    <Badge variant="secondary" className="text-xs"> Web Search Used</Badge>
                                 </p>
                                 <p className="text-sm text-muted-foreground">{result.search_reasoning}</p>
                             </div>
@@ -264,14 +264,14 @@ export default function AiRecipeCreator() {
                     </Section>
 
                     {/* Engineer Reasoning */}
-                    <Section title="🔧 Food Engineer">
+                    <Section title=" Food Engineer">
                         <div className="text-sm text-foreground/90 leading-relaxed space-y-3">
                             {parseSimpleMarkdown(result.engineer_reasoning)}
                         </div>
                     </Section>
 
                     {/* Scientist Changes */}
-                    <Section title="🧪 Food Scientist Review">
+                    <Section title=" Food Scientist Review">
                         <div className="space-y-3">
                             <p className="text-sm font-medium text-foreground leading-relaxed pt-1">
                                 {result.scientist_changes}
@@ -283,7 +283,7 @@ export default function AiRecipeCreator() {
                     </Section>
 
                     {/* Metrics Comparison */}
-                    <Section title="📊 Metrics (Before → After Optimization)">
+                    <Section title=" Metrics (Before → After Optimization)">
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr>
@@ -302,7 +302,7 @@ export default function AiRecipeCreator() {
 
                     {/* Diffs */}
                     {result.diffs.length > 0 && (
-                        <Section title="📋 Optimizer Adjustments">
+                        <Section title=" Optimizer Adjustments">
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr>
@@ -329,7 +329,7 @@ export default function AiRecipeCreator() {
                     )}
 
                     {/* Final Optimized Recipe */}
-                    <Section title="✅ Final Optimized Recipe">
+                    <Section title=" Final Optimized Recipe">
                         <div className="bg-muted/10 border rounded-md p-1">
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
@@ -355,7 +355,7 @@ export default function AiRecipeCreator() {
                     </Section>
 
                     {/* Food Critique Review */}
-                    <Section title="🍽️ Food Critique Review">
+                    <Section title=" Food Critique Review">
                         <div className="text-sm text-foreground/90 leading-relaxed space-y-3">
                             {parseSimpleMarkdown(result.critique_review)}
                         </div>
@@ -363,7 +363,7 @@ export default function AiRecipeCreator() {
 
                     {/* Warnings */}
                     {result.warnings.length > 0 && (
-                        <Section title="⚠️ Warnings">
+                        <Section title=" Warnings">
                             <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
                                 {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
                             </ul>
@@ -376,7 +376,7 @@ export default function AiRecipeCreator() {
                             <CardHeader className="py-3">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <Save className="h-4 w-4" />
-                                    Save Created Recipe
+                                   Save Created Recipe
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -386,7 +386,7 @@ export default function AiRecipeCreator() {
                                     disabled={saving}
                                 >
                                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                                    Save to My Recipes
+                                   Save to My Recipes
                                 </Button>
                             </CardContent>
                             {saveMessage && (
@@ -439,8 +439,8 @@ function MetricRow({ label, before, after }: { label: string; before: number; af
     return (
         <tr>
             <Td style={{ fontWeight: 600 }}>{label}</Td>
-            <Td>{before.toFixed(3)}</Td>
-            <Td>{after.toFixed(3)}</Td>
+            <Td>{(before ?? 0).toFixed(3)}</Td>
+            <Td>{(after ?? 0).toFixed(3)}</Td>
         </tr>
     );
 }

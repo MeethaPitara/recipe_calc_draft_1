@@ -39,7 +39,7 @@ export default function ScienceChecklist({
     <div className="rounded-xl border gradient-card p-4 space-y-3 shadow-elegant">
       <div className="font-semibold text-lg flex items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-primary"></div>
-        Science Checklist
+       Science Checklist
       </div>
       {row('Total Solids %', metrics.ts_add_pct, b.ts)}
       {row('Fat %',          metrics.fat_pct,    b.fat)}

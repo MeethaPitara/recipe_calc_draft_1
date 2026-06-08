@@ -148,7 +148,7 @@ export class PairingService {
 
   scorePair(a: FlavorVector, b: FlavorVector, feasibilityPenalty = 0.0): number {
     const dot = (x: Record<string, number>, y: Record<string, number>) =>
-      Object.keys(x).reduce((s, k) => s + (x[k] || 0) * (y[k] || 0), 0);
+     Object.keys(x).reduce((s, k) => s + (x[k] || 0) * (y[k] || 0), 0);
 
     // Synergy from overlap
     const sensorySynergy = dot(a.sensory, b.sensory);

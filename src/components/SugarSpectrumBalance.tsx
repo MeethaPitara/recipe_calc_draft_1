@@ -104,7 +104,7 @@ export const SugarSpectrumBalance: React.FC<SugarSpectrumBalanceProps> = ({
           </TooltipProvider>
         </div>
         <CardDescription>
-          Optimize sugar blend for texture and freeze control
+         Optimize sugar blend for texture and freeze control
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -123,21 +123,21 @@ export const SugarSpectrumBalance: React.FC<SugarSpectrumBalanceProps> = ({
               variant={ratios.sucrose === 70 ? 'default' : 'outline'}
               onClick={() => handlePreset('balanced')}
             >
-              Balanced (70/10/20)
+             Balanced (70/10/20)
             </Button>
             <Button
               size="sm"
               variant={ratios.sucrose === 50 ? 'default' : 'outline'}
               onClick={() => handlePreset('soft')}
             >
-              Soft (50/30/20)
+             Soft (50/30/20)
             </Button>
             <Button
               size="sm"
               variant={ratios.sucrose === 80 ? 'default' : 'outline'}
               onClick={() => handlePreset('firm')}
             >
-              Firm (80/5/15)
+             Firm (80/5/15)
             </Button>
           </div>
         </div>
@@ -238,12 +238,12 @@ export const SugarSpectrumBalance: React.FC<SugarSpectrumBalanceProps> = ({
           className="w-full"
         >
           <Sparkles className="h-4 w-4 mr-2" />
-          Apply This Blend
+         Apply This Blend
         </Button>
 
         {/* Info */}
         <div className="text-xs text-muted-foreground p-3 bg-primary/10 dark:bg-primary/20 rounded border border-primary/30">
-          <p><strong>💡 Tip:</strong> Balanced blend (70/10/20) works for most recipes. Increase dextrose for softer texture at serving temp, or increase sucrose for firmer body.</p>
+          <p><strong> Tip:</strong> Balanced blend (70/10/20) works for most recipes. Increase dextrose for softer texture at serving temp, or increase sucrose for firmer body.</p>
         </div>
       </CardContent>
     </Card>

@@ -34,11 +34,17 @@ async function sleep(ms: number): Promise<void> {
 /**
  * Call Gemini with a system prompt and user message.
  */
+export interface GeminiResult {
+    text: string;
+    usage: { totalTokenCount: number } | null;
+    latencyMs: number;
+}
+
 export async function callGemini(
     systemPrompt: string,
     userPrompt: string,
     model = 'gemini-3.1-flash-lite-preview'
-): Promise<string> {
+): Promise<GeminiResult> {
     const client = getClient();
 
     const generativeModel = client.getGenerativeModel({
@@ -48,9 +54,15 @@ export async function callGemini(
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
+            const start = performance.now();
             const result = await generativeModel.generateContent(userPrompt);
+            const latencyMs = Math.round(performance.now() - start);
             const response = result.response;
-            return response.text();
+            return {
+                text: response.text(),
+                usage: response.usageMetadata ? { totalTokenCount: response.usageMetadata.totalTokenCount } : null,
+                latencyMs
+            };
         } catch (err: unknown) {
             const errStr = String(err);
             const is429 = errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED');
@@ -76,7 +88,7 @@ export async function callGeminiWithSearch(
     systemPrompt: string,
     userPrompt: string,
     model = 'gemini-3.1-flash-lite-preview'
-): Promise<string> {
+): Promise<GeminiResult> {
     const client = getClient();
 
     const generativeModel = client.getGenerativeModel({
@@ -87,9 +99,15 @@ export async function callGeminiWithSearch(
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
+            const start = performance.now();
             const result = await generativeModel.generateContent(userPrompt);
+            const latencyMs = Math.round(performance.now() - start);
             const response = result.response;
-            return response.text();
+            return {
+                text: response.text(),
+                usage: response.usageMetadata ? { totalTokenCount: response.usageMetadata.totalTokenCount } : null,
+                latencyMs
+            };
         } catch (err: unknown) {
             const errStr = String(err);
             const is429 = errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED');
@@ -117,7 +135,7 @@ export async function callGeminiVision(
     base64Image: string,
     mimeType: string,
     model = 'gemini-3.1-flash-lite-preview'
-): Promise<string> {
+): Promise<GeminiResult> {
     const client = getClient();
 
     const generativeModel = client.getGenerativeModel({
@@ -132,9 +150,15 @@ export async function callGeminiVision(
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
+            const start = performance.now();
             const result = await generativeModel.generateContent(parts);
+            const latencyMs = Math.round(performance.now() - start);
             const response = result.response;
-            return response.text();
+            return {
+                text: response.text(),
+                usage: response.usageMetadata ? { totalTokenCount: response.usageMetadata.totalTokenCount } : null,
+                latencyMs
+            };
         } catch (err: unknown) {
             const errStr = String(err);
             const is429 = errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED');

@@ -45,7 +45,7 @@ export const ProductClassifier: React.FC<ProductClassifierProps> = ({ metrics })
           <CardTitle>Product Classification</CardTitle>
         </div>
         <CardDescription>
-          Auto-detected based on composition analysis
+         Auto-detected based on composition analysis
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -107,7 +107,7 @@ export const ProductClassifier: React.FC<ProductClassifierProps> = ({ metrics })
               <div key={key} className="text-center">
                 <p className="text-muted-foreground uppercase">{key}</p>
                 <p className={`font-semibold ${Math.abs(delta) < 0.5 ? 'text-green-600' :
-                    Math.abs(delta) < 2 ? 'text-yellow-600' :
+                   Math.abs(delta) < 2 ? 'text-yellow-600' :
                       'text-red-600'
                   }`}>
                   {delta > 0 ? '+' : ''}{delta.toFixed(1)}
@@ -119,7 +119,7 @@ export const ProductClassifier: React.FC<ProductClassifierProps> = ({ metrics })
 
         {/* Help Text */}
         <div className="text-xs text-muted-foreground p-3 bg-primary/10 dark:bg-primary/20 rounded border border-primary/30">
-          <p><strong>💡 How it works:</strong> The classifier compares your recipe metrics against standard target bands for each product type. Lower delta values = better match.</p>
+          <p><strong> How it works:</strong> The classifier compares your recipe metrics against standard target bands for each product type. Lower delta values = better match.</p>
         </div>
       </CardContent>
     </Card>

@@ -27,7 +27,7 @@ export const ModeSelector = ({ mode, onChange }: ModeSelectorProps) => {
               aria-label="Switch to Gelato mode"
             >
               <IceCream2 className="h-4 w-4" />
-              Gelato
+             Gelato
               <Badge variant="secondary" className="ml-1">Western</Badge>
             </ToggleGroupItem>
             <ToggleGroupItem 
@@ -36,7 +36,7 @@ export const ModeSelector = ({ mode, onChange }: ModeSelectorProps) => {
               aria-label="Switch to Kulfi mode"
             >
               <Milk className="h-4 w-4" />
-              Kulfi
+             Kulfi
               <Badge variant="secondary" className="ml-1">Indian</Badge>
             </ToggleGroupItem>
           </ToggleGroup>

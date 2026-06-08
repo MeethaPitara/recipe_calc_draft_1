@@ -72,7 +72,7 @@ export function ScienceValidationPanel({ validations, qualityScore }: ScienceVal
                 variant={qualityScore.color === 'success' ? 'default' : qualityScore.color === 'warning' ? 'secondary' : 'destructive'}
                 className="text-lg px-3 py-1"
               >
-                Grade {qualityScore.grade}
+               Grade {qualityScore.grade}
               </Badge>
               <div className="text-right">
                 <div className="text-2xl font-bold">{qualityScore.score.toFixed(0)}%</div>
@@ -105,7 +105,7 @@ export function ScienceValidationPanel({ validations, qualityScore }: ScienceVal
             <XCircle className="h-4 w-4" />
             <AlertDescription>
               <strong>{criticalIssues.length} critical issue{criticalIssues.length > 1 ? 's' : ''}</strong> detected. 
-              Address these for proper ice cream texture and stability.
+             Address these for proper ice cream texture and stability.
             </AlertDescription>
           </Alert>
         )}
@@ -151,7 +151,7 @@ export function ScienceValidationPanel({ validations, qualityScore }: ScienceVal
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="text-muted-foreground">Current: <strong>{validation.value.toFixed(2)}</strong></span>
                     <span className="text-muted-foreground text-xs">
-                      Optimal: {optimalRange.min}–{optimalRange.max}
+                     Optimal: {optimalRange.min}–{optimalRange.max}
                     </span>
                   </div>
                   
@@ -176,7 +176,7 @@ export function ScienceValidationPanel({ validations, qualityScore }: ScienceVal
                   
                   {validation.recommendation && (
                     <p className="text-sm font-medium mt-1">
-                      💡 {validation.recommendation}
+                       {validation.recommendation}
                     </p>
                   )}
                 </div>

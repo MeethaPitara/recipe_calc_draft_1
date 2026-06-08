@@ -38,11 +38,18 @@ export type MetricsV2 = {
   fpdsa: number; // From salts/MSNF
   fpdt: number;  // Total freezing point depression
 
-  // POD (normalized sweetness index)
+  // POD (normalized sweetness index, sucrose=100 baseline)
   pod_index: number;
+
+  // SP% — Carpigiani sweetness as % of recipe weight (Σ sp_coeff_i × grams_i / total × 100)
+  sp_pct: number;
 
   // AFP Index (Total recipe intensity)
   afp_index: number;
+
+  // Total sugars including lactose (for validation against industry bands)
+  totalSugarsTotal_g: number;
+  totalSugarsTotal_pct: number;
 
   // Warnings
   warnings: string[];
@@ -54,8 +61,8 @@ export type MetricsV2 = {
 
   // Backwards compatibility for classification
   ts_add_pct?: number; // alias for ts_pct
-  sp?: number; // alias for pod_index
-  pac?: number; // alias for fpdt * 10 (approx)
+  sp?: number;         // alias for sp_pct (Carpigiani SP%)
+  pac?: number;        // alias for afp_index
 };
 
 export type CalcOptionsV2 = {

@@ -40,7 +40,7 @@ export const AIUsageCounter: React.FC<AIUsageCounterProps> = ({
         <div className="flex items-center gap-2 text-sm">
           <AlertCircle className="h-4 w-4 text-orange-600" />
           <span className="text-orange-900 dark:text-orange-100">
-            Unable to load AI usage
+           Unable to load AI usage
           </span>
         </div>
       </Card>
@@ -109,14 +109,14 @@ export const AIUsageCounter: React.FC<AIUsageCounterProps> = ({
               : 'bg-orange-50 dark:bg-orange-950/20 text-orange-600'
           }`}>
             {isAtLimit 
-              ? '⚠️ Rate limit reached. Try again in ~1 hour.'
-              : '⚠️ Running low on AI uses. Limit resets every hour.'}
+              ? ' Rate limit reached. Try again in ~1 hour.'
+              : ' Running low on AI uses. Limit resets every hour.'}
           </div>
         )}
 
         {/* Info */}
         <p className="text-xs text-muted-foreground">
-          Resets hourly • Includes suggestions, optimizations, and explanations
+         Resets hourly • Includes suggestions, optimizations, and explanations
         </p>
       </div>
     </Card>

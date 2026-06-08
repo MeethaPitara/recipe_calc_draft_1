@@ -128,7 +128,7 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
         columnMap['quantity'] = colIdx + 1;
       }
 
-      console.log(`📍 Recipe "${recipeName}" column map:`, columnMap);
+      console.log(` Recipe "${recipeName}" column map:`, columnMap);
 
       // Extract ingredient rows
       const ingredients: z.infer<typeof ImportRowSchema>[] = [];
@@ -140,8 +140,8 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
         // Stop if ingredient is empty, numeric, or looks like a total/header
         if (!ingredient || String(ingredient).trim() === '' ||
           /^\d+$/.test(String(ingredient).trim()) ||
-          String(ingredient).toLowerCase().includes('total') ||
-          String(ingredient).toLowerCase() === 'ingredient') {
+         String(ingredient).toLowerCase().includes('total') ||
+         String(ingredient).toLowerCase() === 'ingredient') {
           continue;
         }
 
@@ -168,7 +168,7 @@ const parseSideBySideFormat = (rows: any[][]): Map<string, z.infer<typeof Import
       if (ingredients.length > 0) {
         const uniqueName = recipeName + (recipesMap.has(recipeName) ? ` (${Date.now()})` : '');
         recipesMap.set(uniqueName, ingredients);
-        console.log(`✅ Extracted "${uniqueName}" with ${ingredients.length} ingredients`);
+        console.log(` Extracted "${uniqueName}" with ${ingredients.length} ingredients`);
       }
     }
   }
@@ -346,20 +346,20 @@ export default function Database() {
     setImportProgress(0);
 
     try {
-      console.log('📂 Starting CSV import with intelligent format detection...');
+      console.log(' Starting CSV import with intelligent format detection...');
 
-      Papa.parse(importFile, {
+     Papa.parse(importFile, {
         header: false,
         skipEmptyLines: false,
         complete: async (results) => {
           try {
             const allRows = results.data as any[][];
-            console.log(`📊 Parsed ${allRows.length} rows from CSV`);
-            console.log('📋 First 3 rows:', allRows.slice(0, 3));
+            console.log(` Parsed ${allRows.length} rows from CSV`);
+            console.log(' First 3 rows:', allRows.slice(0, 3));
 
             // Detect file format
             const format = detectFileFormat(allRows);
-            console.log(`🔍 Detected format: ${format}`);
+            console.log(` Detected format: ${format}`);
 
             let recipesMap = new Map<string, z.infer<typeof ImportRowSchema>[]>();
 
@@ -371,7 +371,7 @@ export default function Database() {
               throw new Error('Unable to detect CSV format. Your file may have a complex layout. Try the sample template format.');
             }
 
-            console.log(`✅ Extracted ${recipesMap.size} recipes`);
+            console.log(` Extracted ${recipesMap.size} recipes`);
 
             if (recipesMap.size === 0) {
               throw new Error(`No valid recipes found in CSV. Please check your file format.`);
@@ -386,7 +386,7 @@ export default function Database() {
 
             for (const [recipeName, rows] of recipesMap.entries()) {
               try {
-                console.log(`💾 Importing recipe: ${recipeName}`);
+                console.log(` Importing recipe: ${recipeName}`);
 
                 // Calculate metrics
                 const totals = rows.reduce((acc, r) => ({
@@ -438,9 +438,9 @@ export default function Database() {
 
                 imported++;
                 setImportProgress((imported / total) * 100);
-                console.log(`✅ Imported recipe "${recipeName}" (${imported}/${total})`);
+                console.log(` Imported recipe "${recipeName}" (${imported}/${total})`);
               } catch (error: any) {
-                console.error(`❌ Failed to import "${recipeName}":`, error.message);
+                console.error(` Failed to import "${recipeName}":`, error.message);
               }
             }
 
@@ -453,7 +453,7 @@ export default function Database() {
 
             setImportFile(null);
           } catch (error: any) {
-            console.error('❌ Import error:', error);
+            console.error(' Import error:', error);
             toast({
               title: 'Import Failed',
               description: error.message,
@@ -559,10 +559,10 @@ export default function Database() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <DatabaseIcon className="h-8 w-8" />
-            Database Manager
+           Database Manager
           </h1>
           <p className="text-muted-foreground">
-            Import, train, and manage recipe data - supports complex CSV layouts
+           Import, train, and manage recipe data - supports complex CSV layouts
           </p>
         </div>
       </div>
@@ -571,7 +571,7 @@ export default function Database() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            You must be logged in. Please <Link to="/auth" className="font-medium underline">sign in</Link>.
+           You must be logged in. Please <Link to="/auth" className="font-medium underline">sign in</Link>.
           </AlertDescription>
         </Alert>
       )}
@@ -594,7 +594,7 @@ export default function Database() {
           <CardContent>
             <div className="text-2xl font-bold">{stats?.successfulOutcomes || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {stats?.mlReady ? '✓ Ready for training' : '✗ Need 5+ recipes'}
+              {stats?.mlReady ? ' Ready for training' : ' Need 5+ recipes'}
             </p>
           </CardContent>
         </Card>
@@ -615,8 +615,8 @@ export default function Database() {
 
       <Tabs defaultValue="ai-import" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="ai-import">🤖 AI Import</TabsTrigger>
-          <TabsTrigger value="recipe-import">📋 Recipe Import</TabsTrigger>
+          <TabsTrigger value="ai-import"> AI Import</TabsTrigger>
+          <TabsTrigger value="recipe-import"> Recipe Import</TabsTrigger>
           <TabsTrigger value="import">Manual Import</TabsTrigger>
           <TabsTrigger value="recipes">View Recipes</TabsTrigger>
           <TabsTrigger value="train">ML Training</TabsTrigger>
@@ -635,14 +635,14 @@ export default function Database() {
             <CardHeader>
               <CardTitle>Import CSV Data</CardTitle>
               <CardDescription>
-                Supports both simple and complex multi-recipe CSV layouts. Missing nutritional columns will be filled with 0.
+               Supports both simple and complex multi-recipe CSV layouts. Missing nutritional columns will be filled with 0.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>✅ Supports your complex CSV files!</strong>
+                  <strong> Supports your complex CSV files!</strong>
                   <br />
                   • Works with side-by-side recipe layouts (like your MP_recipes.csv)
                   <br />
@@ -672,7 +672,7 @@ export default function Database() {
               <div className="flex gap-2">
                 <Button onClick={handleImportCSV} disabled={!importFile || isImporting}>
                   {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                  Import CSV
+                 Import CSV
                 </Button>
                 <Button
                   variant="outline"
@@ -704,11 +704,11 @@ export default function Database() {
                   }}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download Sample
+                 Download Sample
                 </Button>
                 <Button variant="outline" onClick={handleExportData} disabled={!isAuthenticated}>
                   <Download className="mr-2 h-4 w-4" />
-                  Export All Data
+                 Export All Data
                 </Button>
               </div>
             </CardContent>
@@ -795,7 +795,7 @@ export default function Database() {
 
               <Button onClick={handleTrainModel} disabled={!stats?.mlReady || isTraining} className="w-full">
                 {isTraining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
-                Train Model Now
+               Train Model Now
               </Button>
 
               <div className="border-t pt-4">
@@ -824,7 +824,7 @@ export default function Database() {
                           }
                         }}
                       >
-                        Mark Success
+                       Mark Success
                       </Button>
                     </div>
                   ))}

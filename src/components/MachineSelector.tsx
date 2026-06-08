@@ -91,7 +91,7 @@ export default function MachineSelector({
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           )}
           <span className="text-sm font-medium">
-            Recipe {validation.valid ? 'Compatible' : 'Needs Attention'}
+           Recipe {validation.valid ? 'Compatible' : 'Needs Attention'}
           </span>
         </div>
 
@@ -151,7 +151,7 @@ export default function MachineSelector({
 
       <div className="text-xs text-muted-foreground bg-muted rounded p-2">
         <strong>Tip:</strong> Batch freezers excel at dense, artisanal textures. 
-        Continuous freezers provide consistent overrun and faster production.
+       Continuous freezers provide consistent overrun and faster production.
       </div>
     </Card>
   );

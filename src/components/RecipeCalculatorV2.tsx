@@ -12,11 +12,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { apiPost, apiPut, apiGet, apiDelete } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Save, Trash2, Calculator, Loader2, Search, Zap, BookOpen, Bug, History, HelpCircle, CheckCircle, AlertCircle, Wand2, Brain, Check, X, FileDown, GitCompare, Sparkles, MoreVertical, FilePlus, FolderOpen } from 'lucide-react';
+import { Plus, Save, Trash2, Calculator, Loader2, Search, Zap, BookOpen, Bug, History, HelpCircle, CheckCircle, AlertCircle, Wand2, Brain, Check, X, FileDown, GitCompare, Sparkles, MoreVertical, FilePlus, FolderOpen, Lock, Beaker } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SmartIngredientSearch } from '@/components/SmartIngredientSearch';
 import { RecipeTemplates, resolveTemplateIngredients } from '@/components/RecipeTemplates';
 import { AddIngredientDialog } from '@/components/AddIngredientDialog';
@@ -29,6 +29,7 @@ import { RecipeBalancerV2, ScienceValidation, PRODUCT_CONSTRAINTS } from '@/lib/
 import { diagnoseBalancingFailure, checkDbHealth } from '@/lib/ingredientMapper';
 import { diagnoseFeasibility, Feasibility, applyAutoFix } from '@/lib/diagnostics';
 import { ScienceValidationPanel } from '@/components/ScienceValidationPanel';
+import { MetricsDisplayV2 } from '@/components/MetricsDisplayV2';
 import type { Mode } from '@/types/mode';
 import { resolveMode } from '@/lib/mode';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -60,6 +61,7 @@ import { OptimizerPanel } from '@/components/calculator/OptimizerPanel';
 import { resolveProductKey } from '@/lib/mode';
 import type { IngredientRow, BalancingSuggestion } from '@/types/calculator';
 import { BalancingSuggestionsDialog } from '@/components/recipe/BalancingSuggestionsDialog';
+import { TrialRecorder } from '@/components/recipe/TrialRecorder';
 
 // Local productKey helper that uses the centralized resolver
 import { getTargets } from './TargetPresets';
@@ -70,19 +72,21 @@ function productKey(mode: Mode, rows: IngredientRow[]): string {
 
 interface RecipeCalculatorV2Props {
   onRecipeChange?: (recipe: any[], metrics: MetricsV2 | null, productType: string) => void;
-  externalRecipe?: { rows: IngredientRow[], name: string, type: string, id: string } | null;
+  externalRecipe?: { rows: IngredientRow[], name: string, type: string, id: string, isProductionLocked?: boolean, versionNumber?: number, tags?: string[] } | null;
   onOpenLibrary?: () => void;
   onOpenSave?: () => void;
   onNewRecipe?: () => void;
 }
 
 // PHASE 1: Simplified Quantity Input - Direct controlled input with no buffering
-const QuantityInput = ({ value, onChange, step, rowIndex, className }: {
+const QuantityInput = ({ value, onChange, step, rowIndex, className, id, disabled }: {
   value: number;
   onChange: (val: number) => void;
   step: number;
   rowIndex: number;
   className?: string;
+  id?: string;
+  disabled?: boolean;
 }) => {
   // Local state to handle typing (allows "1." or empty string)
   const [localValue, setLocalValue] = useState<string>(value.toString());
@@ -130,28 +134,43 @@ const QuantityInput = ({ value, onChange, step, rowIndex, className }: {
 
   return (
     <Input
+      id={id}
       type="number"
       inputMode="decimal"
       step={step}
+      disabled={disabled}
       value={localValue}
       onChange={handleChange}
       onBlur={handleBlur}
       onKeyDown={(e) => {
         if (e.key === 'ArrowUp') {
-          // Let native behavior work or handle manually?
-          // specific request was "allow typing", removing strict key handler might be safer
-          // but let's keep manual to ensure step size is respected if needed.
           e.preventDefault();
-          const current = parseFloat(localValue) || 0;
-          const next = current + step;
-          onChange(next);
-          setLocalValue(next.toString());
-        } else if (e.key === 'ArrowDown') {
+          const prevInput = document.getElementById(`quantity-input-${rowIndex - 1}`);
+          if (prevInput) prevInput.focus();
+          else {
+             // Fallback to stepping value if no previous row
+             const current = parseFloat(localValue) || 0;
+             const next = current + step;
+             onChange(next);
+             setLocalValue(next.toString());
+          }
+        } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
           e.preventDefault();
-          const current = parseFloat(localValue) || 0;
-          const next = Math.max(0, current - step);
-          onChange(next);
-          setLocalValue(next.toString());
+          const nextInput = document.getElementById(`quantity-input-${rowIndex + 1}`);
+          if (nextInput) {
+             nextInput.focus();
+             if (e.key === 'Enter') {
+                // Also trigger blur behavior implicitly if needed, handled by native blur
+             }
+          } else {
+             // Fallback to stepping value if no next row, only for ArrowDown
+             if (e.key === 'ArrowDown') {
+                 const current = parseFloat(localValue) || 0;
+                 const next = Math.max(0, current - step);
+                 onChange(next);
+                 setLocalValue(next.toString());
+             }
+          }
         }
       }}
       className={cn("text-lg font-semibold", className)}
@@ -171,6 +190,11 @@ export default function RecipeCalculatorV2({
   const [recipeName, setRecipeName] = useState('');
   const [productType, setProductType] = useState('ice_cream');
   const [rows, setRows] = useState<IngredientRow[]>([]);
+  
+  // History state for Undo/Redo
+  const [pastHistory, setPastHistory] = useState<{name: string, type: string, rows: IngredientRow[]}[]>([]);
+  const [futureHistory, setFutureHistory] = useState<{name: string, type: string, rows: IngredientRow[]}[]>([]);
+
   const [metrics, setMetrics] = useState<MetricsV2 | null>(null);
   const [targetBatchSize, setTargetBatchSize] = useState<number | null>(null);
   const [targetBatchSizeStr, setTargetBatchSizeStr] = useState<string | null>(null);
@@ -206,6 +230,7 @@ export default function RecipeCalculatorV2({
   const [highlightedRow, setHighlightedRow] = React.useState<number | null>(null);
   const [showOptimizerPanel, setShowOptimizerPanel] = React.useState(false);
   const [showTemplatesDialog, setShowTemplatesDialog] = React.useState(false);
+  const [showTrialRecorder, setShowTrialRecorder] = React.useState(false);
 
 
   // Helper function to load base sets
@@ -380,7 +405,7 @@ export default function RecipeCalculatorV2({
       setIsAuthenticated(!!session);
       // Auto-refetch ingredients after authentication
       if (session && availableIngredients.length === 0) {
-        console.log("🔄 Refetching ingredients after auth...");
+        console.log(" Refetching ingredients after auth...");
         refetchIngredients();
       }
     });
@@ -442,11 +467,116 @@ export default function RecipeCalculatorV2({
     }
   }, [rows, metrics, productType, onRecipeChange]);
 
+  // History Helper: Push current state to past and clear future
+  const saveHistoryState = (currentRows: IngredientRow[], name: string, type: string) => {
+    setPastHistory(prev => [...prev, { name, type, rows: currentRows }].slice(-20)); // Keep last 20 states
+    setFutureHistory([]);
+  };
+
+  // Wrapper for setRows to automatically save history
+  const setRowsWithHistory = (newRowsOrUpdater: React.SetStateAction<IngredientRow[]>) => {
+    setRows(prevRows => {
+      const newRows = typeof newRowsOrUpdater === 'function' ? (newRowsOrUpdater as any)(prevRows) : newRowsOrUpdater;
+      // Deep compare or just save on every change? We'll save on every update action.
+      // But we must do it outside the render phase. Actually, we should call saveHistoryState in the handlers before calling setRows.
+      return newRows;
+    });
+  };
+
+  // Undo/Redo actions
+  const handleUndo = () => {
+    if (pastHistory.length === 0) return;
+    const previous = pastHistory[pastHistory.length - 1];
+    setFutureHistory(prev => [{ name: recipeName, type: productType, rows }, ...prev]);
+    setPastHistory(prev => prev.slice(0, prev.length - 1));
+    setRows(previous.rows);
+    setRecipeName(previous.name);
+    setProductType(previous.type);
+    toast({ title: 'Undo', description: 'Reverted last change', duration: 1500 });
+  };
+
+  const handleRedo = () => {
+    if (futureHistory.length === 0) return;
+    const next = futureHistory[0];
+    setPastHistory(prev => [...prev, { name: recipeName, type: productType, rows }]);
+    setFutureHistory(prev => prev.slice(1));
+    setRows(next.rows);
+    setRecipeName(next.name);
+    setProductType(next.type);
+    toast({ title: 'Redo', description: 'Restored change', duration: 1500 });
+  };
+
+  // Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pastHistory, futureHistory, recipeName, productType, rows]);
+
+  // Autosave to localStorage
+  useEffect(() => {
+    // Skip if external recipe is being loaded or if it's empty
+    if (rows.length === 0 && !recipeName) return;
+    
+    // Don't autosave while loading external recipe (to prevent immediate overwrite)
+    if (currentRecipeId && !currentRecipeId.startsWith('new-')) return;
+
+    const timer = setTimeout(() => {
+      const draft = {
+        name: recipeName,
+        type: productType,
+        rows: rows,
+        timestamp: new Date().getTime()
+      };
+      localStorage.setItem('meetha-draft-recipe', JSON.stringify(draft));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [rows, recipeName, productType, currentRecipeId]);
+
+  // Load Autosave on initial mount
+  useEffect(() => {
+    if (!externalRecipe && rows.length === 0 && availableIngredients.length > 0) {
+      const draftStr = localStorage.getItem('meetha-draft-recipe');
+      if (draftStr) {
+        try {
+          const draft = JSON.parse(draftStr);
+          // Only load if recent (e.g. less than 7 days old)
+          if (new Date().getTime() - draft.timestamp < 7 * 24 * 60 * 60 * 1000) {
+            
+            // Re-hydrate ingredientData from availableIngredients
+            const hydratedRows = draft.rows.map((row: any) => {
+               const found = availableIngredients.find(i => i.id === row.ingredientData?.id || i.name === row.ingredient);
+               return found ? { ...row, ingredientData: found } : row;
+            });
+
+            setRows(hydratedRows);
+            setRecipeName(draft.name);
+            setProductType(draft.type);
+            setCurrentRecipeId('new-draft');
+            toast({ title: 'Draft Recovered', description: 'Loaded your unsaved recipe draft.' });
+          }
+        } catch (e) {
+          console.error('Failed to parse autosave draft', e);
+        }
+      }
+    }
+  }, [availableIngredients]); // Run once when ingredients load
+
   // Sync with external recipe (loaded from library)
   // Sync with external recipe (loaded from library)
   useEffect(() => {
     if (externalRecipe && availableIngredients.length > 0) {
-      console.log("📥 Loading external recipe:", externalRecipe.name);
+      console.log(" Loading external recipe:", externalRecipe.name);
 
       const hydratedRows = externalRecipe.rows.map(row => {
         // Try to find by name match (case insensitive)
@@ -557,13 +687,16 @@ export default function RecipeCalculatorV2({
         default: return "";
       }
     }
-    return "✓ Within optimal range for great texture and scoopability";
+    return " Within optimal range for great texture and scoopability";
   };
 
 
 
   const addRow = () => {
+    if (externalRecipe?.isProductionLocked) return;
+    saveHistoryState(rows, recipeName, productType);
     setRows([...rows, {
+      id: Math.random().toString(36).substring(7),
       ingredient: '',
       quantity_g: 0,
       sugars_g: 0,
@@ -575,7 +708,78 @@ export default function RecipeCalculatorV2({
   };
 
   const removeRow = (index: number) => {
+    if (externalRecipe?.isProductionLocked) return;
+    saveHistoryState(rows, recipeName, productType);
     setRows(rows.filter((_, i) => i !== index));
+  };
+
+  const duplicateRow = (index: number) => {
+    if (externalRecipe?.isProductionLocked) return;
+    saveHistoryState(rows, recipeName, productType);
+    const rowToDuplicate = rows[index];
+    const newRow = {
+      ...rowToDuplicate,
+      id: Math.random().toString(36).substring(7)
+    };
+    const newRows = [...rows];
+    newRows.splice(index + 1, 0, newRow);
+    setRows(newRows);
+    toast({ title: 'Row Duplicated', duration: 1500 });
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData('text/plain');
+    if (!text) return;
+    
+    // Parse rows separated by newline
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return;
+
+    let addedCount = 0;
+    const newRows = [...rows];
+
+    for (const line of lines) {
+      // Split by tab or comma
+      const parts = line.split(/\t|,/);
+      if (parts.length >= 2) {
+        const name = parts[0].trim();
+        const gramsStr = parts[1].trim().replace(/[^0-9.]/g, ''); // Extract numbers
+        const grams = parseFloat(gramsStr);
+
+        if (name && !isNaN(grams)) {
+          // Try to match with DB
+          let matchedData = availableIngredients.find(
+            ing => ing.name.toLowerCase() === name.toLowerCase()
+          );
+
+          if (!matchedData) {
+            // Fuzzy match logic could go here, or just let it be unmatched
+            // We'll create it without ingredientData to show the 'Not from DB' warning
+          }
+
+          const qty = grams;
+          newRows.push({
+            id: Math.random().toString(36).substring(7),
+            ingredient: matchedData ? matchedData.name : name,
+            ingredientData: matchedData,
+            quantity_g: qty,
+            sugars_g: matchedData ? ((matchedData.sugars_pct ?? 0) / 100) * qty : 0,
+            fat_g: matchedData ? ((matchedData.fat_pct ?? 0) / 100) * qty : 0,
+            msnf_g: matchedData ? ((matchedData.msnf_pct ?? 0) / 100) * qty : 0,
+            other_solids_g: matchedData ? ((matchedData.other_solids_pct ?? 0) / 100) * qty : 0,
+            total_solids_g: matchedData ? (((matchedData.sugars_pct ?? 0) + (matchedData.fat_pct ?? 0) + (matchedData.msnf_pct ?? 0) + (matchedData.other_solids_pct ?? 0)) / 100) * qty : 0
+          });
+          addedCount++;
+        }
+      }
+    }
+
+    if (addedCount > 0) {
+      saveHistoryState(rows, recipeName, productType);
+      setRows(newRows);
+      toast({ title: 'Pasted successfully', description: `Added ${addedCount} ingredients` });
+      e.preventDefault(); // Prevent default paste in input if triggered there
+    }
   };
 
   const loadTemplate = (template: any) => {
@@ -667,13 +871,18 @@ export default function RecipeCalculatorV2({
     setShowTemplates(false);
   };
 
-  const updateRow = (index: number, field: keyof IngredientRow, value: string | number) => {
+  const updateRow = (index: number, field: keyof IngredientRow, value: string | number | boolean) => {
+    // Save history only for meaningful changes, maybe debounce? We'll just save it before setRows
+    saveHistoryState(rows, recipeName, productType);
     setRows(prevRows => {
       const newRows = [...prevRows];
 
       // Validate numeric input
-      let numericValue = typeof value === 'number' ? value : parseFloat(value);
-      if (isNaN(numericValue) || !isFinite(numericValue) || numericValue < 0) {
+      let numericValue: any = value;
+      if (typeof value === 'string' && field !== 'ingredient' && field !== 'id' && field !== 'lockMode') {
+         numericValue = parseFloat(value);
+      }
+      if (typeof numericValue === 'number' && (isNaN(numericValue) || !isFinite(numericValue) || numericValue < 0)) {
         numericValue = 0;
       }
 
@@ -685,7 +894,7 @@ export default function RecipeCalculatorV2({
         const ing = newRows[index].ingredientData!;
         const qty = numericValue;
 
-        console.log(`📝 UpdateRow[${index}]: quantity_g changed`, {
+        console.log(` UpdateRow[${index}]: quantity_g changed`, {
           ingredient: ing.name,
           oldQty: oldValue,
           newQty: qty,
@@ -698,7 +907,7 @@ export default function RecipeCalculatorV2({
         newRows[index].other_solids_g = ((ing.other_solids_pct ?? 0) / 100) * qty;
         newRows[index].total_solids_g = newRows[index].sugars_g + newRows[index].fat_g + newRows[index].msnf_g + newRows[index].other_solids_g;
       } else if (field === 'quantity_g') {
-        console.log(`⚠️ UpdateRow[${index}]: quantity_g changed but no ingredientData`, {
+        console.log(` UpdateRow[${index}]: quantity_g changed but no ingredientData`, {
           ingredient: newRows[index].ingredient,
           qty: numericValue
         });
@@ -710,8 +919,9 @@ export default function RecipeCalculatorV2({
   };
 
   const handleIngredientSelect = (index: number, ingredient: IngredientData) => {
-    console.log('🔄 handleIngredientSelect called:', { index, ingredientName: ingredient.name });
+    console.log(' handleIngredientSelect called:', { index, ingredientName: ingredient.name });
 
+    saveHistoryState(rows, recipeName, productType);
     const newRows = [...rows];
     newRows[index].ingredient = ingredient.name;
     newRows[index].ingredientData = ingredient;
@@ -737,12 +947,12 @@ export default function RecipeCalculatorV2({
     setTimeout(() => setHighlightedRow(null), 2000);
 
     toast({
-      title: '✓ Ingredient Updated',
+      title: ' Ingredient Updated',
       description: `${ingredient.name} selected for row ${index + 1}`,
       duration: 2000,
     });
 
-    console.log('✅ Ingredient selected successfully:', ingredient.name);
+    console.log(' Ingredient selected successfully:', ingredient.name);
   };
 
   // Export recipe as PDF
@@ -807,13 +1017,13 @@ export default function RecipeCalculatorV2({
     doc.save(`${recipeName || 'recipe'}.pdf`);
 
     toast({
-      title: '✓ PDF Exported',
+      title: ' PDF Exported',
       description: 'Recipe has been downloaded as PDF',
     });
   };
 
   const calculateMetrics = async () => {
-    console.log('📊 calculateMetrics called manually');
+    console.log(' calculateMetrics called manually');
     const validRows = rows.filter(r => r.ingredientData && r.quantity_g > 0);
 
     if (validRows.length === 0) {
@@ -837,7 +1047,7 @@ export default function RecipeCalculatorV2({
 
     setMetrics(calculated);
 
-    console.log('✅ Metrics calculated', {
+    console.log(' Metrics calculated', {
       fat_pct: calculated.fat_pct.toFixed(2),
       msnf_pct: calculated.msnf_pct.toFixed(2),
       warnings: calculated.warnings.length
@@ -851,14 +1061,14 @@ export default function RecipeCalculatorV2({
       });
     } else {
       toast({
-        title: 'Recipe Balanced ✅',
+        title: 'Recipe Balanced ',
         description: 'All parameters within target ranges'
       });
     }
   };
 
   const balanceRecipe = async () => {
-    console.log('⚖ balanceRecipe called');
+    console.log(' balanceRecipe called');
     console.log(`  Rows: ${rows.length}`);
     console.log(`  Has metrics: ${!!metrics}`);
     console.log(`  Product type: ${productType}`);
@@ -867,7 +1077,7 @@ export default function RecipeCalculatorV2({
     const rowsWithoutData = rows.filter(r => !r.ingredientData && r.ingredient).length;
 
     if (!metrics) {
-      console.warn('⚠ balanceRecipe blocked: no metrics. User must calculate first.');
+      console.warn(' balanceRecipe blocked: no metrics. User must calculate first.');
       toast({
         title: "Calculate metrics first",
         description: "Click the Calculate button to update your mix metrics before balancing.",
@@ -877,7 +1087,7 @@ export default function RecipeCalculatorV2({
     }
 
     if (validRows.length === 0) {
-      console.warn('⚠ balanceRecipe blocked: no valid rows with ingredientData.');
+      console.warn(' balanceRecipe blocked: no valid rows with ingredientData.');
       if (rowsWithoutData > 0) {
         toast({
           title: "No valid ingredients",
@@ -894,7 +1104,7 @@ export default function RecipeCalculatorV2({
       return;
     }
 
-    console.log('🔧 Starting balancing process...', {
+    console.log(' Starting balancing process...', {
       rowCount: rows.length,
       productType,
       availableIngredientsCount: availableIngredients.length
@@ -938,7 +1148,7 @@ export default function RecipeCalculatorV2({
               fpdt: 2.25              // Target 2.25°C FPDT (2.0-2.5°C range)
             };
 
-      console.log('🎯 Balancing targets:', targets);
+      console.log(' Balancing targets:', targets);
 
       // Diagnose BEFORE attempting balance
       const optRows: Row[] = rows
@@ -970,11 +1180,11 @@ export default function RecipeCalculatorV2({
       const prepassFeasibility: Feasibility = diagnoseFeasibility(optRows, availableIngredients, targets, mode);
 
       if (!prepassFeasibility.feasible && prepassFeasibility.missingCanonicals && prepassFeasibility.missingCanonicals.length > 0) {
-        console.log('🛠️ Running gentle prepass auto-fix...');
+        console.log(' Running gentle prepass auto-fix...');
         const prepassAutoFix = applyAutoFix(optRows, availableIngredients, mode, prepassFeasibility);
 
         if (prepassAutoFix.applied) {
-          console.log('✅ Prepass auto-fix applied:', prepassAutoFix.addedIngredients);
+          console.log(' Prepass auto-fix applied:', prepassAutoFix.addedIngredients);
 
           // Add prepass ingredients to optRows
           prepassAutoFix.addedIngredients.forEach(added => {
@@ -999,7 +1209,7 @@ export default function RecipeCalculatorV2({
           });
 
           toast({
-            title: '🛠️ Gentle Prepass Applied',
+            title: ' Gentle Prepass Applied',
             description: (
               <ul className="text-xs space-y-1">
                 {prepassAutoFix.addedIngredients.map((a, i) => (
@@ -1017,13 +1227,13 @@ export default function RecipeCalculatorV2({
       const feasibility: Feasibility = diagnoseFeasibility(optRows, availableIngredients, targets, mode);
 
       if (!feasibility.feasible) {
-        console.log('❌ Feasibility check FAILED:', feasibility.reason);
+        console.log(' Feasibility check FAILED:', feasibility.reason);
 
         // Try auto-fix before giving up
         const autoFix = applyAutoFix(optRows, availableIngredients, mode, feasibility);
 
         if (autoFix.applied) {
-          console.log('🛠️ Auto-fix applied:', autoFix.addedIngredients);
+          console.log(' Auto-fix applied:', autoFix.addedIngredients);
 
           // Add auto-fixed ingredients to optRows
           autoFix.addedIngredients.forEach(added => {
@@ -1060,14 +1270,14 @@ export default function RecipeCalculatorV2({
           });
 
           // Continue to balancing with fixed recipe...
-          console.log('✅ Proceeding with auto-fixed recipe');
+          console.log(' Proceeding with auto-fixed recipe');
         } else {
           // Only stop if auto-fix couldn't help
-          console.log('❌ Auto-fix could not help');
+          console.log(' Auto-fix could not help');
           setIsOptimizing(false);
 
           toast({
-            title: "⚠️ Cannot balance this recipe",
+            title: " Cannot balance this recipe",
             description: (
               <div className="text-sm space-y-2">
                 {feasibility.reason && (
@@ -1075,7 +1285,7 @@ export default function RecipeCalculatorV2({
                     {feasibility.reason}
                   </div>
                 )}
-                <div className="text-xs font-semibold mb-1">💡 To fix this:</div>
+                <div className="text-xs font-semibold mb-1"> To fix this:</div>
                 <ul className="text-xs space-y-1">
                   {feasibility.suggestions.slice(0, 4).map((s, i) => (
                     <li key={i} className="flex items-start gap-1">
@@ -1094,9 +1304,9 @@ export default function RecipeCalculatorV2({
         }
       }
 
-      console.log('✅ Feasibility check passed');
+      console.log(' Feasibility check passed');
 
-      console.log('📊 Recipe ingredients:', optRows.map(r => ({
+      console.log(' Recipe ingredients:', optRows.map(r => ({
         name: r.ing.name,
         grams: r.grams,
         fat_pct: r.ing.fat_pct,
@@ -1114,11 +1324,11 @@ export default function RecipeCalculatorV2({
       }
 
       // Use the new V2 balancing engine with multi-role classification and substitution rules
-      console.log('⚙️ Calling RecipeBalancerV2.balance...');
+      console.log(' Calling RecipeBalancerV2.balance...');
       const calcMode = resolveMode(productType);
       const tolerance = calcMode === 'ice_cream' ? 3.0 : 2.0;
 
-      console.log('🎯 Balancing with:', {
+      console.log(' Balancing with:', {
         tolerance,
         calcMode,
         targets,
@@ -1136,7 +1346,7 @@ export default function RecipeCalculatorV2({
         allowCoreDairy: true  // Allow adjusting milk/cream during balancing
       });
 
-      console.log('✅ Balancing result:', {
+      console.log(' Balancing result:', {
         success: result.success,
         strategy: result.strategy,
         iterations: result.iterations,
@@ -1145,7 +1355,7 @@ export default function RecipeCalculatorV2({
 
       // PHASE 2: Enhanced error messages with actionable structured suggestions
       if (!result.success) {
-        console.log('❌ Balancing failed, generating suggestions...');
+        console.log(' Balancing failed, generating suggestions...');
         const currentMetrics = await calcMetricsV2(optRows, { mode: calcMode });
         const structuredSuggestions: BalancingSuggestion[] = [];
 
@@ -1154,7 +1364,7 @@ export default function RecipeCalculatorV2({
         const msnfGap = targets.msnf_pct - currentMetrics.msnf_pct;
         const sugarGap = targets.totalSugars_pct - currentMetrics.totalSugars_pct;
 
-        console.log('📊 Gaps:', { fatGap, msnfGap, sugarGap });
+        console.log(' Gaps:', { fatGap, msnfGap, sugarGap });
 
         // Generate actionable suggestions with ingredient IDs
         if (Math.abs(fatGap) > 2) {
@@ -1213,7 +1423,7 @@ export default function RecipeCalculatorV2({
           }
         }
 
-        console.log('💡 Generated suggestions:', structuredSuggestions);
+        console.log(' Generated suggestions:', structuredSuggestions);
 
         // Show structured suggestions dialog instead of toast
         showBalancingSuggestionsDialog(structuredSuggestions, currentMetrics, targets);
@@ -1224,7 +1434,7 @@ export default function RecipeCalculatorV2({
       // Success - show original toast logic
       if (result.success) {
         toast({
-          title: '✅ Recipe Balanced',
+          title: ' Recipe Balanced',
           description: `Successfully balanced using ${result.strategy}`,
           duration: 15000
         });
@@ -1268,7 +1478,7 @@ export default function RecipeCalculatorV2({
         const recalculatedMetrics = await calcMetricsV2(recalcRows, { mode: recalcMode });
 
         setMetrics(recalculatedMetrics);
-        console.log('🔄 Metrics auto-recalculated post-balance:', recalculatedMetrics);
+        console.log(' Metrics auto-recalculated post-balance:', recalculatedMetrics);
 
         // PHASE 2: Scroll metrics into view with highlight animation
         setTimeout(() => {
@@ -1301,8 +1511,8 @@ export default function RecipeCalculatorV2({
 
         if (result.success) {
           const successMsg = mode === 'sorbet'
-            ? '✅ Sorbet Balanced (no dairy)'
-            : `✅ ${mode === 'ice_cream' ? 'Ice Cream' : mode === 'gelato' ? 'Gelato' : 'Kulfi'} Balanced`;
+            ? ' Sorbet Balanced (no dairy)'
+            : ` ${mode === 'ice_cream' ? 'Ice Cream' : mode === 'gelato' ? 'Gelato' : 'Kulfi'} Balanced`;
 
           toast({
             title: `${successMsg} (${result.strategy})`,
@@ -1316,7 +1526,7 @@ export default function RecipeCalculatorV2({
                   <div className="text-xs opacity-60">+ {result.adjustmentsSummary.length - 3} more adjustments</div>
                 )}
                 <div className="text-xs opacity-70 mt-1">
-                  Iterations: {result.iterations}
+                 Iterations: {result.iterations}
                 </div>
               </div>
             )
@@ -1326,7 +1536,7 @@ export default function RecipeCalculatorV2({
           const suggestions = result.adjustmentsSummary || [];
 
           toast({
-            title: `⚠️ ${result.message}`,
+            title: ` ${result.message}`,
             description: (
               <div className="space-y-2 text-sm">
                 {feasibility?.reason && (
@@ -1335,7 +1545,7 @@ export default function RecipeCalculatorV2({
 
                 {suggestions.length > 0 && (
                   <div className="mt-2">
-                    <div className="text-xs font-semibold mb-1">💡 To fix this:</div>
+                    <div className="text-xs font-semibold mb-1"> To fix this:</div>
                     <ul className="text-xs space-y-1">
                       {suggestions.slice(0, 4).map((sug, i) => (
                         <li key={i} className="flex items-start gap-1">
@@ -1365,7 +1575,7 @@ export default function RecipeCalculatorV2({
         }
       }, 100);
     } catch (error: any) {
-      console.error('❌ Balancing error:', error);
+      console.error(' Balancing error:', error);
       console.error('Error stack:', error?.stack);
       toast({
         title: 'Optimization failed',
@@ -1389,7 +1599,7 @@ export default function RecipeCalculatorV2({
 
   // PHASE 2: Apply a single suggestion - with auto-create missing ingredients
   const applySuggestion = async (suggestion: BalancingSuggestion) => {
-    console.log(`🔍 Applying suggestion: ${suggestion.ingredientName} (${suggestion.ingredientId})`);
+    console.log(` Applying suggestion: ${suggestion.ingredientName} (${suggestion.ingredientId})`);
 
     // Enhanced ingredient matching with canonical aliases
     const aliases: Record<string, string[]> = {
@@ -1407,7 +1617,7 @@ export default function RecipeCalculatorV2({
 
       // Exact match
       if (ing.name.toLowerCase() === suggestion.ingredientName.toLowerCase()) {
-        console.log('  ✅ Exact match');
+        console.log('   Exact match');
         return true;
       }
 
@@ -1417,12 +1627,12 @@ export default function RecipeCalculatorV2({
         ing.name.toLowerCase().includes(term.toLowerCase())
       );
 
-      if (matched) console.log('  ✅ Alias match');
+      if (matched) console.log('   Alias match');
       return matched;
     });
 
     if (!ingredient) {
-      console.log('  ❌ Ingredient not found in database');
+      console.log('   Ingredient not found in database');
 
       // Default compositions for common ingredients
       const defaultCompositions: Record<string, any> = {
@@ -1437,7 +1647,7 @@ export default function RecipeCalculatorV2({
       const defaults = defaultCompositions[suggestion.ingredientId];
 
       if (defaults) {
-        console.log('  🔧 Auto-creating ingredient with defaults:', defaults);
+        console.log('   Auto-creating ingredient with defaults:', defaults);
 
         // Auto-create ingredient in database
         try {
@@ -1452,7 +1662,7 @@ export default function RecipeCalculatorV2({
             description: `${newIng.name} has been added to the database.`,
           });
 
-          console.log('  ✅ Ingredient auto-created:', newIng);
+          console.log('   Ingredient auto-created:', newIng);
 
           // Refresh ingredients list
           await refetchIngredients();
@@ -1462,9 +1672,9 @@ export default function RecipeCalculatorV2({
           return;
 
         } catch (error: any) {
-          console.error('  ❌ Failed to auto-create:', error);
+          console.error('   Failed to auto-create:', error);
           toast({
-            title: '❌ Failed to add ingredient',
+            title: ' Failed to add ingredient',
             description: error?.message || 'Please add it manually from the ingredient database',
             variant: 'destructive'
           });
@@ -1474,7 +1684,7 @@ export default function RecipeCalculatorV2({
 
       // Fallback: show manual add dialog
       toast({
-        title: '❌ Ingredient Not Found',
+        title: ' Ingredient Not Found',
         description: `"${suggestion.ingredientName}" is not in your database. Please add it manually.`,
         variant: 'destructive',
         duration: 6000
@@ -1493,7 +1703,7 @@ export default function RecipeCalculatorV2({
       updateRow(existingRowIndex, 'quantity_g', newQty);
 
       toast({
-        title: '✅ Suggestion Applied',
+        title: ' Suggestion Applied',
         description: `Increased ${ingredient.name} from ${currentQty.toFixed(0)}g to ${newQty.toFixed(0)}g`,
         duration: 3000
       });
@@ -1514,7 +1724,7 @@ export default function RecipeCalculatorV2({
       setRows(prev => [...prev, newRow]);
 
       toast({
-        title: '✅ Suggestion Applied',
+        title: ' Suggestion Applied',
         description: `Added ${qty.toFixed(0)}g ${ingredient.name} to recipe`,
         duration: 3000
       });
@@ -1532,7 +1742,7 @@ export default function RecipeCalculatorV2({
     setShowSuggestionsDialog(false);
 
     toast({
-      title: '✨ All Suggestions Applied',
+      title: ' All Suggestions Applied',
       description: 'Re-balancing recipe automatically...',
       duration: 3000
     });
@@ -1564,7 +1774,7 @@ export default function RecipeCalculatorV2({
       setBalancingSuggestions(prev => prev.filter(s => s.id !== missingIngredient.suggestion.id));
 
       toast({
-        title: '✅ Ingredient Added',
+        title: ' Ingredient Added',
         description: `Added ${qty.toFixed(0)}g ${newIngredient.name} to recipe`,
         duration: 3000
       });
@@ -1624,7 +1834,7 @@ export default function RecipeCalculatorV2({
         calculateMetrics();
       }
 
-      let recipeId = currentRecipeId;
+      let recipeId = currentRecipeId?.startsWith('new-') ? null : currentRecipeId;
 
       const payload = {
         recipe_name: recipeName,
@@ -1644,7 +1854,7 @@ export default function RecipeCalculatorV2({
       }
 
       toast({
-        title: 'Recipe Saved 🎉',
+        title: 'Recipe Saved ',
         description: 'Successfully saved to your library'
       });
 
@@ -1664,6 +1874,7 @@ export default function RecipeCalculatorV2({
   };
 
   const clearRecipe = () => {
+    saveHistoryState(rows, recipeName, productType);
     setRecipeName('');
     setProductType('ice_cream');
     setRows([]);
@@ -1699,7 +1910,7 @@ export default function RecipeCalculatorV2({
     const existingNames = new Set(rows.map(r => r.ingredient));
     const newIngredientsRows: IngredientRow[] = [];
 
-    Object.entries(optimizedRecipe).forEach(([name, qty]) => {
+   Object.entries(optimizedRecipe).forEach(([name, qty]) => {
       const grams = Number(qty);
       if (!existingNames.has(name) && grams > 0.1) {
         let ing = availableIngredients.find(i => i.name === name);
@@ -1742,6 +1953,7 @@ export default function RecipeCalculatorV2({
       }
     });
 
+    saveHistoryState(rows, recipeName, productType);
     setRows([...updatedRows, ...newIngredientsRows]);
     toast({
       title: "Optimized Recipe Applied",
@@ -1808,7 +2020,7 @@ export default function RecipeCalculatorV2({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-primary" />
-            Browse Recipe Templates
+           Browse Recipe Templates
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1820,10 +2032,10 @@ export default function RecipeCalculatorV2({
               className="gap-2 px-8 shadow-md"
             >
               <BookOpen className="h-5 w-5" />
-              Browse Recipe Templates
+             Browse Recipe Templates
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              Start with a professional Gelato, Ice Cream, or Sorbet foundation
+             Start with a professional Gelato, Ice Cream, or Sorbet foundation
             </p>
           </div>
 
@@ -1832,10 +2044,10 @@ export default function RecipeCalculatorV2({
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-2xl">
                   <BookOpen className="h-6 w-6 text-primary" />
-                  Recipe Library Templates
+                 Recipe Library Templates
                 </DialogTitle>
                 <DialogDescription>
-                  Select a template to instantly populate the calculator with a balanced foundation.
+                 Select a template to instantly populate the calculator with a balanced foundation.
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-4">
@@ -1856,12 +2068,41 @@ export default function RecipeCalculatorV2({
         </CardContent>
       </Card>
 
+      {externalRecipe?.isProductionLocked && (
+        <Alert variant="default" className="bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-500 mb-6">
+          <Lock className="h-4 w-4" />
+          <AlertTitle className="font-bold">Production Locked</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>This recipe is locked to preserve production records. You cannot modify it.</span>
+            <Button variant="outline" size="sm" onClick={async () => {
+              if (!externalRecipe || externalRecipe.id.startsWith('new-')) return;
+              try {
+                const res = await apiPost(`/api/recipes/${externalRecipe.id}/clone`);
+                toast({ 
+                  title: 'Recipe Cloned Successfully', 
+                  description: `Created new version: ${res.recipe.name}. Please open the library to load it.` 
+                });
+                if (onOpenLibrary) onOpenLibrary();
+              } catch (err: any) {
+                toast({ 
+                  title: 'Failed to clone recipe', 
+                  description: err.message, 
+                  variant: 'destructive' 
+                });
+              }
+            }} className="ml-4 border-amber-500 text-amber-600 hover:bg-amber-500/20">
+             Clone to Edit
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            Recipe Details
+           Recipe Details
             <Badge variant="outline" className="ml-auto">
-              {productType === 'ice_cream' ? '🍦 Ice Cream' : productType === 'gelato' ? '🍨 Gelato' : productType === 'sorbet' ? '🍧 Sorbet' : '🧪 Paste'}
+              {productType === 'ice_cream' ? ' Ice Cream' : productType === 'gelato' ? ' Gelato' : productType === 'sorbet' ? ' Sorbet' : ' Paste'}
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -1874,19 +2115,20 @@ export default function RecipeCalculatorV2({
                 value={recipeName}
                 onChange={(e) => setRecipeName(e.target.value)}
                 placeholder="Enter recipe name"
+                disabled={externalRecipe?.isProductionLocked}
               />
             </div>
             <div>
               <Label htmlFor="product-type">Product Type</Label>
-              <Select value={productType} onValueChange={setProductType}>
+              <Select value={productType} onValueChange={setProductType} disabled={externalRecipe?.isProductionLocked}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ice_cream">🍦 Ice Cream</SelectItem>
-                  <SelectItem value="gelato">🍨 Gelato</SelectItem>
-                  <SelectItem value="sorbet">🍧 Sorbet</SelectItem>
-                  <SelectItem value="paste">🧪 Paste</SelectItem>
+                  <SelectItem value="ice_cream"> Ice Cream</SelectItem>
+                  <SelectItem value="gelato"> Gelato</SelectItem>
+                  <SelectItem value="sorbet"> Sorbet</SelectItem>
+                  <SelectItem value="paste"> Paste</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1902,7 +2144,7 @@ export default function RecipeCalculatorV2({
           <CardHeader className="bg-muted/10 py-3 border-b flex flex-row items-center justify-between">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <Calculator className="h-4 w-4 text-primary" />
-              Calculated Science Metrics (v2.1)
+             Calculated Science Metrics (v2.1)
             </CardTitle>
             <div className="flex items-center gap-6">
               <div className="text-right">
@@ -1987,6 +2229,22 @@ export default function RecipeCalculatorV2({
         </Card>
       )}
 
+      {/* Detailed metric diagnosis panel */}
+      {metrics && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Metric Diagnosis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MetricsDisplayV2
+              metrics={metrics}
+              mode={resolveMode(productType as any) as any}
+              productKey={productKey(resolveMode(productType as any), rows)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recipe Scaling & Cost Section */}
       {rows.length > 0 && (
         <Card>
@@ -2017,6 +2275,7 @@ export default function RecipeCalculatorV2({
                     }}
                     className="w-28"
                     placeholder="grams"
+                    disabled={externalRecipe?.isProductionLocked}
                   />
                   <span className="text-sm text-muted-foreground">g</span>
                 </div>
@@ -2038,16 +2297,17 @@ export default function RecipeCalculatorV2({
                     onBlur={() => setServingsStr(null)}
                     className="w-20"
                     min="1"
+                    disabled={externalRecipe?.isProductionLocked}
                   />
                 </div>
               </div>
               {totalCost > 0 && (
                 <div className="flex flex-col gap-1">
                   <div className="text-sm font-medium">
-                    Total Cost: ${totalCost.toFixed(2)}
+                   Total Cost: ${totalCost.toFixed(2)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Per Serving: ${costPerServing.toFixed(2)}
+                   Per Serving: ${costPerServing.toFixed(2)}
                   </div>
                 </div>
               )}
@@ -2103,7 +2363,7 @@ export default function RecipeCalculatorV2({
                     className="gap-2"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export PDF
+                   Export PDF
                   </Button>
 
                   <Button
@@ -2113,7 +2373,7 @@ export default function RecipeCalculatorV2({
                     className="gap-2"
                   >
                     <GitCompare className="h-4 w-4" />
-                    Compare Recipes
+                   Compare Recipes
                   </Button>
 
                   <Button
@@ -2131,7 +2391,7 @@ export default function RecipeCalculatorV2({
                     className="gap-2"
                   >
                     <X className="h-4 w-4" />
-                    Clear & Start Over
+                   Clear & Start Over
                   </Button>
                 </>
               )}
@@ -2171,7 +2431,7 @@ export default function RecipeCalculatorV2({
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody onPaste={handlePaste}>
                   {rows.map((row, index) => (
                     <TableRow
                       key={index}
@@ -2182,10 +2442,11 @@ export default function RecipeCalculatorV2({
                     >
                       <TableCell className="min-w-[280px]">
                         <div className="flex items-center gap-2">
-                          <Dialog open={searchOpen === index} onOpenChange={(open) => setSearchOpen(open ? index : null)}>
-                            <DialogTrigger asChild>
+                          <Popover open={searchOpen === index} onOpenChange={(open) => setSearchOpen(open ? index : null)}>
+                            <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
+                                disabled={externalRecipe?.isProductionLocked}
                                 className={cn(
                                   "w-full justify-between font-normal",
                                   !row.ingredient && "text-muted-foreground"
@@ -2194,49 +2455,61 @@ export default function RecipeCalculatorV2({
                                 <span className="truncate">{row.ingredient || "Select ingredient..."}</span>
                                 <Search className="h-4 w-4 text-muted-foreground" />
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border shadow-2xl">
-                              <DialogHeader className="p-6 pb-0">
-                                <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                                  <Search className="h-5 w-5 text-primary" />
-                                  Database Search
-                                </DialogTitle>
-                                <DialogDescription>
-                                  Select a professional ingredient from the Meetha Pitara library.
-                                </DialogDescription>
-                              </DialogHeader>
-
-                              <div className="flex-1 overflow-hidden p-6">
-                                <SmartIngredientSearch
-                                  ingredients={availableIngredients}
-                                  onSelect={(ing) => {
-                                    handleIngredientSelect(index, ing);
-                                    setSearchOpen(null);
-                                  }}
-                                  open={searchOpen === index}
-                                  onOpenChange={(open) => setSearchOpen(open ? index : null)}
-                                />
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[400px] p-0" align="start">
+                              <SmartIngredientSearch
+                                ingredients={availableIngredients}
+                                onSelect={(ing) => {
+                                  handleIngredientSelect(index, ing);
+                                  setSearchOpen(null);
+                                  // After selection, focus the quantity input for the same row
+                                  setTimeout(() => {
+                                    document.getElementById(`quantity-input-${index}`)?.focus();
+                                  }, 50);
+                                }}
+                                open={searchOpen === index}
+                                onOpenChange={(open) => setSearchOpen(open ? index : null)}
+                              />
+                            </PopoverContent>
+                          </Popover>
 
                           {/* Status Pill */}
                           {row.ingredientData && row.quantity_g > 0 && (
                             <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30 shrink-0">
                               <Check className="h-3 w-3 mr-1" />
-                              In use
+                             In use
                             </Badge>
                           )}
                           {row.ingredientData && row.quantity_g === 0 && (
                             <Badge variant="secondary" className="bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 shrink-0">
                               <AlertCircle className="h-3 w-3 mr-1" />
-                              Add grams
+                             Add grams
                             </Badge>
                           )}
                           {!row.ingredientData && row.ingredient && (
                             <Badge variant="destructive" className="bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30 shrink-0">
                               <X className="h-3 w-3 mr-1" />
-                              Not from DB
+                             Not from DB
+                            </Badge>
+                          )}
+                          {/* Verification status badge */}
+                          {row.ingredientData?.verification_status && row.ingredientData.verification_status !== 'verified' && row.ingredientData.verification_status !== 'lab_tested' && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "shrink-0 text-xs",
+                                row.ingredientData.verification_status === 'supplier_data' && "border-blue-400 text-blue-700 dark:text-blue-400",
+                                row.ingredientData.verification_status === 'estimated' && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+                                row.ingredientData.verification_status === 'ai_estimated' && "border-purple-400 text-purple-700 dark:text-purple-400",
+                                row.ingredientData.verification_status === 'user_entered' && "border-gray-400 text-gray-600 dark:text-gray-400",
+                              )}
+                            >
+                              {{
+                                supplier_data: 'Supplier',
+                                estimated: 'Estimated',
+                                ai_estimated: 'AI est.',
+                                user_entered: 'Unverified',
+                              }[row.ingredientData.verification_status]}
                             </Badge>
                           )}
                         </div>
@@ -2244,11 +2517,13 @@ export default function RecipeCalculatorV2({
                       <TableCell className="min-w-[220px]">
                         <div className="flex items-center gap-2">
                           <QuantityInput
+                            id={`quantity-input-${index}`}
                             value={row.quantity_g}
                             onChange={(val) => updateRow(index, 'quantity_g', val)}
                             step={FIXED_STEP_SIZE}
                             rowIndex={index}
                             className="text-lg font-bold"
+                            disabled={externalRecipe?.isProductionLocked}
                           />
                           <Badge variant="secondary" className="text-xs whitespace-nowrap">
                             ±{FIXED_STEP_SIZE}g
@@ -2301,9 +2576,28 @@ export default function RecipeCalculatorV2({
                         />
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => removeRow(index)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-7 w-7" 
+                            onClick={() => updateRow(index, 'isLocked', !row.isLocked)}
+                            title={row.isLocked ? "Unlock ingredient" : "Lock ingredient during optimization"}
+                            disabled={externalRecipe?.isProductionLocked}
+                          >
+                            {row.isLocked ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+                            )}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateRow(index)} title="Duplicate Row" disabled={externalRecipe?.isProductionLocked}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeRow(index)} title="Delete Row" disabled={externalRecipe?.isProductionLocked}>
+                            <Trash2 className="h-4 w-4 text-destructive opacity-70 hover:opacity-100" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -2313,9 +2607,9 @@ export default function RecipeCalculatorV2({
 
             <div className="flex items-center justify-between gap-2 flex-wrap border-t pt-6 mt-4">
               <div className="flex flex-wrap gap-2">
-                <Button onClick={addRow} variant="outline" size="sm">
+                <Button onClick={addRow} variant="outline" size="sm" disabled={externalRecipe?.isProductionLocked}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Ingredient
+                 Add Ingredient
                 </Button>
 
                 <AddIngredientDialog
@@ -2324,35 +2618,25 @@ export default function RecipeCalculatorV2({
                   trigger={
                     <Button variant="outline" size="sm" className="gap-2">
                       <Plus className="h-4 w-4" />
-                      Add New Ingredient
+                     Add New Ingredient
                     </Button>
                   }
                 />
                 <Button onClick={calculateMetrics} variant="default" size="sm">
                   <Calculator className="mr-2 h-4 w-4" />
-                  Calculate
+                 Calculate
                 </Button>
 
                 {!basicMode && (
                   <>
                     <Button
                       onClick={() => setShowOptimizerPanel(true)}
-                      disabled={isOptimizing || rows.length === 0}
+                      disabled={isOptimizing || rows.length === 0 || externalRecipe?.isProductionLocked}
                       variant="secondary"
                       size="sm"
                     >
                       {isOptimizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-                      Balance Recipe
-                    </Button>
-                    <Button
-                      onClick={() => setShowOptimizerPanel(true)}
-                      disabled={rows.length === 0}
-                      variant="outline"
-                      size="sm"
-                      className="gap-1"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      ✨ Optimize
+                     Balance Recipe
                     </Button>
                   </>
                 )}
@@ -2361,7 +2645,7 @@ export default function RecipeCalculatorV2({
               <div className="flex items-center gap-3">
                 <Button
                   onClick={saveRecipe}
-                  disabled={isSaving || !isAuthenticated}
+                  disabled={isSaving || !isAuthenticated || externalRecipe?.isProductionLocked}
                   variant="default"
                   size="sm"
                   className="bg-primary hover:bg-primary/90"
@@ -2369,8 +2653,19 @@ export default function RecipeCalculatorV2({
                   {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   {currentRecipeId ? "Update Recipe" : "Save Recipe"}
                 </Button>
-                <Button onClick={clearRecipe} variant="outline" size="sm" className="text-muted-foreground hover:text-destructive transition-colors">
-                  Clear
+                {currentRecipeId && (
+                  <Button
+                    onClick={() => setShowTrialRecorder(true)}
+                    variant="outline"
+                    size="sm"
+                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                  >
+                    <Beaker className="mr-2 h-4 w-4" />
+                   Record Trial
+                  </Button>
+                )}
+                <Button onClick={clearRecipe} variant="outline" size="sm" className="text-muted-foreground hover:text-destructive transition-colors" disabled={externalRecipe?.isProductionLocked}>
+                 Clear
                 </Button>
                 <Button
                   variant="ghost"
@@ -2392,7 +2687,7 @@ export default function RecipeCalculatorV2({
         showDebugPanel && balancingDiagnostics && (
           <Card className="border-blue-500">
             <CardHeader>
-              <CardTitle className="text-sm">🐛 Balancing Diagnostics</CardTitle>
+              <CardTitle className="text-sm"> Balancing Diagnostics</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
               <div>
@@ -2410,13 +2705,13 @@ export default function RecipeCalculatorV2({
               <div className="space-y-1">
                 <div className="font-semibold">Ingredient Availability:</div>
                 <div className={balancingDiagnostics.hasWater ? 'text-green-600' : 'text-red-600'}>
-                  {balancingDiagnostics.hasWater ? '✓' : '✗'} Water/Diluent (Recipe or DB has 80%+ water)
+                  {balancingDiagnostics.hasWater ? '' : ''} Water/Diluent (Recipe or DB has 80%+ water)
                 </div>
                 <div className={balancingDiagnostics.hasFatSource ? 'text-green-600' : 'text-red-600'}>
-                  {balancingDiagnostics.hasFatSource ? '✓' : '✗'} Fat Source (Recipe has 2%+ fat or DB has cream/butter)
+                  {balancingDiagnostics.hasFatSource ? '' : ''} Fat Source (Recipe has 2%+ fat or DB has cream/butter)
                 </div>
                 <div className={balancingDiagnostics.hasMSNFSource ? 'text-green-600' : 'text-red-600'}>
-                  {balancingDiagnostics.hasMSNFSource ? '✓' : '✗'} MSNF Source (Recipe has 5%+ MSNF or DB has SMP)
+                  {balancingDiagnostics.hasMSNFSource ? '' : ''} MSNF Source (Recipe has 5%+ MSNF or DB has SMP)
                 </div>
               </div>
 
@@ -2425,7 +2720,7 @@ export default function RecipeCalculatorV2({
                   <Separator />
                   <div className="space-y-1">
                     <div className="font-semibold text-destructive">
-                      Missing from Database:
+                     Missing from Database:
                     </div>
                     <ul className="list-disc list-inside">
                       {balancingDiagnostics.missingIngredients.map((ing: string, i: number) => (
@@ -2476,13 +2771,13 @@ export default function RecipeCalculatorV2({
 
                     if (health.healthy) {
                       toast({
-                        title: "✅ Database Healthy",
+                        title: " Database Healthy",
                         description: "All essential ingredients available for balancing",
                         duration: 3000
                       });
                     } else {
                       toast({
-                        title: "⚠️ Database Missing Ingredients",
+                        title: " Database Missing Ingredients",
                         description: (
                           <div className="text-xs space-y-1">
                             <div className="font-medium">Missing:</div>
@@ -2497,19 +2792,19 @@ export default function RecipeCalculatorV2({
                     }
                   }}
                 >
-                  Run DB Health Check
+                 Run DB Health Check
                 </Button>
 
                 {balancingDiagnostics.dbHealth && (
                   <div className="text-xs space-y-1 mt-2">
                     <div className={balancingDiagnostics.dbHealth.hasWater ? 'text-green-600' : 'text-red-600'}>
-                      {balancingDiagnostics.dbHealth.hasWater ? '✓' : '✗'} Water (95%+ water)
+                      {balancingDiagnostics.dbHealth.hasWater ? '' : ''} Water (95%+ water)
                     </div>
                     <div className={balancingDiagnostics.dbHealth.hasCream35OrButter ? 'text-green-600' : 'text-red-600'}>
-                      {balancingDiagnostics.dbHealth.hasCream35OrButter ? '✓' : '✗'} Heavy Cream 35%+ or Butter
+                      {balancingDiagnostics.dbHealth.hasCream35OrButter ? '' : ''} Heavy Cream 35%+ or Butter
                     </div>
                     <div className={balancingDiagnostics.dbHealth.hasSMP ? 'text-green-600' : 'text-red-600'}>
-                      {balancingDiagnostics.dbHealth.hasSMP ? '✓' : '✗'} Skim Milk Powder (85%+ MSNF)
+                      {balancingDiagnostics.dbHealth.hasSMP ? '' : ''} Skim Milk Powder (85%+ MSNF)
                     </div>
                   </div>
                 )}
@@ -2520,7 +2815,7 @@ export default function RecipeCalculatorV2({
               {/* SE/AFP Audit Panel */}
               {metrics && rows.length > 0 && (
                 <div className="space-y-2">
-                  <div className="font-semibold">🔬 SE/AFP Audit (Sugar Analysis):</div>
+                  <div className="font-semibold"> SE/AFP Audit (Sugar Analysis):</div>
                   <div className="text-xs space-y-1 bg-muted/30 p-2 rounded">
                     {(() => {
                       // Calculate per-sugar SE and AFP breakdown
@@ -2620,9 +2915,9 @@ export default function RecipeCalculatorV2({
                           </div>
 
                           <div className="text-[10px] text-muted-foreground mt-2 space-y-0.5">
-                            <div>💡 SE = Sweetness Power × Sugar Weight</div>
-                            <div>💡 AFP = PAC Coefficient × Sugar Weight</div>
-                            <div>💡 POD = Protein/Other/Dairy balance index</div>
+                            <div> SE = Sweetness Power × Sugar Weight</div>
+                            <div> AFP = PAC Coefficient × Sugar Weight</div>
+                            <div> POD = Protein/Other/Dairy balance index</div>
                           </div>
                         </>
                       );
@@ -2667,13 +2962,13 @@ export default function RecipeCalculatorV2({
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Wrench className="h-5 w-5 text-primary" />
-                  Advanced Tools
+                 Advanced Tools
                   {showAdvancedToolsTutorial && (
                     <Badge
                       variant="default"
                       className="ml-2 animate-pulse bg-primary/90 hover:bg-primary"
                     >
-                      NEW
+                     NEW
                     </Badge>
                   )}
                   <Popover>
@@ -2684,9 +2979,9 @@ export default function RecipeCalculatorV2({
                     </PopoverTrigger>
                     <PopoverContent className="w-80">
                       <div className="space-y-2">
-                        <h4 className="font-semibold">🤖 AI Engine Features</h4>
+                        <h4 className="font-semibold"> AI Engine Features</h4>
                         <p className="text-sm text-muted-foreground">
-                          All AI Engine features are now here! Use these tools to:
+                         All AI Engine features are now here! Use these tools to:
                         </p>
                         <ul className="text-sm space-y-1 ml-4 list-disc">
                           <li>Find flavor pairings</li>
@@ -2710,16 +3005,16 @@ export default function RecipeCalculatorV2({
                     }}
                     className="text-xs"
                   >
-                    Got it ✓
+                   Got it 
                   </Button>
                 )}
               </div>
               {showAdvancedToolsTutorial && (
                 <Alert className="mt-3 bg-primary/5 border-primary/20">
                   <AlertDescription className="text-sm">
-                    <strong>🎉 AI Engine features are now here!</strong>
+                    <strong> AI Engine features are now here!</strong>
                     <br />
-                    All the powerful tools from the AI Engine tab (Flavor Pairings, Temperature Tuning, Reverse Engineer, and more)
+                   All the powerful tools from the AI Engine tab (Flavor Pairings, Temperature Tuning, Reverse Engineer, and more)
                     have been consolidated into these Advanced Tools for easier access.
                   </AlertDescription>
                 </Alert>
@@ -2731,16 +3026,16 @@ export default function RecipeCalculatorV2({
                 <Accordion type="single" collapsible defaultValue="optimization" className="w-full">
                   <AccordionItem value="optimization">
                     <AccordionTrigger className="text-base font-semibold">
-                      🎯 Optimization Tools
+                      Optimization Tools
                     </AccordionTrigger>
                     <AccordionContent>
                       <Tabs defaultValue="sugar-blend" className="w-full">
                         <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
                           <TabsTrigger value="sugar-blend" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                            🍬 Sugar Blend
+                            Sugar Blend
                           </TabsTrigger>
                           <TabsTrigger value="ai-optimize" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                            🤖 AI Agent
+                            AI Optimizer
                             <Badge variant="secondary" className="ml-1 text-[10px]">NEW</Badge>
                           </TabsTrigger>
                         </TabsList>
@@ -2816,16 +3111,16 @@ export default function RecipeCalculatorV2({
 
                   <AccordionItem value="analysis">
                     <AccordionTrigger className="text-base font-semibold">
-                      🔬 Analysis Tools
+                      Analysis Tools
                     </AccordionTrigger>
                     <AccordionContent>
                       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
                           <TabsTrigger value="analyzer" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                            🔬 Analyzer
+                            Analyzer
                           </TabsTrigger>
                           <TabsTrigger value="temperature" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                            🌡️ Temperature
+                            Temperature
                           </TabsTrigger>
                         </TabsList>
 
@@ -2909,17 +3204,24 @@ export default function RecipeCalculatorV2({
 
                   <AccordionItem value="utilities">
                     <AccordionTrigger className="text-base font-semibold">
-                      🛠️ Utilities
+                      Utilities
                     </AccordionTrigger>
                     <AccordionContent>
                       <Tabs defaultValue="reverse" className="w-full">
                         <TabsList className="w-full h-auto flex flex-wrap gap-1 p-2 bg-background/80 backdrop-blur-sm">
                           <TabsTrigger value="reverse" className="flex-1 min-w-[140px] text-xs whitespace-nowrap">
-                            🔄 Reverse Engineer
+                            Reverse Engineer <span className="ml-1 px-1 py-0.5 text-[9px] border border-current rounded font-semibold opacity-70">Beta</span>
                           </TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="reverse" className="mt-4">
+                          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                            <span className="mt-0.5 text-base"></span>
+                            <div>
+                              <span className="font-semibold">Beta Version — </span>
+                             This feature is still under development. Results may not be fully accurate. Use as a starting point and verify outputs manually.
+                            </div>
+                          </div>
                           <h3 className="text-lg font-semibold mb-4">AI Recipe Creator</h3>
                           <AiRecipeCreator />
                         </TabsContent>
@@ -2932,19 +3234,19 @@ export default function RecipeCalculatorV2({
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="w-full h-auto flex flex-wrap lg:grid lg:grid-cols-5 gap-1 lg:gap-2 p-2 bg-background/80 backdrop-blur-sm">
                     <TabsTrigger value="temperature" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                      🌡️ Temperature
+                      Temperature
                     </TabsTrigger>
                     <TabsTrigger value="reverse" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                      🔄 Reverse
+                      Reverse <span className="ml-1 px-1 py-0.5 text-[9px] border border-current rounded font-semibold opacity-70">Beta</span>
                     </TabsTrigger>
                     <TabsTrigger value="analyzer" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                      🔬 Analyzer
+                      Analyzer
                     </TabsTrigger>
                     <TabsTrigger value="sugar-blend" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                      🍬 Sugar Blend
+                      Sugar Blend
                     </TabsTrigger>
                     <TabsTrigger value="ai-optimize" className="flex-1 min-w-[100px] text-xs lg:text-sm whitespace-nowrap">
-                      🤖 AI Agent
+                      AI Optimizer
                       <Badge variant="secondary" className="ml-1 text-[10px]">NEW</Badge>
                     </TabsTrigger>
                   </TabsList>
@@ -3000,6 +3302,13 @@ export default function RecipeCalculatorV2({
                   </TabsContent>
 
                   <TabsContent value="reverse" className="mt-4">
+                    <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      <span className="mt-0.5 text-base"></span>
+                      <div>
+                        <span className="font-semibold">Beta Version — </span>
+                       This feature is still under development. Results may not be fully accurate. Use as a starting point and verify outputs manually.
+                      </div>
+                    </div>
                     <h3 className="text-lg font-semibold mb-4 text-center">AI Generation: Create from Scratch</h3>
                     <AiRecipeCreator />
                   </TabsContent>
@@ -3102,10 +3411,10 @@ export default function RecipeCalculatorV2({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-destructive" />
-              Balancing Failed - Auto-Fix Available
+             Balancing Failed - Auto-Fix Available
             </DialogTitle>
             <DialogDescription>
-              The recipe couldn't be automatically balanced. Apply these suggestions to get closer to your targets.
+             The recipe couldn't be automatically balanced. Apply these suggestions to get closer to your targets.
             </DialogDescription>
           </DialogHeader>
 
@@ -3133,7 +3442,7 @@ export default function RecipeCalculatorV2({
                           className="whitespace-nowrap"
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
-                          Apply
+                         Apply
                         </Button>
                       </div>
                     </Card>
@@ -3148,11 +3457,11 @@ export default function RecipeCalculatorV2({
                   </p>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setShowSuggestionsDialog(false)}>
-                      Cancel
+                     Cancel
                     </Button>
                     <Button onClick={applyAllSuggestions}>
                       <Wand2 className="h-4 w-4 mr-2" />
-                      Apply All & Re-Balance
+                     Apply All & Re-Balance
                     </Button>
                   </div>
                 </div>
@@ -3167,6 +3476,26 @@ export default function RecipeCalculatorV2({
           </div>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={showTrialRecorder} onOpenChange={setShowTrialRecorder}>
+        <DialogContent className="max-w-3xl border-none shadow-none bg-transparent">
+          {currentRecipeId && (
+            <TrialRecorder
+              recipeId={currentRecipeId}
+              targetMetrics={{
+                fat_pct: metrics?.fat_pct,
+                msnf_pct: metrics?.msnf_pct,
+                sugars_pct: metrics?.totalSugars_pct,
+                total_solids_pct: metrics?.ts_pct,
+                fpdt: metrics?.fpdt
+              }}
+              onSaved={() => setShowTrialRecorder(false)}
+              onCancel={() => setShowTrialRecorder(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

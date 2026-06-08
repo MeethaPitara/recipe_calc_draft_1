@@ -42,13 +42,13 @@ export default function AIFlavourEngine({
             <div>
               <CardTitle className="text-2xl flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-primary" />
-                AI Flavour Engine
+               AI Flavour Engine
               </CardTitle>
               <CardDescription className="flex items-center gap-2 flex-wrap">
-                Advanced analysis and optimization tools for perfect recipes
+               Advanced analysis and optimization tools for perfect recipes
                 {lastUpdated && (
                   <Badge variant="secondary" className="text-xs">
-                    Updated {lastUpdated.toLocaleTimeString()}
+                   Updated {lastUpdated.toLocaleTimeString()}
                   </Badge>
                 )}
               </CardDescription>
@@ -59,7 +59,7 @@ export default function AIFlavourEngine({
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-sm">
-                ✨ Enhanced Features
+                Enhanced Features
               </Badge>
             )}
           </div>
@@ -71,7 +71,7 @@ export default function AIFlavourEngine({
         <Info className="h-4 w-4" />
         <AlertDescription>
           <strong>Welcome to the AI Flavour Engine!</strong> Here you'll find all advanced analysis tools:
-          Chemistry deep-dive, Real-time costing, AI optimization, and Sugar spectrum analysis.
+         Chemistry deep-dive, Real-time costing, AI optimization, and Sugar spectrum analysis.
         </AlertDescription>
       </Alert>
 
@@ -153,25 +153,25 @@ export default function AIFlavourEngine({
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-green-50">
-                ✅ Available
+                Available
               </Badge>
               <span className="text-muted-foreground">Chemistry Analysis (Offline)</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-green-50">
-                ✅ Available
+                Available
               </Badge>
               <span className="text-muted-foreground">Cost Calculator (Offline)</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-green-50">
-                ✅ Available
+                Available
               </Badge>
               <span className="text-muted-foreground">Sugar Optimizer (Offline)</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-blue-50">
-                🔌 Backend
+                Backend
               </Badge>
               <span className="text-muted-foreground">AI Optimization (Enhanced)</span>
             </div>
@@ -184,7 +184,7 @@ export default function AIFlavourEngine({
         <Card className="border-dashed">
           <CardHeader>
             <CardTitle className="text-xs text-muted-foreground">
-              🐛 Debug Info (Dev Only)
+              Debug Info (Dev Only)
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs space-y-2">

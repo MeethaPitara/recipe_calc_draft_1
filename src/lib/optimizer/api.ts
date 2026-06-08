@@ -9,6 +9,22 @@ import type { MetricsV2 } from '../calc.v2';
 
 // ── PRD Interfaces (kept frontend-side for UI rendering) ──
 
+export interface ConstraintProfile {
+    bounds?: {
+        ingredientId: string;
+        minGrams?: number;
+        maxGrams?: number;
+        isLocked?: boolean;
+    }[];
+    sugarRatios?: {
+        primarySugarId: string;
+        secondarySugarId: string;
+        ratio: number;
+    }[];
+    maxCostPerKgMix?: number;
+    fixedBatchMassG?: number;
+}
+
 export interface OptimizerRequest {
     currentRecipe: {
         ingredient: IngredientData;
@@ -24,6 +40,7 @@ export interface OptimizerRequest {
     lockedIngredientIds: string[];
     freeIngredientIds: string[];
     mode?: string;
+    constraints?: ConstraintProfile;
 }
 
 export interface OptimizerChange {

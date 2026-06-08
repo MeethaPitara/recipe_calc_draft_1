@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\CODEBASE\\\\Meetha_Pitara\\\\recipe_calc_draft_1\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(npx tsc *)",
+      "PowerShell(Stop-Process -Id 33512 -Force)"
+    ]
+  }
+}

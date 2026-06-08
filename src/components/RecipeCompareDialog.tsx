@@ -290,7 +290,7 @@ export function RecipeCompareDialog({
           {!compareRecipe && !loading && (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">
-                Select a saved recipe above to compare with your current recipe
+               Select a saved recipe above to compare with your current recipe
               </p>
             </Card>
           )}

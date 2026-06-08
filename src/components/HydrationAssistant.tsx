@@ -82,7 +82,7 @@ export default function HydrationAssistant({ recipe }: HydrationAssistantProps) 
                 {dosagePct > 1.0 && (
                   <Badge variant="destructive" className="text-xs">
                     <AlertTriangle className="h-3 w-3 mr-1" />
-                    High dosage
+                   High dosage
                   </Badge>
                 )}
               </div>
@@ -122,7 +122,7 @@ export default function HydrationAssistant({ recipe }: HydrationAssistantProps) 
             <div className="flex-1 text-sm">
               <div className="font-medium text-warning-foreground mb-1">Aging is Critical</div>
               <p className="text-warning-foreground/80 text-xs mb-2">
-                After pasteurization and cooling, age the mix for <strong>4-12 hours at ≤5°C</strong> 
+               After pasteurization and cooling, age the mix for <strong>4-12 hours at ≤5°C</strong> 
                 (ideally overnight). This allows:
               </p>
               <ul className="text-xs text-warning-foreground/80 space-y-0.5 ml-3 list-disc">
@@ -145,13 +145,13 @@ export default function HydrationAssistant({ recipe }: HydrationAssistantProps) 
             htmlFor="age-confirmed" 
             className="text-sm cursor-pointer select-none"
           >
-            Mix will be aged ≥4h @ ≤5°C before freezing
+           Mix will be aged ≥4h @ ≤5°C before freezing
           </label>
         </div>
         
         {ageConfirmed && (
           <div className="text-xs text-success-foreground bg-success/10 dark:bg-success/20 rounded p-2">
-            ✓ Excellent! Proper aging will significantly improve texture and stability.
+            Excellent! Proper aging will significantly improve texture and stability.
           </div>
         )}
       </div>

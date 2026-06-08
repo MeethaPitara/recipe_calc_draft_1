@@ -73,8 +73,8 @@ export const RecipeAllocationList = () => {
         <Card className="shadow-sm min-h-[500px]">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">📊</div>
-                    Demand Grid
+                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg"></div>
+                   Demand Grid
                 </CardTitle>
                 <div className="flex items-center gap-2">
                     <Select onValueChange={handleAddRecipe}>
@@ -102,7 +102,7 @@ export const RecipeAllocationList = () => {
                         </div>
                         <h3 className="text-lg font-medium">No Recipes Allocated</h3>
                         <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                            Add a recipe from the top right to start planning your production batch.
+                           Add a recipe from the top right to start planning your production batch.
                         </p>
                     </div>
                 ) : (

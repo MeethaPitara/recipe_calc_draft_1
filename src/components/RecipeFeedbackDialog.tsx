@@ -50,7 +50,7 @@ export function RecipeFeedbackDialog({
         <DialogHeader>
           <DialogTitle>How did "{recipeName}" turn out?</DialogTitle>
           <DialogDescription>
-            Your feedback helps improve recipe analysis for future recipes
+           Your feedback helps improve recipe analysis for future recipes
           </DialogDescription>
         </DialogHeader>
 
@@ -122,11 +122,11 @@ export function RecipeFeedbackDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+           Cancel
           </Button>
           <Button onClick={handleSubmit}>
             <MessageSquare className="h-4 w-4 mr-2" />
-            Submit Feedback
+           Submit Feedback
           </Button>
         </DialogFooter>
       </DialogContent>

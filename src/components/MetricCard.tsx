@@ -62,7 +62,7 @@ export const MetricCard = ({
         </div>
         {target && (
           <Badge variant="outline" className="mt-2 text-xs">
-            Target: {target}
+           Target: {target}
           </Badge>
         )}
       </CardContent>

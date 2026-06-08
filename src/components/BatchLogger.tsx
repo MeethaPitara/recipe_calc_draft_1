@@ -77,7 +77,7 @@ export default function BatchLogger({ recipe, productType }: BatchLoggerProps) {
     a.href = url;
     a.download = `batch_logs_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-    URL.revokeObjectURL(url);
+   URL.revokeObjectURL(url);
     
     toast({
       title: "Exported!",
@@ -176,11 +176,11 @@ export default function BatchLogger({ recipe, productType }: BatchLoggerProps) {
 
         <div className="flex gap-2">
           <Button onClick={handleLogBatch} className="flex-1">
-            Log This Batch
+           Log This Batch
           </Button>
           <Button onClick={handleExport} variant="outline" disabled={logs.length === 0}>
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+           Export CSV
           </Button>
         </div>
       </div>

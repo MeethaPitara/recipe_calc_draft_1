@@ -168,8 +168,8 @@ describe('runLpOptimizer', () => {
 describe('optimizerTool', () => {
     it('scales and optimizes a recipe', () => {
         const result = optimizerTool(
-            TEST_RECIPE,
-            TEST_TARGET_PARAMS,
+           TEST_RECIPE,
+           TEST_TARGET_PARAMS,
             'Increase fat to 8%, MSNF to 10%, sugars to 20%',
             'gelato'
         );
@@ -183,8 +183,8 @@ describe('optimizerTool', () => {
 
     it('works in scale-only mode (no numeric targets)', () => {
         const result = optimizerTool(
-            TEST_RECIPE,
-            TEST_TARGET_PARAMS,
+           TEST_RECIPE,
+           TEST_TARGET_PARAMS,
             'make it more creamy',
             'gelato'
         );

@@ -273,8 +273,11 @@ const PROFILES: Record<string, ParameterSet> = {
 };
 
 export function listProfiles(): ParameterSet[] {
-  // Return only UNIFIED_2025 to users
-  return [UNIFIED_2025];
+  return [UNIFIED_2025, ...Object.values(PROFILES).filter(p => !['unified-2025', 'hybrid-best-practice', 'mp-artisan-v2024', 'science-v2025'].includes(p.id))];
+}
+
+export function registerCustomProfile(profile: ParameterSet) {
+  PROFILES[profile.id] = profile;
 }
 
 export function getActiveParameters(): EffectiveParameters {

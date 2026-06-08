@@ -130,7 +130,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
               <div className="flex items-center justify-between w-full pr-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Brain className="h-5 w-5 text-primary" />
-                  AI Recipe Analysis
+                 AI Recipe Analysis
                 </CardTitle>
               </div>
             </AccordionTrigger>
@@ -138,7 +138,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
           <AccordionContent>
             <CardContent className="pt-2 space-y-4">
               <p className="text-sm text-muted-foreground">
-                Analysis runs automatically when your recipe stabilizes. You can also manually re-analyze anytime.
+               Analysis runs automatically when your recipe stabilizes. You can also manually re-analyze anytime.
               </p>
 
               {/* Loading State */}
@@ -162,11 +162,11 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                     className="gap-2"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Re-analyze Now
+                   Re-analyze Now
                   </Button>
                   {creditsExhausted && (
                     <p className="text-xs text-destructive">
-                      AI credits depleted. Please add credits to continue.
+                     AI credits depleted. Please add credits to continue.
                     </p>
                   )}
                 </div>
@@ -176,7 +176,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
               {creditsExhausted && analysis && (
                 <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
                   <p className="text-sm text-warning">
-                    AI credits depleted. Analysis shown is from previous request.
+                   AI credits depleted. Analysis shown is from previous request.
                   </p>
                 </div>
               )}
@@ -196,7 +196,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                     </div>
                     <Progress value={analysis.successScore} className="h-2" />
                     <p className="text-xs text-muted-foreground">
-                      AI-powered analysis based on composition and balance
+                     AI-powered analysis based on composition and balance
                     </p>
                   </div>
 
@@ -211,7 +211,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <AlertTriangle className="h-4 w-4 text-warning" />
-                        AI Warnings
+                       AI Warnings
                       </div>
                       {analysis.warnings.map((warning: string, index: number) => (
                         <div
@@ -229,7 +229,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <Lightbulb className="h-4 w-4 text-primary" />
-                        AI Suggestions
+                       AI Suggestions
                       </div>
                       {analysis.suggestions.map((suggestion: string, index: number) => (
                         <div
@@ -245,7 +245,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                   {/* Analysis Timestamp & Re-analyze Button */}
                   <div className="pt-2 border-t space-y-2">
                     <p className="text-xs text-muted-foreground text-center">
-                      🤖 AI-powered analysis • Updated {new Date(analysis.analysisTimestamp).toLocaleTimeString()}
+                      AI-powered analysis • Updated {new Date(analysis.analysisTimestamp).toLocaleTimeString()}
                     </p>
                     {!creditsExhausted && (
                       <div className="flex justify-center">
@@ -257,7 +257,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
                           className="gap-2"
                         >
                           <Sparkles className="h-3 w-3" />
-                          Re-analyze
+                         Re-analyze
                         </Button>
                       </div>
                     )}

@@ -30,12 +30,18 @@ export interface PricingStrategy {
   profitMargin: number;
 }
 
+export interface ChannelPricing {
+  name: string;
+  marginPct: number;
+}
+
 export interface CostingParams {
   batchSize: number; // in kg
   wasteFactor: number; // percentage (e.g., 5 = 5%)
   laborCostPerBatch: number;
   overheadPercentage: number; // percentage of ingredient cost
   packagingCostPerKg: number;
+  channels: ChannelPricing[];
 }
 
 export const DEFAULT_COSTING_PARAMS: CostingParams = {
@@ -44,6 +50,11 @@ export const DEFAULT_COSTING_PARAMS: CostingParams = {
   laborCostPerBatch: 500,
   overheadPercentage: 15,
   packagingCostPerKg: 50,
+  channels: [
+    { name: 'Retail', marginPct: 40 },
+    { name: 'Wholesale', marginPct: 25 },
+    { name: 'Distributor', marginPct: 15 }
+  ]
 };
 
 /**
@@ -135,6 +146,38 @@ export function calculatePricingStrategies(
   return strategies;
 }
 
+export interface ChannelPricingResult {
+  name: string;
+  marginPct: number;
+  sellingPrice: number;
+  grossProfit: number;
+}
+
+/**
+ * Calculate channel pricing based on required margins
+ */
+export function calculateChannelPricing(
+  costBreakdown: CostBreakdown,
+  batchSize: number,
+  channels: ChannelPricing[]
+): ChannelPricingResult[] {
+  const costPerKg = costBreakdown.totalCost / batchSize;
+  
+  return channels.map(channel => {
+    const marginDec = channel.marginPct / 100;
+    // Price = Cost / (1 - Margin)
+    const sellingPrice = marginDec < 1 ? costPerKg / (1 - marginDec) : costPerKg;
+    const grossProfit = sellingPrice - costPerKg;
+    
+    return {
+      name: channel.name,
+      marginPct: channel.marginPct,
+      sellingPrice,
+      grossProfit
+    };
+  });
+}
+
 /**
  * Calculate cost per serving
  */
@@ -153,6 +196,7 @@ export function calculateCostPerServing(
 export function exportToCSV(
   costBreakdown: CostBreakdown,
   pricingStrategies: PricingStrategy[],
+  channelPricing: ChannelPricingResult[],
   batchSize: number
 ): string {
   let csv = 'Cost Analysis Report\n\n';
@@ -186,6 +230,15 @@ export function exportToCSV(
       ? `Markup ${strategy.value}%` 
       : `Margin ${strategy.value}%`;
     csv += `${strategyLabel},${strategy.value},${strategy.suggestedPrice.toFixed(2)},${strategy.profit.toFixed(2)},${strategy.profitMargin.toFixed(2)}\n`;
+  });
+  
+  csv += '\n';
+
+  // Channel pricing
+  csv += 'Channel Pricing\n';
+  csv += 'Channel,Margin (%),Selling Price/kg (₹),Gross Profit/kg (₹)\n';
+  channelPricing.forEach(channel => {
+    csv += `${channel.name},${channel.marginPct},${channel.sellingPrice.toFixed(2)},${channel.grossProfit.toFixed(2)}\n`;
   });
   
   return csv;

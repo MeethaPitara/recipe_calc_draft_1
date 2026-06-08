@@ -70,10 +70,10 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Microscope className="h-5 w-5 text-primary" />
-            Ingredient Deep Dive
+           Ingredient Deep Dive
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Analyze the composition, functional roles, and ice cream impact of individual ingredients
+           Analyze the composition, functional roles, and ice cream impact of individual ingredients
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -127,7 +127,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
               <div>
                 <h3 className="font-medium mb-3 flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  Composition Breakdown
+                 Composition Breakdown
                 </h3>
                 <div className="space-y-3">
                   {selectedIngredient.water_pct != null && selectedIngredient.water_pct > 0 && (
@@ -186,7 +186,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
               <div>
                 <h3 className="font-medium mb-3 flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
-                  Ice Cream Impact
+                 Ice Cream Impact
                 </h3>
                 <div className="space-y-2">
                   {analysis.impacts.map((impact, idx) => (
@@ -197,7 +197,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
                   ))}
                   {analysis.impacts.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      This ingredient has a neutral or balanced impact on ice cream properties.
+                     This ingredient has a neutral or balanced impact on ice cream properties.
                     </p>
                   )}
                 </div>
@@ -209,7 +209,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
               <div className="space-y-6">
                 <h3 className="font-medium text-lg flex items-center gap-2">
                   <Activity className="h-5 w-5 text-primary" />
-                  Scientific Parameters
+                 Scientific Parameters
                 </h3>
 
                 {/* PAC - Freezing Point Depression */}
@@ -231,7 +231,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
                             : 'Same freezing point depression as sucrose'
                           }</p>
                           <p className="font-medium text-foreground mt-2">
-                            Impact: {selectedIngredient.pac_coeff > 150 
+                           Impact: {selectedIngredient.pac_coeff > 150 
                               ? 'Very soft texture, may be too soft at typical serving temps'
                               : selectedIngredient.pac_coeff > 120
                               ? 'Softer, scoopable texture'
@@ -264,7 +264,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
                             : 'Same sweetness as sucrose'
                           }</p>
                           <p className="font-medium text-foreground mt-2">
-                            Taste Profile: {selectedIngredient.sp_coeff > 1.5
+                           Taste Profile: {selectedIngredient.sp_coeff > 1.5
                               ? 'Very sweet - use in small amounts'
                               : selectedIngredient.sp_coeff > 1.2
                               ? 'Sweeter than sugar - adjust recipe amounts'
@@ -290,7 +290,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
                         </div>
                         <div className="text-sm text-muted-foreground">
                           <p className="font-medium text-foreground">
-                            Texture Impact: {selectedIngredient.hardening_factor > 2
+                           Texture Impact: {selectedIngredient.hardening_factor > 2
                               ? 'Significant hardening effect - creates firm structure'
                               : selectedIngredient.hardening_factor > 1
                               ? 'Moderate hardening - contributes to body'
@@ -373,7 +373,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
                     <div className="text-xs text-muted-foreground mb-1">Characterization %</div>
                     <div className="text-xl font-bold">{selectedIngredient.characterization_pct.toFixed(1)}%</div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Amount needed to significantly characterize the product's flavor profile
+                     Amount needed to significantly characterize the product's flavor profile
                     </p>
                   </div>
                 )}
@@ -387,7 +387,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription>
-                      No advanced scientific parameters available for this ingredient. Only basic composition data is recorded.
+                     No advanced scientific parameters available for this ingredient. Only basic composition data is recorded.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -399,7 +399,7 @@ export default function IngredientAnalyzer({ currentRecipe }: IngredientAnalyzer
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Select an ingredient above to see detailed composition analysis, functional roles, and impact on ice cream properties.
+               Select an ingredient above to see detailed composition analysis, functional roles, and impact on ice cream properties.
               </AlertDescription>
             </Alert>
           )}

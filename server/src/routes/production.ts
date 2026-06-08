@@ -47,8 +47,8 @@ router.post('/level2', (req, res) => {
 router.post('/level3', (req, res) => {
     try {
         const input = req.body;
-        if (!input.recipeItems || !input.targetUnits) {
-            return res.status(400).json({ error: 'Missing recipeItems or targetUnits' });
+        if (!input.recipeItems || (input.cup100mlCount == null && input.tub500mlCount == null)) {
+            return res.status(400).json({ error: 'Missing recipeItems or SKU counts' });
         }
         const result = calculateDemandRun(input);
         res.json({ success: true, result });

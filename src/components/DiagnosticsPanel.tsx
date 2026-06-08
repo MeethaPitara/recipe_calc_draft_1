@@ -146,7 +146,7 @@ export function DiagnosticsPanel() {
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             {getStatusIcon(overallStatus)}
-            System Diagnostics
+           System Diagnostics
           </span>
           <Button
             variant="outline"
@@ -155,7 +155,7 @@ export function DiagnosticsPanel() {
             disabled={isRunning}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRunning ? 'animate-spin' : ''}`} />
-            Run Diagnostics
+           Run Diagnostics
           </Button>
         </CardTitle>
       </CardHeader>
@@ -202,7 +202,7 @@ export function DiagnosticsPanel() {
                   </>
                 )}
                 {overallStatus === 'pass' && (
-                  <p className="text-green-700 font-medium">✅ All systems operational!</p>
+                  <p className="text-green-700 font-medium"> All systems operational!</p>
                 )}
               </div>
             </div>

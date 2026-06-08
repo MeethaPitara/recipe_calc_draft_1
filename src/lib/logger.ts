@@ -89,11 +89,11 @@ class Logger {
 export const logger = new Logger();
 
 // Pre-configured loggers for different modules
-export const calcLogger = new Logger({ prefix: '🧮 Calc' });
-export const balanceLogger = new Logger({ prefix: '⚖️ Balance' });
-export const dbLogger = new Logger({ prefix: '📦 DB' });
-export const aiLogger = new Logger({ prefix: '🤖 AI' });
-export const mlLogger = new Logger({ prefix: '🧠 ML' });
+export const calcLogger = new Logger({ prefix: ' Calc' });
+export const balanceLogger = new Logger({ prefix: ' Balance' });
+export const dbLogger = new Logger({ prefix: ' DB' });
+export const aiLogger = new Logger({ prefix: ' AI' });
+export const mlLogger = new Logger({ prefix: ' ML' });
 
 // Export Logger class for custom instances
 export { Logger };

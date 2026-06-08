@@ -16,6 +16,7 @@
         "express": "^4.21.2",
         "javascript-lp-solver": "^0.4.24",
         "jose": "^6.2.2",
+        "pdfmake": "^0.3.9",
         "zod": "^3.23.8"
     },
     "devDependencies": {
@@ -23,6 +24,7 @@
         "@types/cors": "^2.8.17",
         "@types/express": "^5.0.0",
         "@types/node": "^22.5.5",
+        "@types/pdfmake": "^0.3.3",
         "tsx": "^4.19.4",
         "typescript": "^5.5.3"
     }

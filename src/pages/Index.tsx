@@ -48,7 +48,7 @@ const Index = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [currentRecipeId, setCurrentRecipeId] = useState<string | null>(null);
-  const [loadedRecipeData, setLoadedRecipeData] = useState<{ rows: IngredientRow[], name: string, type: string, id: string } | null>(null);
+  const [loadedRecipeData, setLoadedRecipeData] = useState<{ rows: IngredientRow[], name: string, type: string, id: string, isProductionLocked?: boolean, versionNumber?: number, tags?: string[] } | null>(null);
   const showAdvanced = isAdvancedMode();
 
   // Redirect to auth if not logged in (handled by ProtectedRoute, but just in case)
@@ -69,7 +69,7 @@ const Index = () => {
     if (!hasSeenNotice) {
       setTimeout(() => {
         toast({
-          title: "✨ Features Consolidated",
+          title: " Features Consolidated",
           description: "AI Engine features are now in Calculator → Advanced Tools tab for easier access!",
           duration: 8000,
         });
@@ -103,7 +103,7 @@ const Index = () => {
     navigate("/auth");
   };
 
-  const handleSaveRecipe = async (name: string, type: string) => {
+  const handleSaveRecipe = async (name: string, type: string, tags: string[] = []) => {
     try {
       // Map to service input
       // calculatorRecipe contains { ingredient: string, quantity_g: number, ingredientData: IngredientData }
@@ -119,7 +119,7 @@ const Index = () => {
         return;
       }
 
-      const id = await recipeService.saveRecipe(name, type, rowsForService, calculatorMetrics, currentRecipeId || undefined);
+      const id = await recipeService.saveRecipe(name, type, rowsForService, calculatorMetrics, currentRecipeId || undefined, tags);
       setCurrentRecipeId(id);
 
       toast({ title: "Recipe Saved", description: "Your recipe has been saved to the library." });
@@ -146,7 +146,10 @@ const Index = () => {
           rows,
           name: data.recipe_name,
           type: data.product_type,
-          id: data.id
+          id: data.id,
+          isProductionLocked: data.is_production_locked,
+          versionNumber: data.version_number,
+          tags: data.tags || []
         });
         // currentRecipeId will be set by effect in RecipeCalculatorV2 or we can set here too
         setCurrentRecipeId(data.id);
@@ -163,7 +166,10 @@ const Index = () => {
       rows: [],
       name: "",
       type: "ice_cream",
-      id: "new-" + Date.now()
+      id: "new-" + Date.now(),
+      isProductionLocked: false,
+      versionNumber: 1,
+      tags: []
     });
     toast({
       title: "New Recipe Initiated",
@@ -202,15 +208,15 @@ const Index = () => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={showTourAgain}>
                     <HelpCircle className="h-4 w-4 mr-2" />
-                    Show Tour Again
+                   Show Tour Again
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCurrentTab('diagnostics')}>
                     <Wrench className="h-4 w-4 mr-2" />
-                    System Diagnostics
+                   System Diagnostics
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
+                   Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -227,15 +233,15 @@ const Index = () => {
             <div className="mb-4">
               <Card className="bg-warning/10 border-warning/30 dark:bg-warning/20">
                 <CardContent className="p-4">
-                  <h3 className="font-semibold text-warning-foreground mb-2">⚠️ Backend Connection Issue</h3>
+                  <h3 className="font-semibold text-warning-foreground mb-2"> Backend Connection Issue</h3>
                   <p className="text-sm text-warning-foreground/80 mb-3">
-                    The app is running in offline mode. Backend features (save, auth, AI) are temporarily unavailable.
+                   The app is running in offline mode. Backend features (save, auth, AI) are temporarily unavailable.
                   </p>
                   <details className="text-xs text-warning-foreground/70">
                     <summary className="cursor-pointer font-medium mb-2">Troubleshooting Steps</summary>
                     <ol className="list-decimal ml-4 space-y-1 mt-2">
                       <li>Open browser console (F12) to check for connection errors</li>
-                      <li>Look for logs starting with 🔍 or ❌ emojis</li>
+                      <li>Look for logs starting with  or  emojis</li>
                       <li>Verify environment variables are set (should show "SET" not "MISSING")</li>
                       <li>Try refreshing the page</li>
                       <li>If using Lovable Cloud, the connection should auto-resolve</li>
@@ -248,7 +254,7 @@ const Index = () => {
                       onClick={() => setCurrentTab('diagnostics')}
                     >
                       <Wrench className="h-4 w-4 mr-2" />
-                      Open System Diagnostics
+                     Open System Diagnostics
                     </Button>
                   </details>
                 </CardContent>
@@ -264,17 +270,17 @@ const Index = () => {
                 <Monitor className="h-6 w-6 text-muted-foreground" />
               )}
               <h1 className="text-2xl md:text-4xl font-bold text-foreground">
-                MeethaPitara Recipe Calculator
+               MeethaPitara Recipe Calculator
               </h1>
             </div>
             <p className="text-muted-foreground text-sm md:text-lg px-4">
-              🤖 AI-Powered · 🧠 Self-Learning · 📊 Real-time Predictions
+              AI-Powered ·  Self-Learning ·  Real-time Predictions
             </p>
             {isMobile && (
               <Card className="mt-4 mx-4 bg-info-light border-info/20">
                 <CardContent className="p-3">
                   <p className="text-xs text-info-foreground font-medium">
-                    📱 Mobile mode: Swipe left/right to see all tabs →
+                    Mobile mode: Swipe left/right to see all tabs →
                   </p>
                 </CardContent>
               </Card>
@@ -293,7 +299,7 @@ const Index = () => {
                   ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium ml-2'
                   : 'flex-1 min-w-[140px] font-medium'}
               >
-                📊 Calculator
+                Calculator
               </TabsTrigger>
               <TabsTrigger
                 value="production"
@@ -301,14 +307,14 @@ const Index = () => {
                   ? 'text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium'
                   : 'flex-1 min-w-[140px] font-medium'}
               >
-                🏭 Production
+                Production
               </TabsTrigger>
               {isMobile && (
                 <TabsTrigger
                   value="mobile-input"
                   className="text-xs px-4 py-2.5 flex-shrink-0 whitespace-nowrap font-medium scroll-snap-align-start mr-2"
                 >
-                  ➕ Quick Add
+                  Quick Add
                 </TabsTrigger>
               )}
             </TabsList>
@@ -356,7 +362,7 @@ const Index = () => {
           {isMobile && (
             <Card className="mt-6 mx-4 bg-card-secondary border-border/50">
               <CardContent className="p-4">
-                <h3 className="font-semibold text-sm mb-2 text-foreground">📱 Mobile Features:</h3>
+                <h3 className="font-semibold text-sm mb-2 text-foreground"> Mobile Features:</h3>
                 <div className="space-y-1 text-xs text-muted-foreground">
                   <p>• All 12 tabs available - swipe to access</p>
                   <p>• Touch-optimized ingredient input</p>
@@ -365,7 +371,7 @@ const Index = () => {
                   <p>• Mobile-friendly charts and analysis</p>
                   <p>• Recipe import from Excel/CSV</p>
                   <p>• ML training dashboard with model testing</p>
-                  <p>• System diagnostics in 🔧 Diagnostics tab</p>
+                  <p>• System diagnostics in  Diagnostics tab</p>
                 </div>
               </CardContent>
             </Card>
@@ -380,6 +386,7 @@ const Index = () => {
           onSave={handleSaveRecipe}
           initialName={loadedRecipeData?.name}
           initialType={loadedRecipeData?.type || calculatorProductType}
+          initialTags={loadedRecipeData?.tags}
           isUpdate={!!currentRecipeId}
         />
 

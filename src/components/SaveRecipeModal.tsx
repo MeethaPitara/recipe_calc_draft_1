@@ -2,12 +2,12 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+   Dialog,
+   DialogContent,
+   DialogDescription,
+   DialogFooter,
+   DialogHeader,
+   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +17,10 @@ import { authService } from "@/lib/auth/authService";
 interface SaveRecipeModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (name: string, type: string) => Promise<void>;
+    onSave: (name: string, type: string, tags: string[]) => Promise<void>;
     initialName?: string;
     initialType?: string;
+    initialTags?: string[];
     isUpdate?: boolean; // If true, UI reflects "Update" instead of "Create"
 }
 
@@ -29,10 +30,12 @@ export function SaveRecipeModal({
     onSave,
     initialName = '',
     initialType = 'gelato',
+    initialTags = [],
     isUpdate = false
 }: SaveRecipeModalProps) {
     const [name, setName] = useState(initialName);
     const [type, setType] = useState(initialType);
+    const [tagsText, setTagsText] = useState(initialTags.join(', '));
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +59,8 @@ export function SaveRecipeModal({
                 return;
             }
 
-            await onSave(name, type);
+            const tagsArray = tagsText.split(',').map(t => t.trim()).filter(t => t.length > 0);
+            await onSave(name, type, tagsArray);
             onClose();
         } catch (err: any) {
             setError(err.message || "Failed to save recipe");
@@ -67,13 +71,14 @@ export function SaveRecipeModal({
 
     // Reset state when opening (effect not needed if key changes or controlled fully prop-wise, 
     // but setting initial state on mount/change is good)
-    React.useEffect(() => {
+   React.useEffect(() => {
         if (isOpen) {
             setName(initialName);
             setType(initialType);
+            setTagsText(initialTags.join(', '));
             setError(null);
         }
-    }, [isOpen, initialName, initialType]);
+    }, [isOpen, initialName, initialType, initialTags]);
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -90,7 +95,7 @@ export function SaveRecipeModal({
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">
-                            Name
+                           Name
                         </Label>
                         <Input
                             id="name"
@@ -102,7 +107,7 @@ export function SaveRecipeModal({
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="type" className="text-right">
-                            Type
+                           Type
                         </Label>
                         <Select value={type} onValueChange={setType}>
                             <SelectTrigger className="col-span-3">
@@ -117,6 +122,20 @@ export function SaveRecipeModal({
                             </SelectContent>
                         </Select>
                     </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="tags" className="text-right">
+                           Tags
+                        </Label>
+                        <div className="col-span-3 space-y-1">
+                            <Input
+                                id="tags"
+                                value={tagsText}
+                                onChange={(e) => setTagsText(e.target.value)}
+                                placeholder="e.g., vegan, test, summer"
+                            />
+                            <p className="text-[10px] text-muted-foreground">Comma-separated list of tags</p>
+                        </div>
+                    </div>
                 </div>
 
                 {error && (
@@ -125,7 +144,7 @@ export function SaveRecipeModal({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose} disabled={isLoading}>
-                        Cancel
+                       Cancel
                     </Button>
                     <Button onClick={handleSave} disabled={isLoading}>
                         {isLoading ? "Saving..." : "Save"}

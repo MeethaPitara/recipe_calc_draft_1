@@ -45,12 +45,12 @@ export function RecipeActions({
     <div className="flex gap-2 flex-wrap">
       <Button onClick={onAddRow} variant="outline" size="sm">
         <Plus className="mr-2 h-4 w-4" />
-        Add Ingredient
+       Add Ingredient
       </Button>
 
       <Button onClick={onCalculate} variant="default" size="sm">
         <Calculator className="mr-2 h-4 w-4" />
-        Calculate
+       Calculate
       </Button>
 
       {/* Advanced features - hidden in basic mode */}
@@ -66,7 +66,7 @@ export function RecipeActions({
               ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               : <Zap className="mr-2 h-4 w-4" />
             }
-            Balance Recipe
+           Balance Recipe
           </Button>
 
         </>
@@ -82,18 +82,18 @@ export function RecipeActions({
             ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             : <Save className="mr-2 h-4 w-4" />
           }
-          Save
+         Save
         </Button>
       </div>
 
       <Button onClick={onClear} variant="ghost" size="sm">
-        Clear
+       Clear
       </Button>
 
       {!hasRows && (
         <Button onClick={onShowTemplates} variant="outline" size="sm">
           <BookOpen className="mr-2 h-4 w-4" />
-          Browse Templates
+         Browse Templates
         </Button>
       )}
 

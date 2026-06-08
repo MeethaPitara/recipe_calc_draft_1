@@ -47,28 +47,28 @@ export default function AIOptimization({
       description: 'Fast local optimization. Best for recipes already close to targets.',
       speed: 'Very Fast',
       quality: 'Good',
-      icon: '⚡'
+      icon: ''
     },
     'genetic': {
       name: 'Genetic Algorithm',
       description: 'Evolutionary approach. Explores many solutions simultaneously.',
       speed: 'Moderate',
       quality: 'Excellent',
-      icon: '🧬'
+      icon: ''
     },
     'particle-swarm': {
       name: 'Particle Swarm',
       description: 'Swarm intelligence. Good at finding global optima.',
       speed: 'Moderate',
       quality: 'Very Good',
-      icon: '🐝'
+      icon: ''
     },
     'hybrid': {
       name: 'Hybrid (GA + Hill)',
       description: 'Best of both: broad exploration then refinement.',
       speed: 'Slower',
       quality: 'Best',
-      icon: '🚀'
+      icon: ''
     }
   };
 
@@ -120,7 +120,7 @@ export default function AIOptimization({
     setIsAutoSelecting(true);
     try {
       toast({
-        title: "🚀 Auto-Select Best Running",
+        title: " Auto-Select Best Running",
         description: "Testing all 4 algorithms to find the optimal solution..."
       });
 
@@ -135,7 +135,7 @@ export default function AIOptimization({
       onApplyResult(winner.result);
 
       toast({
-        title: "✅ Best Algorithm Applied",
+        title: " Best Algorithm Applied",
         description: `${winnerName} achieved the best score (${winner.score.toFixed(3)}) in ${winner.time.toFixed(0)}ms and has been applied to your recipe.`
       });
     } catch (error) {
@@ -156,10 +156,10 @@ export default function AIOptimization({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            AI-Powered Optimization
+           AI-Powered Optimization
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Advanced algorithms to automatically balance your recipe
+           Advanced algorithms to automatically balance your recipe
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -171,7 +171,7 @@ export default function AIOptimization({
               <AlertCircle className="h-4 w-4" />
             )}
             <AlertDescription>
-              <strong>{allTargetsMet ? 'Recipe Balanced ✓' : 'Optimization Needed'}</strong>
+              <strong>{allTargetsMet ? 'Recipe Balanced ' : 'Optimization Needed'}</strong>
               <br />
               {allTargetsMet
                 ? 'All parameters are within target ranges'
@@ -217,7 +217,7 @@ export default function AIOptimization({
           <div>
             <h3 className="font-medium mb-3 flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              AI Insights
+             AI Insights
             </h3>
             <div className="space-y-2">
               {currentSuggestions.map((suggestion, idx) => (
@@ -239,13 +239,13 @@ export default function AIOptimization({
             >
               {isAutoSelecting ? (
                 <>
-                  <span className="animate-spin mr-2">⚙️</span>
-                  Auto-Selecting Best...
+                  <span className="animate-spin mr-2"></span>
+                 Auto-Selecting Best...
                 </>
               ) : (
                 <>
                   <Wand2 className="h-5 w-5 mr-2" />
-                  Auto-Select Best Algorithm
+                 Auto-Select Best Algorithm
                 </>
               )}
             </Button>
@@ -259,13 +259,13 @@ export default function AIOptimization({
               >
                 {isOptimizing ? (
                   <>
-                    <span className="animate-spin mr-2">⚙️</span>
-                    Optimizing...
+                    <span className="animate-spin mr-2"></span>
+                   Optimizing...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Optimize
+                   Optimize
                   </>
                 )}
               </Button>
@@ -278,13 +278,13 @@ export default function AIOptimization({
               >
                 {isComparing ? (
                   <>
-                    <span className="animate-spin mr-2">⚙️</span>
-                    Comparing...
+                    <span className="animate-spin mr-2"></span>
+                   Comparing...
                   </>
                 ) : (
                   <>
                     <BarChart3 className="h-4 w-4 mr-2" />
-                    Compare
+                   Compare
                   </>
                 )}
               </Button>
@@ -310,10 +310,10 @@ export default function AIOptimization({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Algorithm Comparison Results
+             Algorithm Comparison Results
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Performance metrics for all optimization algorithms (lower score is better)
+             Performance metrics for all optimization algorithms (lower score is better)
             </p>
           </CardHeader>
           <CardContent>
@@ -344,7 +344,7 @@ export default function AIOptimization({
                     <TableCell>
                       {idx === 0 ? (
                         <Badge variant="default" className="bg-green-600">
-                          🏆 Best
+                          Best
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground">#{idx + 1}</span>
@@ -360,7 +360,7 @@ export default function AIOptimization({
               <AlertDescription>
                 <strong>Winner: {algorithmInfo[comparisonResults[0].algorithm as OptimizerConfig['algorithm']]?.name}</strong>
                 <br />
-                This algorithm achieved the best score ({comparisonResults[0].score.toFixed(3)})
+               This algorithm achieved the best score ({comparisonResults[0].score.toFixed(3)})
                 in {comparisonResults[0].time.toFixed(0)}ms.
                 {onApplyResult && (
                   <>
@@ -377,7 +377,7 @@ export default function AIOptimization({
                         });
                       }}
                     >
-                      Click here to apply this result
+                     Click here to apply this result
                     </Button>
                   </>
                 )}

@@ -64,7 +64,7 @@ export function RecipeInputDialog({ onRecipeSubmit, trigger }: RecipeInputDialog
         {trigger || (
           <Button variant="outline" className="gap-2">
             <Plus className="h-4 w-4" />
-            Input Recipe
+           Input Recipe
           </Button>
         )}
       </DialogTrigger>
@@ -72,7 +72,7 @@ export function RecipeInputDialog({ onRecipeSubmit, trigger }: RecipeInputDialog
         <DialogHeader>
           <DialogTitle>Input Recipe for Analysis</DialogTitle>
           <DialogDescription>
-            Enter your recipe ingredients to get AI predictions and insights
+           Enter your recipe ingredients to get AI predictions and insights
           </DialogDescription>
         </DialogHeader>
 
@@ -97,7 +97,7 @@ export function RecipeInputDialog({ onRecipeSubmit, trigger }: RecipeInputDialog
               <Label>Ingredients</Label>
               <Button onClick={addIngredient} variant="ghost" size="sm" className="gap-1">
                 <Plus className="h-3 w-3" />
-                Add
+               Add
               </Button>
             </div>
 
@@ -131,10 +131,10 @@ export function RecipeInputDialog({ onRecipeSubmit, trigger }: RecipeInputDialog
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+             Cancel
             </Button>
             <Button onClick={handleSubmit}>
-              Analyze Recipe
+             Analyze Recipe
             </Button>
           </div>
         </div>

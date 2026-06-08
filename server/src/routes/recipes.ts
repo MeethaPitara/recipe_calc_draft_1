@@ -160,11 +160,33 @@ router.get('/:id', async (req, res) => {
 // ── POST / — Create recipe ──
 router.post('/', async (req, res) => {
     try {
-        const { recipe_name, product_type, rows, metrics } = req.body;
+        const { recipe_name, product_type, rows, metrics, tags } = req.body;
 
         if (!recipe_name) {
             res.status(400).json({ error: 'Recipe name is required.' });
             return;
+        }
+
+        let cost_per_kg = 0;
+        let totalWeight = 0;
+        let totalCost = 0;
+
+        if (rows && Array.isArray(rows) && rows.length > 0) {
+            const ingredientNames = rows.map((r: any) => r.ingredient);
+            const { data: ingredientsData } = await supabase.from('ingredients').select('name, cost_per_kg').in('name', ingredientNames);
+            
+            if (ingredientsData) {
+                const costMap = Object.fromEntries(ingredientsData.map((i: any) => [i.name, i.cost_per_kg || 0]));
+                for (const r of rows) {
+                    if (r.quantity_g > 0) {
+                        totalWeight += r.quantity_g;
+                        totalCost += (r.quantity_g / 1000) * (costMap[r.ingredient] || 0);
+                    }
+                }
+            }
+            if (totalWeight > 0) {
+                cost_per_kg = totalCost / (totalWeight / 1000);
+            }
         }
 
         // 1. Insert recipe header
@@ -174,6 +196,10 @@ router.post('/', async (req, res) => {
                 recipe_name,
                 product_type: product_type || 'ice_cream',
                 user_id: req.user!.id,
+                tags: tags || [],
+                is_production_locked: false,
+                version_number: 1,
+                cost_per_kg: cost_per_kg > 0 ? cost_per_kg : null
             })
             .select()
             .single();
@@ -184,6 +210,16 @@ router.post('/', async (req, res) => {
         }
 
         const recipeId = newRecipe.id;
+
+        // Insert cost record
+        if (cost_per_kg > 0) {
+            await supabase.from('cost_records').insert({
+                recipe_id: recipeId,
+                user_id: req.user!.id,
+                cost_per_kg: cost_per_kg,
+                batch_size_g: totalWeight
+            });
+        }
 
         // 2. Insert rows
         if (rows && Array.isArray(rows) && rows.length > 0) {
@@ -252,7 +288,36 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const recipeId = req.params.id;
-        const { recipe_name, product_type, rows, metrics } = req.body;
+        const { recipe_name, product_type, rows, metrics, tags } = req.body;
+
+        // check if locked
+        const { data: existingRecipe } = await supabase.from('recipes').select('is_production_locked').eq('id', recipeId).single();
+        if (existingRecipe?.is_production_locked) {
+            res.status(403).json({ error: 'Recipe is production locked and cannot be modified. Please clone it to make edits.' });
+            return;
+        }
+
+        let cost_per_kg = 0;
+        let totalWeight = 0;
+        let totalCost = 0;
+
+        if (rows && Array.isArray(rows) && rows.length > 0) {
+            const ingredientNames = rows.map((r: any) => r.ingredient);
+            const { data: ingredientsData } = await supabase.from('ingredients').select('name, cost_per_kg').in('name', ingredientNames);
+            
+            if (ingredientsData) {
+                const costMap = Object.fromEntries(ingredientsData.map((i: any) => [i.name, i.cost_per_kg || 0]));
+                for (const r of rows) {
+                    if (r.quantity_g > 0) {
+                        totalWeight += r.quantity_g;
+                        totalCost += (r.quantity_g / 1000) * (costMap[r.ingredient] || 0);
+                    }
+                }
+            }
+            if (totalWeight > 0) {
+                cost_per_kg = totalCost / (totalWeight / 1000);
+            }
+        }
 
         // 1. Update header
         const updates: Record<string, any> = {
@@ -260,6 +325,8 @@ router.put('/:id', async (req, res) => {
         };
         if (recipe_name) updates.recipe_name = recipe_name;
         if (product_type) updates.product_type = product_type;
+        if (tags) updates.tags = tags;
+        if (cost_per_kg > 0) updates.cost_per_kg = cost_per_kg;
 
         const { error: updateError } = await supabase
             .from('recipes')
@@ -269,6 +336,16 @@ router.put('/:id', async (req, res) => {
         if (updateError) {
             res.status(500).json({ error: updateError.message });
             return;
+        }
+
+        // Insert cost record
+        if (cost_per_kg > 0) {
+            await supabase.from('cost_records').insert({
+                recipe_id: recipeId,
+                user_id: req.user!.id,
+                cost_per_kg: cost_per_kg,
+                batch_size_g: totalWeight
+            });
         }
 
         // 2. Replace rows
@@ -334,6 +411,88 @@ router.post('/:id/outcome', async (req, res) => {
 
         if (error) throw error;
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── PATCH /:id/lock — Lock recipe for production ──
+router.patch('/:id/lock', async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('recipes')
+            .update({ is_production_locked: true, updated_at: new Date().toISOString() })
+            .eq('id', req.params.id);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── POST /:id/clone — Clone a recipe ──
+router.post('/:id/clone', async (req, res) => {
+    try {
+        const recipeId = req.params.id;
+
+        // 1. Fetch original recipe
+        const { data: original, error: origError } = await supabase
+            .from('recipes')
+            .select('*')
+            .eq('id', recipeId)
+            .single();
+
+        if (origError || !original) {
+            res.status(404).json({ error: 'Recipe not found' });
+            return;
+        }
+
+        // 2. Fetch original rows
+        const { data: rows } = await supabase.from('recipe_rows').select('*').eq('recipe_id', recipeId);
+        
+        // 3. Fetch original metrics
+        const { data: metrics } = await supabase.from('calculated_metrics').select('*').eq('recipe_id', recipeId).single();
+
+        const newVersion = (original.version_number || 1) + 1;
+        // Strip out existing (vX) pattern if present to avoid (v2) (v3) stacking
+        const baseName = original.recipe_name.replace(/\s*\(v\d+\)$/, '');
+        const newName = `${baseName} (v${newVersion})`;
+
+        // 4. Create new recipe
+        const { data: newRecipe, error: createError } = await supabase
+            .from('recipes')
+            .insert({
+                recipe_name: newName,
+                product_type: original.product_type,
+                user_id: req.user!.id,
+                tags: original.tags || [],
+                is_production_locked: false,
+                version_number: newVersion
+            })
+            .select()
+            .single();
+
+        if (createError) throw createError;
+        const newId = newRecipe.id;
+
+        // 5. Clone rows
+        if (rows && rows.length > 0) {
+            const newRows = rows.map((r: any) => ({
+                ...r,
+                id: undefined,
+                recipe_id: newId
+            }));
+            await supabase.from('recipe_rows').insert(newRows);
+        }
+
+        // 6. Clone metrics
+        if (metrics) {
+            const newMetrics = { ...metrics, id: undefined, recipe_id: newId };
+            await supabase.from('calculated_metrics').insert(newMetrics);
+        }
+
+        res.json({ success: true, id: newId, recipe: newRecipe });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

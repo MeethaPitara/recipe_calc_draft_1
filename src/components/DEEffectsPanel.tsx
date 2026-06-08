@@ -63,7 +63,7 @@ export const DEEffectsPanel: React.FC = () => {
           </Button>
         </div>
         <CardDescription>
-          How Dextrose Equivalent (DE) affects your gelato properties
+         How Dextrose Equivalent (DE) affects your gelato properties
         </CardDescription>
       </CardHeader>
       
@@ -73,7 +73,7 @@ export const DEEffectsPanel: React.FC = () => {
           <div className="p-3 bg-warning/10 dark:bg-warning/20 rounded-lg border border-warning/30">
             <p className="text-sm font-semibold mb-2">What is DE?</p>
             <p className="text-xs text-muted-foreground">
-              Dextrose Equivalent (DE) measures the degree of starch hydrolysis. Higher DE = more simple sugars = more sweetness and anti-freeze power. Lower DE = more complex chains = more body and viscosity.
+             Dextrose Equivalent (DE) measures the degree of starch hydrolysis. Higher DE = more simple sugars = more sweetness and anti-freeze power. Lower DE = more complex chains = more body and viscosity.
             </p>
           </div>
 
@@ -129,7 +129,7 @@ export const DEEffectsPanel: React.FC = () => {
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="reference">
               <AccordionTrigger className="text-sm font-semibold">
-                DE Value Reference Guide
+               DE Value Reference Guide
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-2">
@@ -151,7 +151,7 @@ export const DEEffectsPanel: React.FC = () => {
           <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border border-primary/30">
             <p className="font-semibold text-sm mb-2 flex items-center gap-2">
               <Info className="h-4 w-4" />
-              Practical Tips:
+             Practical Tips:
             </p>
             <ul className="text-xs text-muted-foreground space-y-1 ml-5 list-disc">
               <li>Use low DE (15-40) for body and texture without much sweetness</li>

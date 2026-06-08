@@ -29,15 +29,18 @@ export const DEFAULT_CONFIG: OptimizerConfig = {
   convergenceThreshold: 0.001
 };
 
-// Objective function (same for all algorithms)
+// Objective function — sensory-importance weighted errors
+// Weights: fat×2, msnf×2, sugars×1, ts×1, FPDT×5 (non-linear, LP can't touch it), AFP×1.5, SP×1.5
 function objective(m: MetricsV2, t: OptimizeTarget): number {
   let s = 0;
-  if (t.totalSugars_pct != null) s += Math.abs(m.totalSugars_pct - t.totalSugars_pct);
-  if (t.sugars_pct != null) s += Math.abs(m.nonLactoseSugars_pct - t.sugars_pct);
-  if (t.fat_pct != null) s += Math.abs(m.fat_pct - t.fat_pct);
-  if (t.msnf_pct != null) s += Math.abs(m.msnf_pct - t.msnf_pct);
-  if (t.ts_pct != null) s += Math.abs(m.ts_pct - t.ts_pct);
-  if (t.fpdt != null) s += Math.abs(m.fpdt - t.fpdt);
+  if (t.fat_pct != null) s += Math.abs(m.fat_pct - t.fat_pct) * 2.0;
+  if (t.msnf_pct != null) s += Math.abs(m.msnf_pct - t.msnf_pct) * 2.0;
+  if (t.totalSugars_pct != null) s += Math.abs(m.totalSugars_pct - t.totalSugars_pct) * 1.0;
+  if (t.sugars_pct != null) s += Math.abs(m.nonLactoseSugars_pct - t.sugars_pct) * 1.0;
+  if (t.ts_pct != null) s += Math.abs(m.ts_pct - t.ts_pct) * 1.0;
+  if (t.fpdt != null) s += Math.abs(m.fpdt - t.fpdt) * 5.0;
+  if (t.afp_target != null) s += Math.abs(m.afp_index - t.afp_target) * 1.5;
+  if (t.pod_target != null) s += Math.abs(m.sp_pct - t.pod_target) * 1.5;
   return s;
 }
 
@@ -117,16 +120,18 @@ function geneticAlgorithm(
       return ind;
     });
 
-    // Track best
-    const currentBest = population.reduce((best, ind) => {
+    // Track best — snapshot score BEFORE reduce so convergence comparison is valid
+    const prevBestScore = bestScore;
+    population.reduce((best, ind) => {
       const score = objective(calcMetricsV2(ind), targets);
-      return score < bestScore ? (bestScore = score, bestIndividual = ind, ind) : best;
+      if (score < bestScore) { bestScore = score; bestIndividual = ind; return ind; }
+      return best;
     }, bestIndividual);
 
-    // Convergence check
-    if (Math.abs(objective(calcMetricsV2(currentBest), targets) - objective(calcMetricsV2(bestIndividual), targets)) < 0.001) {
+    // Convergence check: compare new best against the pre-generation snapshot
+    if (Math.abs(bestScore - prevBestScore) < 0.001) {
       noImprovement++;
-      if (noImprovement > 20) break; // Early stopping
+      if (noImprovement > 20) break;
     } else {
       noImprovement = 0;
     }
@@ -170,6 +175,7 @@ function particleSwarmOptimization(
 
   let globalBest = particles[0].bestPosition;
   let globalBestScore = particles[0].bestScore;
+  const initialPSOScore = globalBestScore; // snapshot for relative convergence check
 
   for (let iter = 0; iter < maxIterations; iter++) {
     for (const particle of particles) {
@@ -210,8 +216,9 @@ function particleSwarmOptimization(
       }
     }
 
-    // Convergence check
-    if (globalBestScore < 0.1) break;
+    // Convergence check — relative to initial score (absolute 0.1 doesn't scale across target sets)
+    const convergenceTarget = initialPSOScore > 0 ? initialPSOScore * 0.01 : 0.1;
+    if (globalBestScore < convergenceTarget) break;
   }
 
   return globalBest;
@@ -228,10 +235,10 @@ function hybridOptimization(
   const gaResult = geneticAlgorithm(rowsIn, targets, gaConfig);
 
   // Phase 2: Hill-climbing for local refinement
-  const hcIterations = Math.floor((config.maxIterations ?? 200) * 0.5);
-  const refinedResult = hillClimbOptimize(gaResult, targets, 'gelato', hcIterations, 1);
+  // Note: the new LP solver replaced hill climbing, so we just use the LP solver here
+  const refinedResult = hillClimbOptimize(gaResult, targets, undefined, 'gelato');
 
-  return refinedResult;
+  return refinedResult.rows;
 }
 
 // Main entry point
@@ -248,8 +255,10 @@ export function advancedOptimize(
     case 'hybrid':
       return hybridOptimization(rowsIn, targets, config);
     case 'hill-climbing':
-    default:
-      return hillClimbOptimize(rowsIn, targets, 'gelato', config.maxIterations ?? 200, 1);
+    default: {
+      const res = hillClimbOptimize(rowsIn, targets, undefined, 'gelato');
+      return res.rows;
+    }
   }
 }
 

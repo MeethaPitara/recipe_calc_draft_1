@@ -29,6 +29,7 @@ export type ParameterSet = {
   sugar: SugarCoeffs;
   process?: ProcessTargets;
   notes?: string[];
+  constraint_defaults?: any;
 };
 
 export type EffectiveParameters = ParameterSet & {

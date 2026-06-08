@@ -2,17 +2,44 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/lib/auth/authService";
 import { IngredientService } from "@/services/ingredientService";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Shield, Plus, Pencil, Trash2, ArrowLeft } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface Ingredient {
   id: string;
@@ -27,13 +54,26 @@ interface Ingredient {
   sp_coeff: number | null;
   pac_coeff: number | null;
   notes: string | null;
+  supplier_data_sheet_url?: string;
+  formulation_warnings?: string[];
+}
+
+interface AiUsageLog {
+  id: string;
+  created_at: string;
+  function_name: string;
+  tokens_used: number | null;
+  latency_ms: number | null;
+  success: boolean | null;
 }
 
 export default function AdminPanel() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [aiUsageLogs, setAiUsageLogs] = useState<AiUsageLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingUsage, setLoadingUsage] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Ingredient>>({});
 
@@ -55,6 +95,7 @@ export default function AdminPanel() {
       // Admin panel now accessible to all authenticated users
       setIsAdmin(true);
       loadIngredients();
+      loadAiUsage();
     } catch (error) {
       console.error("Error checking admin status:", error);
       toast.error("Error verifying admin access");
@@ -79,6 +120,25 @@ export default function AdminPanel() {
       toast.error("Failed to load ingredients");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAiUsage = async () => {
+    try {
+      setLoadingUsage(true);
+      const { data, error } = await supabase
+        .from('ai_usage_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+        
+      if (error) throw error;
+      setAiUsageLogs(data || []);
+    } catch (error) {
+      console.error("Error loading AI usage logs:", error);
+      toast.error("Failed to load AI usage logs");
+    } finally {
+      setLoadingUsage(false);
     }
   };
 
@@ -141,12 +201,12 @@ export default function AdminPanel() {
             <Badge variant="secondary">Ingredient Management</Badge>
           </div>
           <p className="text-muted-foreground">
-            Manage the shared ingredient library. Changes affect all users.
+           Manage the shared ingredient library. Changes affect all users.
           </p>
         </div>
         <Button variant="outline" onClick={() => navigate("/")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to App
+         Back to App
         </Button>
       </div>
 
@@ -155,7 +215,8 @@ export default function AdminPanel() {
           <CardHeader>
             <CardTitle>{editingId ? "Edit" : "Add"} Ingredient</CardTitle>
             <CardDescription>
-              All fields are required except notes, sp_coeff, pac_coeff, and cost_per_kg
+             All fields are required except notes, sp_coeff, pac_coeff, and
+              cost_per_kg
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -165,7 +226,9 @@ export default function AdminPanel() {
                 <Input
                   id="name"
                   value={formData.name || ""}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="e.g., Whole Milk"
                 />
               </div>
@@ -173,7 +236,9 @@ export default function AdminPanel() {
                 <Label htmlFor="category">Category *</Label>
                 <Select
                   value={formData.category || ""}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -196,7 +261,12 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.water_pct || ""}
-                  onChange={(e) => setFormData({ ...formData, water_pct: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      water_pct: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -206,7 +276,12 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.fat_pct || ""}
-                  onChange={(e) => setFormData({ ...formData, fat_pct: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      fat_pct: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -216,7 +291,12 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.msnf_pct || ""}
-                  onChange={(e) => setFormData({ ...formData, msnf_pct: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      msnf_pct: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -226,7 +306,12 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.sugars_pct || ""}
-                  onChange={(e) => setFormData({ ...formData, sugars_pct: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      sugars_pct: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -236,7 +321,12 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.other_solids_pct || ""}
-                  onChange={(e) => setFormData({ ...formData, other_solids_pct: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      other_solids_pct: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -246,7 +336,12 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.cost_per_kg || ""}
-                  onChange={(e) => setFormData({ ...formData, cost_per_kg: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      cost_per_kg: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -256,7 +351,12 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.sp_coeff || ""}
-                  onChange={(e) => setFormData({ ...formData, sp_coeff: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      sp_coeff: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div>
@@ -266,7 +366,47 @@ export default function AdminPanel() {
                   type="number"
                   step="0.01"
                   value={formData.pac_coeff || ""}
-                  onChange={(e) => setFormData({ ...formData, pac_coeff: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      pac_coeff: parseFloat(e.target.value),
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="supplier_data_sheet_url">
+                 Supplier Data Sheet URL
+                </Label>
+                <Input
+                  id="supplier_data_sheet_url"
+                  placeholder="https://..."
+                  value={formData.supplier_data_sheet_url || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      supplier_data_sheet_url: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="formulation_warnings">
+                 Formulation Warnings (comma-separated)
+                </Label>
+                <Input
+                  id="formulation_warnings"
+                  placeholder="e.g. Contains nuts, High acid"
+                  value={formData.formulation_warnings?.join(", ") || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      formulation_warnings: e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    })
+                  }
                 />
               </div>
               <div className="md:col-span-2">
@@ -274,7 +414,9 @@ export default function AdminPanel() {
                 <Textarea
                   id="notes"
                   value={formData.notes || ""}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
                   placeholder="Additional notes about this ingredient..."
                   rows={3}
                 />
@@ -292,7 +434,7 @@ export default function AdminPanel() {
                     setFormData({});
                   }}
                 >
-                  Cancel
+                 Cancel
                 </Button>
               )}
             </div>
@@ -302,7 +444,9 @@ export default function AdminPanel() {
         <Card>
           <CardHeader>
             <CardTitle>Ingredient Library ({ingredients.length})</CardTitle>
-            <CardDescription>Manage all ingredients in the system</CardDescription>
+            <CardDescription>
+             Manage all ingredients in the system
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -320,7 +464,9 @@ export default function AdminPanel() {
               <TableBody>
                 {ingredients.map((ingredient) => (
                   <TableRow key={ingredient.id}>
-                    <TableCell className="font-medium">{ingredient.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {ingredient.name}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{ingredient.category}</Badge>
                     </TableCell>
@@ -328,7 +474,9 @@ export default function AdminPanel() {
                     <TableCell>{ingredient.fat_pct}%</TableCell>
                     <TableCell>{ingredient.sugars_pct}%</TableCell>
                     <TableCell>
-                      {ingredient.cost_per_kg ? `$${ingredient.cost_per_kg.toFixed(2)}` : "-"}
+                      {ingredient.cost_per_kg
+                        ? `$${ingredient.cost_per_kg.toFixed(2)}`
+                        : "-"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -355,6 +503,66 @@ export default function AdminPanel() {
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>AI Usage Analytics</CardTitle>
+            <CardDescription>
+             Recent AI optimization and creation requests
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingUsage ? (
+              <div className="text-center py-4 text-muted-foreground">Loading usage logs...</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Function Name</TableHead>
+                    <TableHead>Tokens Used</TableHead>
+                    <TableHead>Latency (ms)</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Timestamp</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aiUsageLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="font-medium">
+                        {log.function_name}
+                      </TableCell>
+                      <TableCell>
+                        {log.tokens_used?.toLocaleString() || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {log.latency_ms ? `${log.latency_ms} ms` : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {log.success ? (
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">Success</Badge>
+                        ) : log.success === false ? (
+                          <Badge variant="destructive">Failed</Badge>
+                        ) : (
+                          <Badge variant="outline">Unknown</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground text-sm">
+                        {new Date(log.created_at).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {aiUsageLogs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
+                       No AI usage logs found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

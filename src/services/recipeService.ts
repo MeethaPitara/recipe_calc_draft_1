@@ -3,7 +3,7 @@
  * All Supabase queries moved to backend. This now delegates to /api/recipes/*.
  */
 
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/apiClient';
+import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
 import { MetricsV2 } from '@/lib/calc.v2';
 import { IngredientData } from '@/types/ingredients';
@@ -32,7 +32,8 @@ export const recipeService = {
     type: string,
     rows: { ing: IngredientData; grams: number }[],
     metrics: MetricsV2,
-    existingId?: string
+    existingId?: string,
+    tags: string[] = []
   ) {
     await this.requireAuth();
 
@@ -61,6 +62,7 @@ export const recipeService = {
         product_type: type,
         rows: dbRows,
         metrics,
+        tags,
       });
       return existingId;
     } else {
@@ -69,6 +71,7 @@ export const recipeService = {
         product_type: type,
         rows: dbRows,
         metrics,
+        tags,
       });
       return result.id;
     }
@@ -87,6 +90,16 @@ export const recipeService = {
   async deleteRecipe(id: string) {
     await this.requireAuth();
     await apiDelete(`/api/recipes/${id}`);
+  },
+
+  async lockRecipe(id: string) {
+    await this.requireAuth();
+    return apiPatch<{ success: boolean }>(`/api/recipes/${id}/lock`);
+  },
+
+  async cloneRecipe(id: string) {
+    await this.requireAuth();
+    return apiPost<{ success: boolean; id: string; recipe: any }>(`/api/recipes/${id}/clone`);
   },
 
   async saveAiRecipe(
@@ -112,6 +125,6 @@ export const recipeService = {
       totalMass: Object.values(optimizedRecipe).reduce((s, q) => s + (q as number), 0),
     } as any;
 
-    return this.saveRecipe(name, type, rows, mockMetrics, existingId);
+    return this.saveRecipe(name, type, rows, mockMetrics, existingId, []);
   },
 };

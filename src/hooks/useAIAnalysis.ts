@@ -28,7 +28,7 @@ export function useAIAnalysis() {
     setIsLoading(true);
 
     try {
-      console.log('🤖 Calling AI analysis via backend...');
+      console.log(' Calling AI analysis via backend...');
       const data = await apiPost<AIAnalysis>('/api/ai/optimize', {
         userPrompt: `Analyze this ${productType} recipe for quality and suggest improvements`,
         recipe: recipe.map(r => ({
@@ -46,7 +46,7 @@ export function useAIAnalysis() {
         currentMetrics: metrics,
       });
 
-      console.log('✅ AI analysis complete:', data);
+      console.log(' AI analysis complete:', data);
       setAnalysis(data as any);
     } catch (error: any) {
       console.error('AI analysis error:', error);

@@ -13,17 +13,17 @@ export default function Glossary() {
       <div className="container max-w-4xl py-8 space-y-6">
         <Button variant="ghost" onClick={() => navigate('/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Calculator
+         Back to Calculator
         </Button>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-3xl">
               <BookOpen className="h-8 w-8 text-primary" />
-              Ice Cream Science Glossary
+             Ice Cream Science Glossary
             </CardTitle>
             <CardDescription>
-              Essential terms and concepts for professional gelato and ice cream formulation
+             Essential terms and concepts for professional gelato and ice cream formulation
             </CardDescription>
           </CardHeader>
         </Card>
@@ -34,7 +34,7 @@ export default function Glossary() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              The total depression of the freezing point below 0°C. This determines how soft or hard your ice cream will be at serving temperature.
+             The total depression of the freezing point below 0°C. This determines how soft or hard your ice cream will be at serving temperature.
             </p>
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <p className="font-semibold">Target Ranges:</p>
@@ -66,7 +66,7 @@ export default function Glossary() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              All the solids in milk except fat: primarily protein (casein & whey) and lactose, plus minerals.
+             All the solids in milk except fat: primarily protein (casein & whey) and lactose, plus minerals.
             </p>
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <p className="font-semibold">Target Ranges:</p>
@@ -87,7 +87,7 @@ export default function Glossary() {
             </div>
             <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900 rounded-lg p-3">
               <p className="text-sm text-yellow-900 dark:text-yellow-200">
-                <strong>⚠️ Warning:</strong> Too much MSNF means high lactose. Keep lactose under 11% to avoid sandiness (lactose crystallization).
+                <strong> Warning:</strong> Too much MSNF means high lactose. Keep lactose under 11% to avoid sandiness (lactose crystallization).
               </p>
             </div>
           </CardContent>
@@ -118,7 +118,7 @@ export default function Glossary() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Measures how much each sugar lowers the freezing point relative to sucrose (baseline = 1.00).
+             Measures how much each sugar lowers the freezing point relative to sucrose (baseline = 1.00).
             </p>
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <p className="font-semibold">Common Sugar PAC Values:</p>
@@ -146,7 +146,7 @@ export default function Glossary() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Higher PAC sugars like dextrose create softer textures at the same temperature.
+             Higher PAC sugars like dextrose create softer textures at the same temperature.
             </p>
           </CardContent>
         </Card>
@@ -157,7 +157,7 @@ export default function Glossary() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Relative perceived sweetness compared to sucrose (table sugar = 1.00).
+             Relative perceived sweetness compared to sucrose (table sugar = 1.00).
             </p>
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <p className="font-semibold">Common Sugar SP Values:</p>
@@ -197,7 +197,7 @@ export default function Glossary() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              The percentage increase in volume from air incorporation during churning.
+             The percentage increase in volume from air incorporation during churning.
             </p>
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <p className="font-semibold">Typical Ranges:</p>
@@ -221,7 +221,7 @@ export default function Glossary() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Formula: <code className="bg-muted px-2 py-1 rounded">Overrun = ((Final Volume - Initial Volume) / Initial Volume) × 100</code>
+             Formula: <code className="bg-muted px-2 py-1 rounded">Overrun = ((Final Volume - Initial Volume) / Initial Volume) × 100</code>
             </p>
           </CardContent>
         </Card>
