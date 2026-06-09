@@ -40,7 +40,7 @@ router.get('/manufacturer/:recipeId', async (req, res) => {
 
         await logExport(req.user!.id, 'manufacturer', recipeId);
 
-        const tableBody = [
+        const tableBody: any[][] = [
             [{ text: 'Ingredient', style: 'tableHeader' }, { text: 'Quantity (g)', style: 'tableHeader' }, { text: 'Tolerance (±g)', style: 'tableHeader' }]
         ];
 
@@ -53,7 +53,7 @@ router.get('/manufacturer/:recipeId', async (req, res) => {
                 }
             }
         }
-        tableBody.push([{ text: 'Total Batch', bold: true }, { text: totalQty.toString(), bold: true }, { text: '-', bold: true }]);
+        tableBody.push([{ text: 'Total Batch', bold: true }, { text: totalQty.toString(), bold: true }, { text: '-', bold: true }] as any[]);
 
         const docDefinition: TDocumentDefinitions = {
             defaultStyle: { font: 'Helvetica' },
