@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient.js';
 import { requireAuth } from '../middleware/auth.js';
-const PdfPrinter = require('pdfmake/js/printer.js').default;
+const PdfPrinter = require('pdfmake/js/Printer.js').default;
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 
 const router = Router();
