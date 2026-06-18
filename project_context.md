@@ -24,7 +24,7 @@ An integrated 3-stage pipeline working sequentially:
 2. **Optimizer Tool** (LP Solver): Mathematically balances parameters (Fat, MSNF, Sugars) using Simplex algorithms to output an optimized recipe structure that minimizes distance from the original.
 3. **Food Scientist** (Gemini AI): Evaluates and explains the technical characteristics of the final optimized recipe.
 
-## Tasks Completed To Date
+## Tasks Completed To Date   
 The application has transitioned from a manual recipe validator to an intelligent formulation suite:
 - Implemented robust UI for three-level Production Planning.
 - Migrated legacy Supabase authentication to a Custom JWT system.
