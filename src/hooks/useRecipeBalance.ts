@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/apiClient';
-import { calcMetricsV2, MetricsV2 } from '@/lib/calc.v2';
+import { calcMetricsV2, MetricsV2 } from '@/lib/calcApi';
 import { OptimizeTarget, Row } from '@/lib/optimize';
 import { RecipeBalancerV2, ScienceValidation } from '@/lib/optimize.balancer.v2';
 import { PRODUCT_CONSTRAINTS, getBalancingTargets } from '@/lib/productConstraints';

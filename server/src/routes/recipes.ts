@@ -262,9 +262,11 @@ router.post('/', async (req, res) => {
                 total_msnf_g: metrics.msnf_g || 0,
                 total_other_solids_g: metrics.other_g || 0,
                 fpdt: metrics.fpdt || 0,
-                sp: metrics.se_g || 0,
-                pac: metrics.fpdse || 0,
+                sp: metrics.sp_pct || 0,
+                pac: metrics.afp_index || 0,
                 pod_index: metrics.pod_index || 0,
+                added_sugars_pct: metrics.nonLactoseSugars_pct || 0,
+                total_sugars_pct: metrics.totalSugarsTotal_pct || 0,
             });
         }
 
@@ -387,9 +389,11 @@ router.put('/:id', async (req, res) => {
                 total_msnf_g: metrics.msnf_g || 0,
                 total_other_solids_g: metrics.other_g || 0,
                 fpdt: metrics.fpdt || 0,
-                sp: metrics.se_g || 0,
-                pac: metrics.fpdse || 0,
+                sp: metrics.sp_pct || 0,
+                pac: metrics.afp_index || 0,
                 pod_index: metrics.pod_index || 0,
+                added_sugars_pct: metrics.nonLactoseSugars_pct || 0,
+                total_sugars_pct: metrics.totalSugarsTotal_pct || 0,
             });
         }
 

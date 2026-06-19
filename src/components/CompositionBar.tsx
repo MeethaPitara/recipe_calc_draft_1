@@ -1,4 +1,4 @@
-import { MetricsV2 } from "@/lib/calc.v2";
+import { MetricsV2 } from "@/lib/calcApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";

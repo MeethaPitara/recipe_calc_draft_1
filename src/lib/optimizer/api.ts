@@ -5,7 +5,7 @@
 
 import { apiPost } from '../apiClient';
 import type { IngredientData } from '@/types/ingredients';
-import type { MetricsV2 } from '../calc.v2';
+import type { MetricsV2 } from '../calcApi';
 
 // ── PRD Interfaces (kept frontend-side for UI rendering) ──
 

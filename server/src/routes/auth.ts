@@ -13,11 +13,10 @@ import { SignJWT } from 'jose';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../lib/supabaseClient.js';
 import { requireAuth } from '../middleware/auth.js';
+import { JWT_SECRET } from '../lib/jwtConfig.js';
 
 const router = Router();
 
-const JWT_SECRET_STR = process.env.JWT_SECRET || 'meetha-pitara-default-dev-secret-change-me';
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STR);
 const TOKEN_EXPIRY = '7d';
 const BCRYPT_ROUNDS = 10;
 

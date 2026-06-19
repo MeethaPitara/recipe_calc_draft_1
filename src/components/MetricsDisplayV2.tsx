@@ -1,4 +1,4 @@
-import { MetricsV2 } from "@/lib/calc.v2";
+import { MetricsV2 } from "@/lib/calcApi";
 import { MetricDiagnosisCard } from "./MetricDiagnosisCard";
 import { GlossaryTooltip } from "./GlossaryTooltip";
 import { PRODUCT_CONSTRAINTS } from "@/lib/productConstraints";

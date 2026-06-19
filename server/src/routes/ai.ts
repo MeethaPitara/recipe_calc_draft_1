@@ -9,6 +9,15 @@ import type { OptimizeTarget } from '../lib/core/optimize.js';
 const router = Router();
 router.use(requireAuth as any);
 
+const AI_ENABLED = process.env.AI_ENABLED === 'true';
+router.use((req, res, next) => {
+    if (!AI_ENABLED) {
+        res.status(503).json({ error: 'AI features are disabled. Set AI_ENABLED=true to enable.' });
+        return;
+    }
+    next();
+});
+
 async function fetchIngredientsFromSupabase() {
     const { data } = await supabase.from('ingredients').select('*');
     return data || [];

@@ -4,7 +4,7 @@
  */
 
 import { apiPost } from './apiClient';
-import type { MetricsV2 } from './calc.v2';
+import type { MetricsV2 } from './calcApi';
 import type { ServingContext } from './constants/tempTargets';
 
 export type ScoopAdvice = {

@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { calcMetricsV2, MetricsV2 } from '@/lib/calc.v2';
+import { calcMetricsV2, MetricsV2 } from '@/lib/calcApi';
 import { resolveMode, resolveProductKey } from '@/lib/mode';
 import { PRODUCT_CONSTRAINTS } from '@/lib/productConstraints';
 import type { IngredientRow } from '@/types/calculator';

@@ -8,7 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Row } from '@/lib/optimize';
-import { calcMetricsV2 } from '@/lib/calc.v2';
+import { calcMetricsV2 } from '@/lib/calcApi';
 import { advancedOptimize, OptimizerConfig } from '@/lib/optimize.advanced';
 
 interface ReverseEngineerProps {

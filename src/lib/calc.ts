@@ -1,12 +1,12 @@
 /**
  * Unified Calculation Module — Types Only
  * All computation happens on the backend via /api/calc/metrics
- * Re-exports types from calc.v2.ts for backward compatibility
+ * Re-exports types from calcApi.ts for backward compatibility
  */
 
 // Re-export v2 types
-export type { MetricsV2, CalcOptionsV2, ClassificationResult, ProductClass } from './calc.v2';
-export { calcMetricsV2 } from './calc.v2';
+export type { MetricsV2, CalcOptionsV2, ClassificationResult, ProductClass } from './calcApi';
+export { calcMetricsV2 } from './calcApi';
 
 // Legacy Metrics type for backward compatibility (used by UI components)
 export type Metrics = {

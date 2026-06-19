@@ -4,7 +4,7 @@
  */
 
 import { IngredientData } from '@/types/ingredients';
-import { MetricsV2 } from '@/lib/calc.v2';
+import { MetricsV2 } from '@/lib/calcApi';
 
 export interface ChemistryAnalysis {
   ingredient: IngredientData;
@@ -57,7 +57,6 @@ export interface RecipeChemistryAnalysis {
       fat: number;
     };
   };
-  recommendations: string[];
 }
 
 /**
@@ -112,21 +111,9 @@ export function analyzeRecipeChemistry(
     totalCalories += (analysis.nutritionalImpact.calories * ing.quantity_g) / 1000;
   });
 
-  const recommendations: string[] = [];
-  
-  // Generate recommendations
-  if (metrics.totalSugars_pct < 18) {
-    recommendations.push('Consider adding more sugars for better sweetness and scoopability');
-  }
-  if (metrics.fat_pct < 4) {
-    recommendations.push('Low fat content may result in icy texture - consider cream or milk fat');
-  }
-  if (metrics.ts_pct < 36) {
-    recommendations.push('Total solids are low - product may be too soft or icy');
-  }
-  if (metrics.fpdt && metrics.fpdt < -6) {
-    recommendations.push('Very low freezing point - product will be very soft, may not freeze properly');
-  }
+  // PHASE 4.4: band-threshold recommendations removed — this duplicated
+  // scienceConfig bands. The backend's diagnosis field (recipeDiagnosis.ts,
+  // wired in Phase 7.2) is now the single source for this kind of advice.
 
   return {
     overallComposition: {
@@ -151,7 +138,6 @@ export function analyzeRecipeChemistry(
         fat: metrics.fat_pct,
       },
     },
-    recommendations,
   };
 }
 

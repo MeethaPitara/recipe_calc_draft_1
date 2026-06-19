@@ -1,5 +1,5 @@
 import { IngredientData } from '@/types/ingredients';
-import { MetricsV2 } from '@/lib/calc.v2';
+import { MetricsV2 } from '@/lib/calcApi';
 
 export interface RecipeIngredient {
   ingredient: string;

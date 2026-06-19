@@ -22,7 +22,7 @@ import { RecipeTemplates, resolveTemplateIngredients } from '@/components/Recipe
 import { AddIngredientDialog } from '@/components/AddIngredientDialog';
 import { useIngredients } from '@/contexts/IngredientsContext';
 import type { IngredientData } from '@/types/ingredients';
-import { calcMetricsV2, MetricsV2 } from '@/lib/calc.v2';
+import { calcMetricsV2, MetricsV2 } from '@/lib/calcApi';
 import { OptimizeTarget, Row } from '@/lib/optimize';
 import { balancingEngine } from '@/lib/optimize.engine';
 import { RecipeBalancerV2, ScienceValidation, PRODUCT_CONSTRAINTS } from '@/lib/optimize.balancer.v2';

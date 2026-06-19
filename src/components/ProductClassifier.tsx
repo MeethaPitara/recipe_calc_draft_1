@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Target, TrendingUp, TrendingDown, CheckCircle } from 'lucide-react';
-import { MetricsV2 as Metrics, classifyProduct } from '@/lib/calc.v2';
+import { MetricsV2 as Metrics, classifyProduct } from '@/lib/calcApi';
 
 interface ProductClassifierProps {
   metrics: Metrics;

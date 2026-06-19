@@ -9,7 +9,7 @@ import SugarBlendOptimizer from '@/components/flavour-engine/SugarBlendOptimizer
 import AiOptimizerDemo from '@/components/AiOptimizerDemo';
 import AiRecipeCreator from '@/components/AiRecipeCreator';
 import { RecipeIngredient } from '@/types/recipe';
-import { MetricsV2 } from '@/lib/calc.v2';
+import { MetricsV2 } from '@/lib/calcApi';
 import { isAdvancedMode } from '@/utils/feature-flags';
 
 interface AIFlavourEngineProps {

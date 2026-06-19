@@ -5,9 +5,7 @@
 
 import { jwtVerify } from 'jose';
 import type { Request, Response, NextFunction } from 'express';
-
-const JWT_SECRET_STR = process.env.JWT_SECRET || 'meetha-pitara-default-dev-secret-change-me';
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STR);
+import { JWT_SECRET } from '../lib/jwtConfig.js';
 
 export interface AuthUser {
     id: string;

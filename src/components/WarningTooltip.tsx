@@ -27,16 +27,16 @@ export const WarningTooltip: React.FC<WarningTooltipProps> = ({ warning, onReque
         glossaryTerm: 'msnf'
       };
     }
-    if (warning.includes('Too soft') || warning.includes('FPDT < 2.5')) {
+    if (warning.includes('Too soft') || warning.includes('FPDT > 3.5')) {
       return {
-        explanation: 'Low freezing point depression means the product will be too soft and may not hold its structure properly. This typically results from too much anti-freeze power.',
+        explanation: 'High freezing point depression means the product will be too soft and may not hold its structure properly. This typically results from too much anti-freeze power.',
         quickFix: 'Reduce dextrose by 2-4% OR increase sucrose proportion',
         glossaryTerm: 'fpdt'
       };
     }
-    if (warning.includes('Too hard') || warning.includes('FPDT > 3.5')) {
+    if (warning.includes('Too hard') || warning.includes('FPDT < 2.5')) {
       return {
-        explanation: 'High freezing point depression creates an overly firm, icy texture that\'s difficult to scoop. This indicates insufficient anti-freeze components.',
+        explanation: 'Low freezing point depression creates an overly firm, icy texture that\'s difficult to scoop. This indicates insufficient anti-freeze components.',
         quickFix: 'Add dextrose (2-4%) OR increase total water content by 2-3%',
         glossaryTerm: 'fpdt'
       };

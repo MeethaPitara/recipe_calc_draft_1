@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Info, Lightbulb, CheckCircle } from 'lucide-react';
-import { MetricsV2, ProductClass } from '@/lib/calc.v2';
+import { MetricsV2, ProductClass } from '@/lib/calcApi';
 
 interface WarningsSidebarProps {
   metrics: MetricsV2;

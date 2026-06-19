@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
-import { MetricsV2 } from '@/lib/calc.v2';
+import { MetricsV2 } from '@/lib/calcApi';
 import { IngredientData } from '@/types/ingredients';
 
 export interface RecipeRowInput {

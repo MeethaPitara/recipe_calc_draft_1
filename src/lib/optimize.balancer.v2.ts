@@ -1,7 +1,7 @@
 import { apiPost } from '../lib/apiClient.js';
 import { Row, OptimizeTarget } from './optimize.js';
 import { IngredientData } from '@/types/ingredients';
-import { MetricsV2 } from './calc.v2.js';
+import { MetricsV2 } from './calcApi.js';
 import { PRODUCT_CONSTRAINTS, getConstraintsForMode, ProductConstraint, ConstraintRange } from './productConstraints.js';
 
 export { PRODUCT_CONSTRAINTS, getConstraintsForMode };

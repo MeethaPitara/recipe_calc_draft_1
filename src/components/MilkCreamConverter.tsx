@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Droplet, Flame, Info } from 'lucide-react';
-import { calculateMilkCreamMix } from '@/lib/calc.v2';
+import { calculateMilkCreamMix } from '@/lib/calcApi';
 
 export const MilkCreamConverter: React.FC = () => {
   const [milkFat, setMilkFat] = useState(3.5);

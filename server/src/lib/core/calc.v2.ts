@@ -11,6 +11,7 @@ import type { Mode } from '../../types/mode.js';
 import { resolveMode } from './mode.js';
 import { safeNumber, guardResult, validateIngredientComposition } from './validation.js';
 import { trace } from "../../utils/tracer";
+import { PROFILES, SWEETENER_COEFFS, SUGAR_SPECTRUM, ProductId } from './scienceConfig.js';
 
 export type MetricsV2 = {
   // Basic composition (g)
@@ -83,6 +84,19 @@ export type CalcOptionsV2 = {
 };
 
 /**
+ * The engine only receives a coarse mode, not the 9 fine ProductIds from
+ * scienceConfig. This maps each mode to the profile whose bands drive the
+ * engine's internal guardrails (PHASE 4.2). Precise per-profile diagnosis
+ * happens in recipeDiagnosis.ts, which takes the explicit profile.
+ */
+const MODE_DEFAULT_PROFILE: Record<NonNullable<CalcOptionsV2['mode']>, ProductId> = {
+  gelato: 'dairy_gelato',
+  ice_cream: 'premium_ice_cream',
+  sorbet: 'sorbet',
+  kulfi: 'kulfi_basundi',
+};
+
+/**
  * Linear interpolation in Leighton table with clamping
  */
 function leightonLookup(sucrosePer100gWater: number): { fpdse: number; clamped: boolean } {
@@ -113,55 +127,37 @@ function leightonLookup(sucrosePer100gWater: number): { fpdse: number; clamped: 
 }
 
 /**
- * Carpigiani Verified SP (Total) and AFP (Total) coefficients.
- * Used for direct multiplication against total ingredient grams.
- */
-const CARPIGIANI_SUGARS: Record<string, { sp: number; afp: number }> = {
-  'sucrose': { sp: 1.00, afp: 1.00 },
-  'lactose': { sp: 0.16, afp: 1.00 },
-  'trehalose': { sp: 0.41, afp: 0.91 },
-  'maple_syrup': { sp: 0.67, afp: 0.67 },
-  'dextrose': { sp: 0.64, afp: 1.75 },
-  'fructose': { sp: 1.70, afp: 1.90 },
-  'invert': { sp: 0.94, afp: 1.43 },
-  'honey': { sp: 1.04, afp: 1.52 },
-  'agave': { sp: 1.06, afp: 1.44 },
-  'glucose_syrup_60': { sp: 0.51, afp: 0.96 },
-  'glucose_syrup_42': { sp: 0.42, afp: 0.74 },
-  'dry_glucose_38': { sp: 0.22, afp: 0.43 },
-  'maltodextrin': { sp: 0.09, afp: 0.22 }
-};
-
-/**
- * Identify exact sweetener coefficients based on standard ingredient tags
+ * Identify exact sweetener coefficients based on standard ingredient tags.
+ * Coefficients come from scienceConfig.SWEETENER_COEFFS — the single source
+ * of truth (resolves Brief A7's dextrose 1.75 vs 1.90 split).
  */
 export function getSweetenerCoefficients(id: string, name: string): { sp: number; afp: number } | null {
   const normalizedStr = `${id} ${name}`.toLowerCase();
 
-  if (normalizedStr.includes('maple')) return CARPIGIANI_SUGARS['maple_syrup'];
-  if (normalizedStr.includes('dextrose')) return CARPIGIANI_SUGARS['dextrose'];
-  if (normalizedStr.includes('fructose')) return CARPIGIANI_SUGARS['fructose'];
-  if (normalizedStr.includes('invert')) return CARPIGIANI_SUGARS['invert'];
-  if (normalizedStr.includes('honey')) return CARPIGIANI_SUGARS['honey'];
-  if (normalizedStr.includes('agave')) return CARPIGIANI_SUGARS['agave'];
-  if (normalizedStr.includes('trehalose')) return CARPIGIANI_SUGARS['trehalose'];
-  if (normalizedStr.includes('maltodextrin')) return CARPIGIANI_SUGARS['maltodextrin'];
+  if (normalizedStr.includes('maple')) return SWEETENER_COEFFS['maple_syrup'];
+  if (normalizedStr.includes('dextrose')) return SWEETENER_COEFFS['dextrose'];
+  if (normalizedStr.includes('fructose')) return SWEETENER_COEFFS['fructose'];
+  if (normalizedStr.includes('invert')) return SWEETENER_COEFFS['invert'];
+  if (normalizedStr.includes('honey')) return SWEETENER_COEFFS['honey'];
+  if (normalizedStr.includes('agave')) return SWEETENER_COEFFS['agave'];
+  if (normalizedStr.includes('trehalose')) return SWEETENER_COEFFS['trehalose'];
+  if (normalizedStr.includes('maltodextrin')) return SWEETENER_COEFFS['maltodextrin'];
 
   if (normalizedStr.includes('glucose')) {
     const deMatch = normalizedStr.match(/de\s*(\d+)/i);
     const de = deMatch ? parseInt(deMatch[1]) : 0;
 
-    if (normalizedStr.includes('dry') || (de >= 38 && de <= 40)) return CARPIGIANI_SUGARS['dry_glucose_38'];
-    if ((de >= 42 && de <= 44) || normalizedStr.includes('42') || normalizedStr.includes('43')) return CARPIGIANI_SUGARS['glucose_syrup_42'];
-    if (de >= 60 || normalizedStr.includes('60') || normalizedStr.includes('62')) return CARPIGIANI_SUGARS['glucose_syrup_60'];
+    if (normalizedStr.includes('dry') || (de >= 38 && de <= 40)) return SWEETENER_COEFFS['dry_glucose_38'];
+    if ((de >= 42 && de <= 44) || normalizedStr.includes('42') || normalizedStr.includes('43')) return SWEETENER_COEFFS['glucose_syrup_42'];
+    if (de >= 60 || normalizedStr.includes('60') || normalizedStr.includes('62')) return SWEETENER_COEFFS['glucose_syrup_60'];
 
     // Default to 42DE if not specified (Standard liquid glucose)
-    return CARPIGIANI_SUGARS['glucose_syrup_42'];
+    return SWEETENER_COEFFS['glucose_syrup_42'];
   }
 
   // Explicit sucrose / table sugar
   if (normalizedStr.includes('sucrose') || normalizedStr === 'sugar' || normalizedStr.includes('caster sugar') || normalizedStr.includes('granulated sugar')) {
-    return CARPIGIANI_SUGARS['sucrose'];
+    return SWEETENER_COEFFS['sucrose'];
   }
 
   return null;
@@ -266,8 +262,6 @@ export function calcMetricsV2(
   const protein_pct = pct(protein_g);
   const lactose_pct = pct(lactose_g);
   const totalSugars_pct = pct(totalSugars_g);
-  // Industry band checks use total sugars including lactose
-  const totalSugars_validate_pct = pct(totalSugarsWithLactose_g);
   const ts_pct = pct(ts_g);
 
   trace('calc.v2.ts', 'calcMetricsV2', 'BASIC_METRICS_CALC', {
@@ -291,7 +285,9 @@ export function calcMetricsV2(
       const g_fru = sug_g * ((s.fructose ?? 0) / norm);
       const g_suc = sug_g * ((s.sucrose ?? 0) / norm);
 
-      se_g += g_suc * 1.00 + g_glu * 1.90 + g_fru * 1.90;
+      // Fruit glucose is chemically dextrose — use the same AFP coefficient
+      // (Brief A7: was inconsistently 1.90 here vs 1.75 for dextrose elsewhere).
+      se_g += g_suc * SWEETENER_COEFFS.sucrose.afp + g_glu * SWEETENER_COEFFS.dextrose.afp + g_fru * SWEETENER_COEFFS.fructose.afp;
       continue;
     }
 
@@ -429,81 +425,34 @@ export function calcMetricsV2(
     r.ing.name.toLowerCase().includes('egg')
   );
 
-  let contextualMSNF: [number, number] = [9, 12]; // Default
-  let contextLabel = 'standard';
+  trace('calc.v2.ts', 'calcMetricsV2', 'CONTEXT_CHECK', { hasChocolate, hasNutsOrEggs });
 
-  if (hasChocolate) {
-    contextualMSNF = [7, 9];
-    contextLabel = 'chocolate';
-  } else if (hasNutsOrEggs) {
-    contextualMSNF = [8, 10];
-    contextLabel = 'nuts/eggs';
+  // PHASE 4.2: guardrails now read entirely from scienceConfig via the
+  // mode's default profile (the engine only knows the coarse mode, not the
+  // 9 fine ProductIds — precise per-profile diagnosis lives in
+  // recipeDiagnosis.ts, which takes the explicit profile).
+  const profile = PROFILES[MODE_DEFAULT_PROFILE[mode]];
+
+  if (fat_pct < profile.fat[0] || fat_pct > profile.fat[1]) {
+    warnings.push(`Fat ${fat_pct.toFixed(1)}% outside ${profile.label} range ${profile.fat[0]}-${profile.fat[1]}%`);
   }
-
-  trace('calc.v2.ts', 'calcMetricsV2', 'CONTEXT_CHECK', { hasChocolate, hasNutsOrEggs, contextLabel, contextualMSNF });
-
-  if (mode === 'gelato') {
-    // Gelato guardrails
-    if (fat_pct < 6 || fat_pct > 10) {
-      warnings.push(`Fat ${fat_pct.toFixed(1)}% outside gelato range 6-10%`);
-    }
-    if (msnf_pct < contextualMSNF[0] || msnf_pct > contextualMSNF[1]) {
-      warnings.push(` MSNF ${msnf_pct.toFixed(1)}% outside ${contextLabel} range ${contextualMSNF[0]}-${contextualMSNF[1]}%`);
-    }
-    if (totalSugars_validate_pct < 16 || totalSugars_validate_pct > 22) {
-      warnings.push(`Total sugars ${totalSugars_validate_pct.toFixed(1)}% outside gelato range 16-22%`);
-    }
-    if (ts_pct < 36 || ts_pct > 45) {
-      warnings.push(`Total solids ${ts_pct.toFixed(1)}% outside gelato range 36-45%`);
-    }
-    if (fpdt < 2.5 || fpdt > 3.5) {
-      warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside gelato target 2.5-3.5°C`);
-    }
-  } else if (mode === 'ice_cream') {
-    // Ice Cream guardrails
-    if (fat_pct < 10 || fat_pct > 16) {
-      warnings.push(`Fat ${fat_pct.toFixed(1)}% outside ice cream range 10-16%`);
-    }
-    if (msnf_pct < contextualMSNF[0] || msnf_pct > contextualMSNF[1]) {
-      warnings.push(` MSNF ${msnf_pct.toFixed(1)}% outside ${contextLabel} range ${contextualMSNF[0]}-${contextualMSNF[1]}%`);
-    }
-    if (totalSugars_validate_pct < 14 || totalSugars_validate_pct > 20) {
-      warnings.push(`Total sugars ${totalSugars_validate_pct.toFixed(1)}% outside ice cream range 14-20%`);
-    }
-    if (ts_pct < 36 || ts_pct > 42) {
-      warnings.push(`Total solids ${ts_pct.toFixed(1)}% outside ice cream range 36-42%`);
-    }
-    if (fpdt < 2.2 || fpdt > 3.2) {
-      warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside ice cream target 2.2-3.2°C`);
-    }
-  } else if (mode === 'sorbet') {
-    // Sorbet guardrails
-    if (fat_pct > 1) {
-      warnings.push(`Fat ${fat_pct.toFixed(1)}% above sorbet max 1%`);
-    }
-    if (totalSugars_validate_pct < 26 || totalSugars_validate_pct > 31) {
-      warnings.push(`Total sugars ${totalSugars_validate_pct.toFixed(1)}% outside sorbet range 26-31%`);
-    }
-    if (fpdt < 4.0 || fpdt > 5.5) {
-      warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside sorbet target 4.0-5.5°C`);
-    }
-  } else {
-    // Kulfi guardrails
-    if (fat_pct < 10 || fat_pct > 12) {
-      warnings.push(`Fat ${fat_pct.toFixed(1)}% outside kulfi range 10-12%`);
-    }
-    if (protein_pct < 6 || protein_pct > 9) {
-      warnings.push(`Protein ${protein_pct.toFixed(1)}% outside kulfi range 6-9%`);
-    }
-    if (msnf_pct < 18 || msnf_pct > 25) {
-      warnings.push(`MSNF ${msnf_pct.toFixed(1)}% outside kulfi range 18-25%`);
-    }
-    if (ts_pct < 38 || ts_pct > 42) {
-      warnings.push(`Total solids ${ts_pct.toFixed(1)}% outside kulfi range 38-42%`);
-    }
-    if (fpdt < 2.0 || fpdt > 2.5) {
-      warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside kulfi target 2.0-2.5°C`);
-    }
+  if (msnf_pct < profile.msnf[0] || msnf_pct > profile.msnf[1]) {
+    warnings.push(` MSNF ${msnf_pct.toFixed(1)}% outside ${profile.label} range ${profile.msnf[0]}-${profile.msnf[1]}%`);
+  }
+  // PHASE 4.5 (Brief A6): validate added sugars only against the addedSugar
+  // band — not the lactose-inclusive total against a band meant for added
+  // sugar. Same number (nonLactoseSugars_pct) is shown in the headline.
+  if (nonLactoseSugars_pct < profile.addedSugar[0] || nonLactoseSugars_pct > profile.addedSugar[1]) {
+    warnings.push(`Added sugars ${nonLactoseSugars_pct.toFixed(1)}% outside ${profile.label} range ${profile.addedSugar[0]}-${profile.addedSugar[1]}%`);
+  }
+  if (ts_pct < profile.totalSolids[0] || ts_pct > profile.totalSolids[1]) {
+    warnings.push(`Total solids ${ts_pct.toFixed(1)}% outside ${profile.label} range ${profile.totalSolids[0]}-${profile.totalSolids[1]}%`);
+  }
+  if (fpdt < profile.fpdt[0] || fpdt > profile.fpdt[1]) {
+    warnings.push(`FPDT ${fpdt.toFixed(2)}°C outside ${profile.label} target ${profile.fpdt[0]}-${profile.fpdt[1]}°C`);
+  }
+  if (mode === 'kulfi' && (protein_pct < 6 || protein_pct > 9)) {
+    warnings.push(`Protein ${protein_pct.toFixed(1)}% outside kulfi range 6-9%`);
   }
 
   // PHASE 4: Sugar Spectrum Policy
@@ -544,41 +493,23 @@ export function calcMetricsV2(
     const monosaccharides_pct = (monosaccharides_g / totalSugars_g) * 100;
     const polysaccharides_pct = (polysaccharides_g / totalSugars_g) * 100;
 
-    if (disaccharides_pct < 50) {
-      warnings.push(` Sugar spectrum: Disaccharides ${disaccharides_pct.toFixed(1)}% below target 50-100%`);
+    if (disaccharides_pct < SUGAR_SPECTRUM.diMinPct) {
+      warnings.push(` Sugar spectrum: Disaccharides ${disaccharides_pct.toFixed(1)}% below target ${SUGAR_SPECTRUM.diMinPct}-100%`);
     }
-    if (monosaccharides_pct > 25) {
-      warnings.push(` Sugar spectrum: Monosaccharides ${monosaccharides_pct.toFixed(1)}% exceeds target 0-25%`);
+    if (monosaccharides_pct > SUGAR_SPECTRUM.monoMaxPct) {
+      warnings.push(` Sugar spectrum: Monosaccharides ${monosaccharides_pct.toFixed(1)}% exceeds target 0-${SUGAR_SPECTRUM.monoMaxPct}%`);
     }
-    if (polysaccharides_pct > 35) {
-      warnings.push(` Sugar spectrum: Polysaccharides ${polysaccharides_pct.toFixed(1)}% exceeds target 0-35%`);
+    if (polysaccharides_pct > SUGAR_SPECTRUM.polyMaxPct) {
+      warnings.push(` Sugar spectrum: Polysaccharides ${polysaccharides_pct.toFixed(1)}% exceeds target 0-${SUGAR_SPECTRUM.polyMaxPct}%`);
     }
   }
 
-  // PHASE 5: SP/AFP Target Validation
-  // sp_pct = Carpigiani SP% (sucrose-equivalent sweetness as % of total weight, band 12-22)
-  // afp_index = Carpigiani AFP% (anti-freeze power as % of total weight, band 22-28)
-  if (mode === 'gelato') {
-    if (sp_pct < 12 || sp_pct > 22) {
-      warnings.push(` SP ${sp_pct.toFixed(1)}% outside gelato target 12-22%`);
-    }
-    if (afp_index < 22 || afp_index > 28) {
-      warnings.push(` AFP ${afp_index.toFixed(1)}% outside gelato target 22-28%`);
-    }
-  } else if (mode === 'ice_cream') {
-    if (sp_pct < 10 || sp_pct > 20) {
-      warnings.push(` SP ${sp_pct.toFixed(1)}% outside ice cream target 10-20%`);
-    }
-    if (afp_index < 20 || afp_index > 26) {
-      warnings.push(` AFP ${afp_index.toFixed(1)}% outside ice cream target 20-26%`);
-    }
-  } else if (mode === 'sorbet') {
-    if (sp_pct < 20 || sp_pct > 28) {
-      warnings.push(` SP ${sp_pct.toFixed(1)}% outside sorbet target 20-28%`);
-    }
-    if (afp_index < 28 || afp_index > 33) {
-      warnings.push(` AFP ${afp_index.toFixed(1)}% outside sorbet target 28-33%`);
-    }
+  // PHASE 4.2: SP/AFP Target Validation — from the same profile as above.
+  if (sp_pct < profile.sp[0] || sp_pct > profile.sp[1]) {
+    warnings.push(` SP ${sp_pct.toFixed(1)}% outside ${profile.label} target ${profile.sp[0]}-${profile.sp[1]}%`);
+  }
+  if (afp_index < profile.afp[0] || afp_index > profile.afp[1]) {
+    warnings.push(` AFP ${afp_index.toFixed(1)}% outside ${profile.label} target ${profile.afp[0]}-${profile.afp[1]}%`);
   }
 
   // Defect prevention flags
@@ -589,13 +520,8 @@ export function calcMetricsV2(
     warnings.push(` Lactose ≥11% (${lactose_pct.toFixed(1)}%) → risk of crystallization. Shift sugars to glucose syrup or reduce MSNF.`);
   }
 
-  // Troubleshooting suggestions
-  if (fpdt < 2.5) {
-    warnings.push(` Too soft (FPDT < 2.5°C): Lower dextrose/raise sucrose; reduce total sugars; or raise total solids.`);
-  }
-  if (fpdt > 3.5) {
-    warnings.push(` Too hard (FPDT > 3.5°C): Add dextrose 2-4% or increase water within guardrails.`);
-  }
+  // PHASE 4.3: the two FPDT troubleshooting strings ("Too hard"/"Too soft")
+  // are removed — recipeDiagnosis.ts now owns texture messaging.
 
   // 12. P2 Science: Overrun Prediction
   const overrunPrediction = predictOverrun({

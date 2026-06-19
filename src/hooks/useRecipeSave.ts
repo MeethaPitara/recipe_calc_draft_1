@@ -8,7 +8,7 @@ import { recipeService } from '@/services/recipeService';
 import { authService } from '@/lib/auth/authService';
 import { useToast } from '@/hooks/use-toast';
 import type { IngredientRow } from '@/types/calculator';
-import type { MetricsV2 } from '@/lib/calc.v2';
+import type { MetricsV2 } from '@/lib/calcApi';
 
 interface UseRecipeSaveProps {
   rows: IngredientRow[];

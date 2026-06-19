@@ -5,9 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Beaker, Info, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Beaker, Info, AlertTriangle } from 'lucide-react';
 import { analyzeIngredientChemistry, analyzeRecipeChemistry, compareIngredients } from '@/services/chemistryService';
-import { MetricsV2 } from '@/lib/calc.v2';
+import { MetricsV2 } from '@/lib/calcApi';
 import IngredientAnalyzer from './flavour-engine/IngredientAnalyzer';
 import { RecipeIngredient } from '@/types/recipe';
 
@@ -186,23 +186,8 @@ export function ChemistryDashboard({ recipe, metrics }: ChemistryDashboardProps)
                 </div>
               </div>
 
-              {/* Recommendations */}
-              {recipeAnalysis.recommendations.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-semibold mb-3">Recommendations</h3>
-                    <div className="space-y-2">
-                      {recipeAnalysis.recommendations.map((rec, i) => (
-                        <Alert key={i}>
-                          <ArrowRight className="h-4 w-4" />
-                          <AlertDescription>{rec}</AlertDescription>
-                        </Alert>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+              {/* PHASE 4.4: band-threshold recommendations removed here —
+                  Phase 7.2 will render the backend's diagnosis field instead. */}
             </>
           )}
         </CardContent>

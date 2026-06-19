@@ -1,5 +1,5 @@
 
-import { calcMetricsV2 } from '../lib/calc.v2';
+import { calcMetricsV2 } from '../lib/calcApi';
 import { GOLDEN_TEST_CASES, GoldenTestCase } from '../tests/golden-data';
 import { IngredientData } from '@/types/ingredients';
 

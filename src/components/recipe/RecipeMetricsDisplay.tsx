@@ -6,7 +6,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { MetricsV2 } from '@/lib/calc.v2';
+import type { MetricsV2 } from '@/lib/calcApi';
 
 interface RecipeMetricsDisplayProps {
   metrics: MetricsV2;
