@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import { Sparkles, Zap, CheckCircle, AlertCircle, TrendingUp, BarChart3, Wand2 } from 'lucide-react';
+import { Sparkles, Zap, CheckCircle, AlertCircle, TrendingUp, Wand2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { OptimizerConfig, compareOptimizers } from '@/lib/optimize.advanced';
+import { balancingEngine } from '@/lib/optimize.engine';
 import { Row, OptimizeTarget } from '@/lib/optimize';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 
 interface AIOptimizationProps {
@@ -21,6 +17,16 @@ interface AIOptimizationProps {
   targets?: OptimizeTarget;
 }
 
+/**
+ * PHASE 10.1: this used to offer a choice of 4 "algorithms" (hill-climbing,
+ * genetic, particle-swarm, hybrid) compared against each other via
+ * compareOptimizers() -> /api/optimize/advanced and /api/optimize/compare.
+ * Neither endpoint has ever existed on the backend -- this feature was
+ * calling a 404 in production. There is exactly one deterministic
+ * optimizer (the LP solver behind /api/optimize/balance); this now calls
+ * that directly instead of faking a comparison between algorithms that
+ * were never actually implemented.
+ */
 export default function AIOptimization({
   allTargetsMet,
   suggestions,
@@ -31,122 +37,39 @@ export default function AIOptimization({
   targets
 }: AIOptimizationProps) {
   const { toast } = useToast();
-  const [selectedAlgorithm, setSelectedAlgorithm] = useState<OptimizerConfig['algorithm']>('hybrid');
-  const [isComparing, setIsComparing] = useState(false);
-  const [isAutoSelecting, setIsAutoSelecting] = useState(false);
-  const [comparisonResults, setComparisonResults] = useState<Array<{
-    algorithm: string;
-    score: number;
-    time: number;
-    result: Row[];
-  }> | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [result, setResult] = useState<{ rows: Row[]; metrics: any } | null>(null);
 
-  const algorithmInfo = {
-    'hill-climbing': {
-      name: 'Hill Climbing',
-      description: 'Fast local optimization. Best for recipes already close to targets.',
-      speed: 'Very Fast',
-      quality: 'Good',
-      icon: ''
-    },
-    'genetic': {
-      name: 'Genetic Algorithm',
-      description: 'Evolutionary approach. Explores many solutions simultaneously.',
-      speed: 'Moderate',
-      quality: 'Excellent',
-      icon: ''
-    },
-    'particle-swarm': {
-      name: 'Particle Swarm',
-      description: 'Swarm intelligence. Good at finding global optima.',
-      speed: 'Moderate',
-      quality: 'Very Good',
-      icon: ''
-    },
-    'hybrid': {
-      name: 'Hybrid (GA + Hill)',
-      description: 'Best of both: broad exploration then refinement.',
-      speed: 'Slower',
-      quality: 'Best',
-      icon: ''
-    }
-  };
+  const currentSuggestions = suggestions.length > 0 ? suggestions : [
+    allTargetsMet
+      ? 'Recipe is already balanced! Consider experimenting with flavor variations.'
+      : 'Recipe needs optimization. The deterministic solver can automatically adjust ingredients to meet targets.',
+    'Lock any ingredients you want to keep unchanged before optimizing.'
+  ];
 
-  const generateSuggestions = () => {
-    if (allTargetsMet) {
-      return [
-        'Recipe is already balanced! Consider experimenting with flavor variations.',
-        'Try the Temperature Tuning tool to optimize for different serving temperatures.',
-        'Use Sugar Blend Optimizer to fine-tune sweetness profile.'
-      ];
-    }
-
-    return [
-      'Recipe needs optimization. AI can automatically adjust ingredients to meet targets.',
-      `Recommended algorithm: ${algorithmInfo[selectedAlgorithm].name} - ${algorithmInfo[selectedAlgorithm].description}`,
-      'Lock any ingredients you want to keep unchanged before optimizing.'
-    ];
-  };
-
-  const currentSuggestions = suggestions.length > 0 ? suggestions : generateSuggestions();
-
-  const runComparison = async () => {
+  const runOptimization = async () => {
     if (!currentRows || !targets) return;
 
-    setIsComparing(true);
+    setIsRunning(true);
     try {
-      const results = await compareOptimizers(currentRows, targets);
-      setComparisonResults(results);
+      const balanceResult = await balancingEngine.balance(currentRows, targets);
+      setResult({ rows: balanceResult.rows, metrics: balanceResult.metrics });
 
       toast({
-        title: "Comparison Complete",
-        description: `Winner: ${algorithmInfo[results[0].algorithm as OptimizerConfig['algorithm']]?.name} with score ${results[0].score.toFixed(3)}`
+        title: "Optimization Complete",
+        description: balanceResult.success !== false
+          ? "Recipe adjusted to meet targets."
+          : "Could not fully reach targets — review the result before applying.",
       });
     } catch (error) {
-      console.error('Comparison error:', error);
+      console.error('Optimization error:', error);
       toast({
-        title: "Comparison Failed",
-        description: error instanceof Error ? error.message : "Failed to compare algorithms",
+        title: "Optimization Failed",
+        description: error instanceof Error ? error.message : "Failed to optimize recipe",
         variant: "destructive"
       });
     } finally {
-      setIsComparing(false);
-    }
-  };
-
-  const autoSelectBest = async () => {
-    if (!currentRows || !targets || !onApplyResult) return;
-
-    setIsAutoSelecting(true);
-    try {
-      toast({
-        title: " Auto-Select Best Running",
-        description: "Testing all 4 algorithms to find the optimal solution..."
-      });
-
-      const results = await compareOptimizers(currentRows, targets);
-      setComparisonResults(results);
-
-      // Get the best result (first in sorted array)
-      const winner = results[0];
-      const winnerName = algorithmInfo[winner.algorithm as OptimizerConfig['algorithm']]?.name;
-
-      // Apply the best result
-      onApplyResult(winner.result);
-
-      toast({
-        title: " Best Algorithm Applied",
-        description: `${winnerName} achieved the best score (${winner.score.toFixed(3)}) in ${winner.time.toFixed(0)}ms and has been applied to your recipe.`
-      });
-    } catch (error) {
-      console.error('Auto-select error:', error);
-      toast({
-        title: "Auto-Select Failed",
-        description: error instanceof Error ? error.message : "Failed to auto-select best algorithm",
-        variant: "destructive"
-      });
-    } finally {
-      setIsAutoSelecting(false);
+      setIsRunning(false);
     }
   };
 
@@ -156,10 +79,10 @@ export default function AIOptimization({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-           AI-Powered Optimization
+           Recipe Optimization
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-           Advanced algorithms to automatically balance your recipe
+           Deterministic solver to automatically balance your recipe against targets
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -179,45 +102,11 @@ export default function AIOptimization({
             </AlertDescription>
           </Alert>
 
-          {/* Algorithm Selection */}
-          <div>
-            <Label>Optimization Algorithm</Label>
-            <Select
-              value={selectedAlgorithm}
-              onValueChange={(val) => setSelectedAlgorithm(val as OptimizerConfig['algorithm'])}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(algorithmInfo).map(([key, info]) => (
-                  <SelectItem key={key} value={key}>
-                    {info.icon} {info.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Algorithm Details */}
-            <div className="mt-3 p-4 bg-card-secondary rounded-lg space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{algorithmInfo[selectedAlgorithm].name}</span>
-                <div className="flex gap-2">
-                  <Badge variant="outline">{algorithmInfo[selectedAlgorithm].speed}</Badge>
-                  <Badge variant="secondary">{algorithmInfo[selectedAlgorithm].quality}</Badge>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {algorithmInfo[selectedAlgorithm].description}
-              </p>
-            </div>
-          </div>
-
           {/* AI Suggestions */}
           <div>
             <h3 className="font-medium mb-3 flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-             AI Insights
+             Insights
             </h3>
             <div className="space-y-2">
               {currentSuggestions.map((suggestion, idx) => (
@@ -232,63 +121,23 @@ export default function AIOptimization({
           {/* Action Buttons */}
           <div className="space-y-3">
             <Button
-              onClick={autoSelectBest}
-              disabled={isOptimizing || isComparing || isAutoSelecting || !currentRows || !targets || !onApplyResult}
+              onClick={runOptimization}
+              disabled={isOptimizing || isRunning || !currentRows || !targets}
               className="w-full bg-gradient-to-r from-primary to-primary/80 hover:opacity-90"
               size="lg"
             >
-              {isAutoSelecting ? (
+              {isRunning ? (
                 <>
                   <span className="animate-spin mr-2"></span>
-                 Auto-Selecting Best...
+                 Optimizing...
                 </>
               ) : (
                 <>
                   <Wand2 className="h-5 w-5 mr-2" />
-                 Auto-Select Best Algorithm
+                 Optimize Recipe
                 </>
               )}
             </Button>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={() => onAutoOptimize(selectedAlgorithm)}
-                disabled={isOptimizing || isComparing || isAutoSelecting}
-                variant="outline"
-                className="w-full"
-              >
-                {isOptimizing ? (
-                  <>
-                    <span className="animate-spin mr-2"></span>
-                   Optimizing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                   Optimize
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={runComparison}
-                disabled={isOptimizing || isComparing || isAutoSelecting || !currentRows || !targets}
-                variant="outline"
-                className="w-full"
-              >
-                {isComparing ? (
-                  <>
-                    <span className="animate-spin mr-2"></span>
-                   Comparing...
-                  </>
-                ) : (
-                  <>
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                   Compare
-                  </>
-                )}
-              </Button>
-            </div>
           </div>
 
           {/* Info Footer */}
@@ -296,93 +145,55 @@ export default function AIOptimization({
             <p><strong>How it works:</strong></p>
             <ul className="list-disc list-inside space-y-1 ml-2">
               <li>Analyzes current recipe and target parameters</li>
-              <li>Uses selected AI algorithm to find optimal ingredient quantities</li>
+              <li>Uses a constraint-aware LP solver to find optimal ingredient quantities</li>
               <li>Respects min/max constraints and locked ingredients</li>
-              <li>Iteratively improves recipe to meet all targets</li>
+              <li>Never auto-applies — you review the result, then apply it</li>
             </ul>
           </div>
         </CardContent>
       </Card>
 
-      {/* Comparison Results */}
-      {comparisonResults && (
+      {/* Result */}
+      {result && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-             Algorithm Comparison Results
+              <CheckCircle className="h-5 w-5 text-primary" />
+             Optimization Result
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
-             Performance metrics for all optimization algorithms (lower score is better)
-            </p>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Algorithm</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Rank</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {comparisonResults.map((result, idx) => (
-                  <TableRow key={result.algorithm}>
-                    <TableCell className="font-medium">
-                      {algorithmInfo[result.algorithm as OptimizerConfig['algorithm']]?.icon}{' '}
-                      {algorithmInfo[result.algorithm as OptimizerConfig['algorithm']]?.name || result.algorithm}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={idx === 0 ? 'default' : 'outline'}>
-                        {result.score.toFixed(3)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {result.time.toFixed(0)}ms
-                    </TableCell>
-                    <TableCell>
-                      {idx === 0 ? (
-                        <Badge variant="default" className="bg-green-600">
-                          Best
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">#{idx + 1}</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Fat</span>
+                <p className="font-semibold">{result.metrics.fat_pct?.toFixed(1)}%</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">MSNF</span>
+                <p className="font-semibold">{result.metrics.msnf_pct?.toFixed(1)}%</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Sugars</span>
+                <p className="font-semibold">{result.metrics.totalSugars_pct?.toFixed(1)}%</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">FPDT</span>
+                <p className="font-semibold">{result.metrics.fpdt?.toFixed(2)}°C</p>
+              </div>
+            </div>
 
-            <Alert className="mt-4">
-              <TrendingUp className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Winner: {algorithmInfo[comparisonResults[0].algorithm as OptimizerConfig['algorithm']]?.name}</strong>
-                <br />
-               This algorithm achieved the best score ({comparisonResults[0].score.toFixed(3)})
-                in {comparisonResults[0].time.toFixed(0)}ms.
-                {onApplyResult && (
-                  <>
-                    {' '}
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-primary underline"
-                      onClick={() => {
-                        onApplyResult(comparisonResults[0].result);
-                        toast({
-                          title: "Result Applied",
-                          description: `Applied ${algorithmInfo[comparisonResults[0].algorithm as OptimizerConfig['algorithm']]?.name} optimization to your recipe`
-                        });
-                      }}
-                    >
-                     Click here to apply this result
-                    </Button>
-                  </>
-                )}
-              </AlertDescription>
-            </Alert>
+            {onApplyResult && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  onApplyResult(result.rows);
+                  toast({ title: "Result Applied", description: "Optimized quantities applied to your recipe." });
+                }}
+              >
+               Apply this result
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

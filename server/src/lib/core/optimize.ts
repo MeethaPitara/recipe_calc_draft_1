@@ -42,7 +42,16 @@ export function optimizeRecipe(
   constraints?: ConstraintProfile,
   mode: 'gelato' | 'kulfi' = 'gelato'
 ): OptimizeResult {
-    const originalTotalG = constraints?.fixedBatchMassG ?? rowsIn.reduce((s, r) => s + r.grams, 0);
+    const recipeTotalG = rowsIn.reduce((s, r) => s + r.grams, 0);
+    const originalTotalG = constraints?.fixedBatchMassG ?? recipeTotalG;
+    // PHASE 10.2: when fixedBatchMassG scales the batch up/down a lot (e.g.
+    // 1kg recipe -> 5kg target), the default per-ingredient max (3x its
+    // ORIGINAL grams) doesn't scale with it. Sum of all default maxes can
+    // then fall short of the required total, making the model falsely
+    // infeasible by construction, not because the recipe is actually
+    // impossible. Scale the default bound multiplier by how much the
+    // target total exceeds the original recipe's total.
+    const boundScaleRatio = Math.max(1, originalTotalG / (recipeTotalG || 1));
 
     const model: any = { optimize: 'cost', opType: 'min', constraints: {}, variables: {} };
 
@@ -54,7 +63,7 @@ export function optimizeRecipe(
         const ing = row.ing;
         const initialAmt = row.grams;
         let minG = row.lock ? initialAmt : (row.min ?? 0);
-        let maxG = row.lock ? initialAmt : (row.max ?? initialAmt * 3);
+        let maxG = row.lock ? initialAmt : (row.max ?? initialAmt * 3 * boundScaleRatio);
         if (constraints?.bounds) {
             const bnd = constraints.bounds.find(b => b.ingredientId === ing.id);
             if (bnd) {
@@ -260,6 +269,17 @@ export function optimizeRecipe(
     const result = solver.Solve(model);
     console.log(`[LP] solver feasible=${result?.feasible}  result keys: ${Object.keys(result || {}).filter(k => !k.startsWith('x_over') && !k.startsWith('x_under') && !k.startsWith('bnd') && !k.startsWith('movement') && !k.startsWith('fat_') && !k.startsWith('msnf_') && !k.startsWith('sug_')).join(', ')}`);
 
+    // PHASE 10.2/10.3 — DIAGNOSED, NOT FIXED (see handoff): macro targets
+    // (fat/msnf/sugars) are SOFT here — deviation-penalized, not hard
+    // equalities — so the solver reports feasible=true even when hard
+    // bounds/locks made a target physically impossible (e.g. forcing 500g
+    // of 35%-fat cream into a 1000g batch while targeting 3% fat
+    // "succeeds" at ~17.5% fat instead of failing). A first attempt at
+    // verifying achieved values against a tolerance here fixed that, but
+    // broke other passing tests that expect result.rows to hold the best-
+    // effort optimized values even when success=false-on-target-miss would
+    // make sense — that needs a more careful design (likely: keep
+    // proposedRows in the failure payload too) than a quick tolerance gate.
     if (!result || result.feasible === false) {
         // Run fallbacks to determine failure reason
         let failureReason = 'TARGETS_UNREACHABLE_WITH_GIVEN_INGREDIENTS';

@@ -44,7 +44,6 @@ import AIOptimization from '@/components/flavour-engine/AIOptimization';
 import AiOptimizerDemo from '@/components/AiOptimizerDemo';
 import AiRecipeCreator from '@/components/AiRecipeCreator';
 import { getBalancingTargets } from '@/lib/productConstraints';
-import { advancedOptimize, OptimizerConfig } from '@/lib/optimize.advanced';
 import { Wrench } from 'lucide-react';
 import { RecipeCompareDialog } from '@/components/RecipeCompareDialog';
 import jsPDF from 'jspdf';

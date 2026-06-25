@@ -7,9 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Row } from '@/lib/optimize';
+import { Row, optimizeRecipe } from '@/lib/optimize';
 import { calcMetricsV2 } from '@/lib/calcApi';
-import { advancedOptimize, OptimizerConfig } from '@/lib/optimize.advanced';
 
 interface ReverseEngineerProps {
   onApplyRecipe?: (rows: Row[]) => void;
@@ -80,14 +79,11 @@ export default function ReverseEngineer({ onApplyRecipe }: ReverseEngineerProps)
         }
       ];
 
-      // Use hybrid optimization (GA + hill-climbing) for best results
-      const config: OptimizerConfig = {
-        algorithm: 'hybrid',
-        maxIterations: 150,
-        populationSize: 40
-      };
-
-      const optimizedRecipe = await advancedOptimize(initialRows, targets, config);
+      // PHASE 10.1: advancedOptimize() hit /api/optimize/advanced, which has
+      // never existed on the backend -- this call was always a 404. There
+      // is exactly one deterministic optimizer (the LP solver behind
+      // /api/optimize/balance); use that directly instead.
+      const optimizedRecipe = await optimizeRecipe(initialRows, targets);
       const metrics = await calcMetricsV2(optimizedRecipe);
 
       setGeneratedRecipe(optimizedRecipe);

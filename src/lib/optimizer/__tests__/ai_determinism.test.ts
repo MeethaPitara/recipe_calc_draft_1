@@ -264,7 +264,10 @@ describe('3.1 — Metrics consistency', () => {
      * everywhere. We verify this by ensuring the response's fat_pct matches a
      * manual weighted-average computation on the returned grams.
      */
-    const response = makeNewSystemResponse(8.5);
+    // PHASE 10: 8.5 was a stale mock value that didn't match what the mock
+    // recipe's actual grams/fat_pct compose to (the test's own
+    // expectedFatPct below computes ~6.0968 from the same fixture rows).
+    const response = makeNewSystemResponse(6.1);
     mockApiPost.mockResolvedValue(response);
 
     const result = await mockApiPost('/api/ai/optimize', {
