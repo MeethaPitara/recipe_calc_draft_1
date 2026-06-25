@@ -626,13 +626,30 @@ const ExactPlan = () => {
                                         </div>
                                     </div>
 
+                                    {/* PHASE 9.3: process notes + QA checklist, from the engine — a
+                                        manufacturer following the printed sheet needs both. */}
                                     <div className="p-6 bg-yellow-50 dark:bg-yellow-900/10 border-t border-yellow-100 dark:border-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm flex gap-3">
                                         <div className="shrink-0 pt-0.5"></div>
                                         <div>
-                                            <strong>Production Note:</strong> Mix requires {calculationResult.stats.numberOfBatches} batches.
-                                           Includes {processLossPercent}% buffer for process loss and {evaporationLossPercent}% for evaporation.
-                                           Expected yield: ~{calculationResult.stats.packedFrozenLiters.toFixed(1)} Liters of frozen product.
+                                            <strong>Production Notes:</strong>
+                                            <ul className="list-disc list-inside mt-1">
+                                                {calculationResult.processNotes.map((note, i) => (
+                                                    <li key={i}>{note}</li>
+                                                ))}
+                                            </ul>
                                         </div>
+                                    </div>
+
+                                    <div className="p-6 border-t border-slate-200 dark:border-slate-800">
+                                        <h3 className="font-bold mb-3 text-slate-800 dark:text-slate-200">QA Checklist</h3>
+                                        <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                                            {calculationResult.qaChecklist.map((item, i) => (
+                                                <li key={i} className="flex items-center gap-2">
+                                                    <input type="checkbox" className="rounded" />
+                                                    {item}
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 </div>
                             )}

@@ -167,7 +167,7 @@ export default function ProductionPlanner() {
               <Calculator className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg text-blue-900 dark:text-blue-100">Level 2: Supply Allocator</h3>
+              <h3 className="font-semibold text-lg text-blue-900 dark:text-blue-100">Level 2: Base Batch Manager</h3>
               <p className="text-sm text-blue-700/80 dark:text-blue-300/70">Plan production based on available base supply.</p>
             </div>
           </CardContent>

@@ -116,6 +116,8 @@ export interface Level3Output {
         percentage: number;
     }[];
     totalMassKg: number;
+    qaChecklist: string[];
+    processNotes: string[];
 }
 
 export interface ProductionIngredient {

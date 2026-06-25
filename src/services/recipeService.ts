@@ -101,6 +101,12 @@ export const recipeService = {
     return apiPatch<{ success: boolean }>(`/api/recipes/${id}/lock`);
   },
 
+  /** PHASE 9.2: "base" means a saved recipe flagged is_base_recipe=true. */
+  async setBaseRecipe(id: string, isBase: boolean) {
+    await this.requireAuth();
+    return apiPatch<{ success: boolean; is_base_recipe: boolean }>(`/api/recipes/${id}/base`, { is_base_recipe: isBase });
+  },
+
   async cloneRecipe(id: string) {
     await this.requireAuth();
     return apiPost<{ success: boolean; id: string; recipe: any }>(`/api/recipes/${id}/clone`);

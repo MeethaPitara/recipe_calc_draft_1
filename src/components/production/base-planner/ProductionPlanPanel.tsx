@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBasePlannerStore } from '@/store/useBasePlannerStore';
 import { useIngredients } from '@/contexts/IngredientsContext';
+import { recipeService } from '@/services/recipeService';
 import { AllocationRow } from './AllocationRow';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,30 @@ export const ProductionPlanPanel = () => {
         reset
     } = useBasePlannerStore();
     const [totalMassStr, setTotalMassStr] = React.useState<string | null>(null);
+
+    // PHASE 9.2: "base" means a saved recipe flagged is_base_recipe=true,
+    // not an arbitrary ingredient. The engine still matches by ingredientId
+    // within each allocated recipe's rows, so the selected base recipe is
+    // resolved to its corresponding ingredients-table entry by name (the
+    // same name-matching pattern AvailableRecipesPanel.tsx already uses).
+    const { data: savedRecipes } = useQuery({
+        queryKey: ['savedRecipes'],
+        queryFn: () => recipeService.getRecipes(),
+    });
+
+    const baseRecipeOptions = useMemo(() => {
+        const baseRecipes = (savedRecipes || []).filter((r: any) => r.is_base_recipe);
+        return baseRecipes
+            .map((r: any) => {
+                const matchedIngredient = ingredients.find(
+                    i => i.name.toLowerCase().trim() === r.recipe_name.toLowerCase().trim()
+                );
+                return matchedIngredient ? { recipeName: r.recipe_name, ingredientId: matchedIngredient.id } : null;
+            })
+            .filter((o): o is { recipeName: string; ingredientId: string } => o !== null);
+    }, [savedRecipes, ingredients]);
+
+    const unmatchedBaseRecipeCount = (savedRecipes || []).filter((r: any) => r.is_base_recipe).length - baseRecipeOptions.length;
 
     // Compute active base usage for warning
     const totalAllocatedPct = useMemo(() =>
@@ -47,17 +73,27 @@ export const ProductionPlanPanel = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Base Selection (Context) */}
                     <div className="space-y-2">
-                        <Label className="text-xs uppercase text-muted-foreground font-semibold">Base Ingredient</Label>
+                        <Label className="text-xs uppercase text-muted-foreground font-semibold">Base Recipe</Label>
                         <Select value={baseIngredientId} onValueChange={setBaseIngredientId}>
                             <SelectTrigger className="bg-slate-50 dark:bg-slate-900 border-slate-200">
-                                <SelectValue placeholder="Select Base..." />
+                                <SelectValue placeholder="Select a saved base recipe..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {ingredients.map(ing => (
-                                    <SelectItem key={ing.id} value={ing.id}>{ing.name}</SelectItem>
+                                {baseRecipeOptions.map(opt => (
+                                    <SelectItem key={opt.ingredientId} value={opt.ingredientId}>{opt.recipeName}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        {baseRecipeOptions.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                No base recipes available. Mark a recipe as "Base recipe" in the Recipe Browser first.
+                            </p>
+                        )}
+                        {unmatchedBaseRecipeCount > 0 && (
+                            <p className="text-xs text-amber-600">
+                                {unmatchedBaseRecipeCount} base recipe{unmatchedBaseRecipeCount > 1 ? 's' : ''} hidden — no matching ingredient entry with the same name exists yet.
+                            </p>
+                        )}
                     </div>
 
                     {/* Total Mass Input */}

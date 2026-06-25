@@ -4,10 +4,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiDelete } from '@/lib/apiClient';
 import { authService } from '@/lib/auth/authService';
+import { recipeService } from '@/services/recipeService';
 import { Search, Loader2, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -16,6 +19,7 @@ interface Recipe {
   recipe_name: string;
   product_type: string;
   created_at: string;
+  is_base_recipe?: boolean;
   recipe_rows: Array<{
     ingredient: string;
     quantity_g: number;
@@ -103,6 +107,21 @@ export function RecipeBrowserDrawer({
     recipe.recipe_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // PHASE 9.2: "base" means a saved recipe flagged is_base_recipe=true —
+  // this is the only place that flag can be set.
+  const toggleBaseRecipe = async (recipe: Recipe, checked: boolean) => {
+    try {
+      await recipeService.setBaseRecipe(recipe.id, checked);
+      setRecipes(prev => prev.map(r => r.id === recipe.id ? { ...r, is_base_recipe: checked } : r));
+      toast({
+        title: checked ? 'Marked as base recipe' : 'Unmarked as base recipe',
+        description: `"${recipe.recipe_name}" ${checked ? 'will now appear' : 'will no longer appear'} in the Base Batch Manager's base selector.`,
+      });
+    } catch (error: any) {
+      toast({ title: 'Failed to update', description: error.message, variant: 'destructive' });
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
@@ -155,6 +174,17 @@ export function RecipeBrowserDrawer({
                             <Badge>SP: {recipe.calculated_metrics[0].sp.toFixed(1)}</Badge>
                           )}
                         </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                          id={`base-${recipe.id}`}
+                          checked={!!recipe.is_base_recipe}
+                          onCheckedChange={(checked) => toggleBaseRecipe(recipe, checked)}
+                        />
+                        <Label htmlFor={`base-${recipe.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                          Base recipe (selectable in Base Batch Manager)
+                        </Label>
                       </div>
 
                       <div className="mb-3">

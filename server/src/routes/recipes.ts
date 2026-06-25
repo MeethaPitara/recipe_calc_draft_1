@@ -292,7 +292,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const recipeId = req.params.id;
-        const { recipe_name, product_type, rows, metrics, tags } = req.body;
+        const { recipe_name, product_type, rows, metrics, tags, is_base_recipe } = req.body;
 
         // check if locked
         const { data: existingRecipe } = await supabase.from('recipes').select('is_production_locked').eq('id', recipeId).single();
@@ -331,6 +331,8 @@ router.put('/:id', async (req, res) => {
         if (product_type) updates.product_type = product_type;
         if (tags) updates.tags = tags;
         if (cost_per_kg > 0) updates.cost_per_kg = cost_per_kg;
+        // PHASE 9.2: "base" means a saved recipe flagged is_base_recipe=true.
+        if (is_base_recipe !== undefined) updates.is_base_recipe = is_base_recipe;
 
         const { error: updateError } = await supabase
             .from('recipes')
@@ -434,6 +436,22 @@ router.patch('/:id/lock', async (req, res) => {
 
         if (error) throw error;
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ── PATCH /:id/base — Toggle is_base_recipe (Phase 9.2) ──
+router.patch('/:id/base', async (req, res) => {
+    try {
+        const { is_base_recipe } = req.body;
+        const { error } = await supabase
+            .from('recipes')
+            .update({ is_base_recipe: !!is_base_recipe, updated_at: new Date().toISOString() })
+            .eq('id', req.params.id);
+
+        if (error) throw error;
+        res.json({ success: true, is_base_recipe: !!is_base_recipe });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

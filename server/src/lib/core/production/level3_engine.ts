@@ -1,9 +1,20 @@
 /**
  * Level 3 Production Engine — "Exact Plan"
  * Demand-based batch calculation: given exact number of units, compute the full recipe.
- * 
+ *
  * Migrated from src/lib/production/level3_engine.ts
  */
+
+// PHASE 9.3: same checklist level1_engine.ts uses — a manufacturer following
+// the exported batch sheet with the app closed needs this regardless of
+// which planning level produced the sheet.
+export const BATCH_QA_CHECKLIST: string[] = [
+    "Machine and utensils sanitized",
+    "Ingredients weighed and verified",
+    "Pasteurization temperature reached (85°C)",
+    "Aging time logged",
+    "Metal detection passed"
+];
 
 export interface Level3Input {
     recipeItems: {
@@ -39,6 +50,8 @@ export interface Level3Output {
         percentage: number;
     }[];
     totalMassKg: number;
+    qaChecklist: string[];
+    processNotes: string[];
 }
 
 export function calculateDemandRun(input: Level3Input): Level3Output {
@@ -91,6 +104,12 @@ export function calculateDemandRun(input: Level3Input): Level3Output {
         };
     });
 
+    const processNotes: string[] = [
+        `Mix requires ${numberOfBatches} batch${numberOfBatches !== 1 ? 'es' : ''}.`,
+        `Includes ${processLossPercent}% buffer for process loss and ${evaporationLossPercent}% for evaporation.`,
+        `Expected yield: ~${packedFrozenLiters.toFixed(1)} liters of frozen product.`,
+    ];
+
     return {
         stats: {
             cup100mlCount,
@@ -103,6 +122,8 @@ export function calculateDemandRun(input: Level3Input): Level3Output {
             batchSizeKg
         },
         scaledRecipe,
-        totalMassKg: requiredMixKg
+        totalMassKg: requiredMixKg,
+        qaChecklist: BATCH_QA_CHECKLIST,
+        processNotes,
     };
 }

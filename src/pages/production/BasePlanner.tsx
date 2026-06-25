@@ -157,7 +157,7 @@ const BasePlanner = () => {
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold">Base Allocator</h1>
+                        <h1 className="text-2xl font-bold">Base Batch Manager</h1>
                         <p className="text-sm text-muted-foreground">Level-2 Production</p>
                     </div>
                 </div>
