@@ -63,7 +63,32 @@ export type MetricsV2 = {
   ts_add_pct?: number; // alias for ts_pct
   sp?: number;         // alias for sp_pct (Carpigiani SP%)
   pac?: number;        // alias for afp_index
+
+  // PHASE 7.2: advisory diagnosis from the backend's recipeDiagnosis.ts —
+  // never auto-applied, the UI only ever renders problem/why/fix (7.4).
+  diagnosis?: Diagnosis[];
+  productProfile?: string;
+  profileBands?: {
+    fat: [number, number]; msnf: [number, number]; totalSugar: [number, number];
+    totalSolids: [number, number]; sp: [number, number]; afp: [number, number]; fpdt: [number, number];
+    lactoseRiskMaxPct: number; proteinRiskMaxPct: number;
+  };
+  // PHASE 7.5: true until Phase 8's freezingCurve.ts replaces serving.v1.ts's
+  // estimate with the Leighton-based curve.
+  servingTempApprox?: boolean;
 };
+
+// Mirrors server/src/lib/core/recipeDiagnosis.ts's Diagnosis shape — the
+// frontend can't import across the server/client build boundary (Phase 4),
+// so this is redefined, not shared.
+export interface Diagnosis {
+  metric: string;
+  status: 'low' | 'high' | 'ok';
+  severity: 'ok' | 'warn' | 'critical';
+  problem: string;
+  why: string;
+  fix: string;
+}
 
 export type CalcOptionsV2 = {
   evaporation_pct?: number;
@@ -83,7 +108,20 @@ export async function calcMetricsV2(
   if (!response || !response.metrics) {
     throw new Error("Failed to calculate metrics from backend");
   }
-  return response.metrics as MetricsV2;
+  return {
+    ...response.metrics,
+    diagnosis: response.diagnosis,
+    productProfile: response.productProfile,
+    profileBands: response.profileBands,
+    servingTempApprox: response.servingTempApprox,
+  } as MetricsV2;
+}
+
+/** Convenience: the single most important diagnosis to show first. */
+export function topDiagnosis(diagnosis?: Diagnosis[]): Diagnosis | null {
+  if (!diagnosis || diagnosis.length === 0) return null;
+  const order = { critical: 0, warn: 1, ok: 2 };
+  return diagnosis.filter(d => d.severity !== 'ok').sort((a, b) => order[a.severity] - order[b.severity])[0] || null;
 }
 
 export type ProductClass =

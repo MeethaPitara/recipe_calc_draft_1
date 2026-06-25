@@ -13,6 +13,8 @@ export type ScoopAdvice = {
   frozenWaterAtServe_pct: number;
   scoopRange: { min: number; max: number };
   status: 'soft' | 'ideal' | 'firm' | 'too_hard' | 'too_soft';
+  // PHASE 7.5: see ScoopabilityResponse.approx
+  approx?: boolean;
 };
 
 interface ScoopabilityResponse {
@@ -24,6 +26,9 @@ interface ScoopabilityResponse {
   serveTemp: number;
   frozenWaterAtTemp?: number;
   freezingCurve: { tempC: number; frozenPct: number }[];
+  // PHASE 7.5: always true until Phase 8's freezingCurve.ts replaces the
+  // leightonTable.json extrapolation with a proper servingTempExtrapolated flag.
+  approx: boolean;
 }
 
 async function fetchScoopability(
@@ -36,7 +41,7 @@ async function fetchScoopability(
 
 export async function recommendTemps(metrics: MetricsV2, context: ServingContext = 'home_freezer'): Promise<ScoopAdvice> {
   const res = await fetchScoopability(metrics, context);
-  return res.recommendation;
+  return { ...res.recommendation, approx: res.approx };
 }
 
 export async function estimateFrozenWater(metrics: MetricsV2, tempC: number): Promise<number> {

@@ -121,6 +121,9 @@ export default function TemperaturePanel({
           <div className="flex items-center gap-2 text-primary">
             <Snowflake className="h-4 w-4" />
             <span className="text-[11px] font-bold uppercase tracking-wider">Target Serve</span>
+            {advice.approx && (
+              <span className="text-[10px] font-normal text-muted-foreground normal-case">(approx)</span>
+            )}
           </div>
           <div className="text-3xl font-black">{advice.serveTempC.toFixed(1)}°C</div>
           <Badge className={getStatusColor(advice.status)}>

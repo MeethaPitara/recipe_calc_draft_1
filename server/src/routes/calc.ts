@@ -1,8 +1,37 @@
 import { Router } from 'express';
 import { calcMetricsV2 } from '../lib/core/calc.v2.js';
 import { recommendTemps, estimateFrozenWater, recommendServeTemp, getScoopableRange, calculateIdealServeTemp, getTemperatureGuidance } from '../lib/core/scoopability.js';
+import { diagnose, DiagnosisMetrics } from '../lib/core/recipeDiagnosis.js';
+import { PROFILES, ProductId } from '../lib/core/scienceConfig.js';
 
 const router = Router();
+
+/**
+ * PHASE 7.2: the engine only knows a coarse mode (gelato/ice_cream/sorbet/
+ * kulfi), but recipeDiagnosis.ts wants one of scienceConfig's 9 fine
+ * ProductProfiles. Detect what's detectable from ingredient categories/
+ * names (mirrors the hasChocolate/hasNutsOrEggs heuristics already used
+ * inside calc.v2.ts, and the hasFruit check the frontend's productKey()
+ * already does) — covers 7 of 9 profiles. gelato_white (no flavour yet)
+ * and mithai_gelato (paste-specific) have no reliable signal yet and are
+ * left for whenever the paste/flavour system can supply one.
+ */
+function resolveDiagnosisProfile(mode: string, rows: { ing: any }[]): ProductId {
+    if (mode === 'sorbet') return 'sorbet';
+    if (mode === 'kulfi') return 'kulfi_basundi';
+    if (mode === 'ice_cream') return 'premium_ice_cream';
+
+    const hasFruit = rows.some(r => r.ing.category === 'fruit');
+    if (hasFruit) return 'fruit_gelato';
+
+    const hasChocolate = rows.some(r => /chocolate|cocoa|cacao/i.test(r.ing.name || ''));
+    if (hasChocolate) return 'chocolate_gelato';
+
+    const hasNuts = rows.some(r => /nut|almond|pistachio|hazelnut/i.test(r.ing.name || ''));
+    if (hasNuts) return 'nut_gelato';
+
+    return 'dairy_gelato';
+}
 
 router.post('/metrics', async (req, res) => {
     try {
@@ -27,7 +56,41 @@ router.post('/metrics', async (req, res) => {
         }));
 
         const metrics = calcMetricsV2(rows, opts);
-        res.json({ success: true, metrics });
+
+        // PHASE 7.2: advisory diagnosis — never auto-applied (7.4), the UI
+        // only renders problem/why/fix and lets the user apply it manually.
+        const mode = opts?.mode || 'gelato';
+        const profileId = resolveDiagnosisProfile(mode, rows);
+        const profile = PROFILES[profileId];
+        const diagnosisMetrics: DiagnosisMetrics = {
+            total_g: metrics.total_g,
+            water_g: metrics.water_g,
+            se_g: metrics.se_g,
+            fat_pct: metrics.fat_pct,
+            msnf_pct: metrics.msnf_pct,
+            nonLactoseSugars_pct: metrics.nonLactoseSugars_pct,
+            totalSugarsTotal_pct: metrics.totalSugarsTotal_pct,
+            ts_pct: metrics.ts_pct,
+            fpdt: metrics.fpdt,
+            sp_pct: metrics.sp_pct,
+            afp_index: metrics.afp_index,
+            lactose_pct: metrics.lactose_pct,
+            protein_pct: metrics.protein_pct,
+            // PHASE 7.5: approximate until Phase 8's freezingCurve.ts lands —
+            // serving.v1.ts's recommendation, not the Leighton-based curve.
+            servingTempC: metrics.servingTemp?.serveTempC,
+        };
+        const diagnosis = diagnose(diagnosisMetrics, profile);
+
+        // PHASE 7.3: ship the resolved profile's bands too, so the frontend
+        // never needs its own copy of scienceConfig numbers to label targets.
+        const profileBands = {
+            fat: profile.fat, msnf: profile.msnf, totalSugar: profile.totalSugar,
+            totalSolids: profile.totalSolids, sp: profile.sp, afp: profile.afp, fpdt: profile.fpdt,
+            lactoseRiskMaxPct: profile.lactoseRiskMaxPct, proteinRiskMaxPct: profile.proteinRiskMaxPct,
+        };
+
+        res.json({ success: true, metrics, diagnosis, productProfile: profileId, profileBands, servingTempApprox: true });
     } catch (e: any) {
         console.error('Calculation Error:', e);
         res.status(500).json({ error: e.message });
@@ -67,7 +130,11 @@ router.post('/scoopability', (req, res) => {
         }
         result.freezingCurve = freezingCurve;
 
-        res.json({ success: true, ...result });
+        // PHASE 7.5: leightonTable.json extrapolates past its real data
+        // range (Phase 8's freezingCurve.ts will fix this with a proper
+        // servingTempExtrapolated flag) — flag every serve-temp figure as
+        // approximate now so users aren't misled in the meantime.
+        res.json({ success: true, ...result, approx: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
