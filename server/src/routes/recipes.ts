@@ -234,6 +234,8 @@ router.post('/', async (req, res) => {
                     msnf_g: r.msnf_g || 0,
                     other_solids_g: r.other_solids_g || 0,
                     total_solids_g: r.total_solids_g || 0,
+                    // PHASE 5.4: frozen ingredient composition at time of use.
+                    ingredient_snapshot: r.ingredient_snapshot || null,
                 }));
 
             const { error: rowsError } = await supabase
@@ -366,6 +368,8 @@ router.put('/:id', async (req, res) => {
                         msnf_g: r.msnf_g || 0,
                         other_solids_g: r.other_solids_g || 0,
                         total_solids_g: r.total_solids_g || 0,
+                        // PHASE 5.4: frozen ingredient composition at time of use.
+                        ingredient_snapshot: r.ingredient_snapshot || null,
                     }));
 
                 await supabase.from('recipe_rows').insert(rowsToInsert);

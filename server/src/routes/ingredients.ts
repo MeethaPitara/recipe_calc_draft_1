@@ -104,6 +104,9 @@ router.post("/", requireAuth as any, async (req, res) => {
       pac_coeff,
       cost_per_kg,
       lactose_pct,
+      protein_pct,
+      de,
+      sugar_split,
       verification_status,
       verified_at,
       verified_source,
@@ -132,6 +135,9 @@ router.post("/", requireAuth as any, async (req, res) => {
     if (pac_coeff != null) insertData.pac_coeff = pac_coeff;
     if (cost_per_kg != null) insertData.cost_per_kg = cost_per_kg;
     if (lactose_pct != null) insertData.lactose_pct = lactose_pct;
+    if (protein_pct != null) insertData.protein_pct = protein_pct;
+    if (de != null) insertData.de = de;
+    if (sugar_split != null) insertData.sugar_split = sugar_split;
     if (verified_at != null) insertData.verified_at = verified_at;
     if (verified_source != null) insertData.verified_source = verified_source;
     if (supplier_data_sheet_url !== undefined)
@@ -172,6 +178,9 @@ router.put("/:id", requireAuth as any, async (req, res) => {
       "pac_coeff",
       "cost_per_kg",
       "lactose_pct",
+      "protein_pct",
+      "de",
+      "sugar_split",
       "verification_status",
       "verified_at",
       "verified_source",
@@ -292,6 +301,9 @@ function transformRow(row: any) {
     pac_coeff: row.pac_coeff ?? undefined,
     cost_per_kg: row.cost_per_kg ?? undefined,
     lactose_pct: row.lactose_pct ?? undefined,
+    protein_pct: row.protein_pct ?? undefined,
+    de: row.de ?? undefined,
+    sugar_split: row.sugar_split ?? undefined,
     user_email: row.user_email ?? undefined,
     verification_status: row.verification_status ?? undefined,
     verified_at: row.verified_at ?? undefined,

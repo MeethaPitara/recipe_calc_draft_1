@@ -18,12 +18,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useIngredients } from "@/contexts/IngredientsContext";
 import { IngredientService } from "@/services/ingredientService";
 import { Plus, Loader2, Scan } from "lucide-react";
 import type { IngredientData, VerificationStatus } from "@/types/ingredients";
 import { apiPost } from "@/lib/apiClient";
+
+/**
+ * PHASE 5.1: Simple-mode auto-derivation. Simple mode collects protein%
+ * instead of MSNF/lactose directly. Mirrors the same 0.36 protein-share-of-
+ * MSNF ratio calc.v2.ts already falls back to for ingredients that don't
+ * declare protein explicitly — so a Simple-mode entry stays consistent with
+ * what the engine assumes elsewhere. Only meaningful for dairy; everything
+ * else has no MSNF.
+ */
+function deriveMsnfLactose(category: string, protein_pct: number): { msnf_pct: number; lactose_pct: number } {
+  const isDairy = category === "dairy" || category === "Dairy Products";
+  if (!isDairy || !protein_pct) return { msnf_pct: 0, lactose_pct: 0 };
+  const msnf_pct = protein_pct / 0.36;
+  const lactose_pct = Math.max(0, msnf_pct - protein_pct);
+  return { msnf_pct, lactose_pct };
+}
+
+const ADVANCED_SUGAR_CATEGORIES = ["sugar", "fruit", "stabilizer"];
 
 interface AddIngredientDialogProps {
   onIngredientAdded?: (ingredient: IngredientData) => void;
@@ -47,6 +66,7 @@ export function AddIngredientDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<"simple" | "advanced">("simple");
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : undefined;
@@ -66,8 +86,11 @@ export function AddIngredientDialog({
     fat_pct: prefilledData?.fat_pct || 0,
     msnf_pct: prefilledData?.msnf_pct || 0,
     other_solids_pct: prefilledData?.other_solids_pct || 0,
+    protein_pct: prefilledData?.protein_pct || 0,
     sp_coeff: prefilledData?.sp_coeff,
     pac_coeff: prefilledData?.pac_coeff,
+    de: prefilledData?.de,
+    sugar_split: prefilledData?.sugar_split || ({} as { glucose?: number; fructose?: number; sucrose?: number }),
     cost_per_kg: prefilledData?.cost_per_kg,
     notes: prefilledData?.notes || ([] as string[]),
     tags: prefilledData?.tags || ([] as string[]),
@@ -92,8 +115,11 @@ export function AddIngredientDialog({
         fat_pct: prefilledData.fat_pct || 0,
         msnf_pct: prefilledData.msnf_pct || 0,
         other_solids_pct: prefilledData.other_solids_pct || 0,
+        protein_pct: prefilledData.protein_pct || 0,
         sp_coeff: prefilledData.sp_coeff,
         pac_coeff: prefilledData.pac_coeff,
+        de: prefilledData.de,
+        sugar_split: prefilledData.sugar_split || {},
         cost_per_kg: prefilledData.cost_per_kg,
         notes: prefilledData.notes || [],
         tags: prefilledData.tags || [],
@@ -106,6 +132,14 @@ export function AddIngredientDialog({
       });
     }
   }, [prefilledData]);
+
+  // PHASE 5.1: Simple mode auto-derives MSNF/lactose from protein% + category.
+  // Advanced mode leaves them as direct, user-editable fields.
+  useEffect(() => {
+    if (mode !== "simple") return;
+    const { msnf_pct, lactose_pct } = deriveMsnfLactose(formData.category, formData.protein_pct);
+    setFormData((prev) => ({ ...prev, msnf_pct, lactose_pct }));
+  }, [mode, formData.category, formData.protein_pct]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,8 +171,11 @@ export function AddIngredientDialog({
           fat_pct: 0,
           msnf_pct: 0,
           other_solids_pct: 0,
+          protein_pct: 0,
           sp_coeff: undefined,
           pac_coeff: undefined,
+          de: undefined,
+          sugar_split: {},
           cost_per_kg: undefined,
           notes: [],
           tags: [],
@@ -148,6 +185,7 @@ export function AddIngredientDialog({
           supplier_data_sheet_url: "",
           formulation_warnings: [],
         });
+        setMode("simple");
       }, 100);
 
       handleOpenChange(false);
@@ -360,275 +398,431 @@ If a value is not explicitly on the label, derive it reasonably according to the
                 </SelectContent>
               </Select>
             </div>
-
-            <div>
-              <Label htmlFor="water">Water %</Label>
-              <Input
-                id="water"
-                type="number"
-                step="0.01"
-                value={formData.water_pct || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    water_pct: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="sugars">Sugars %</Label>
-              <Input
-                id="sugars"
-                type="number"
-                step="0.01"
-                value={formData.sugars_pct || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    sugars_pct: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="fat">Fat %</Label>
-              <Input
-                id="fat"
-                type="number"
-                step="0.01"
-                value={formData.fat_pct || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    fat_pct: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="msnf">MSNF %</Label>
-              <Input
-                id="msnf"
-                type="number"
-                step="0.01"
-                value={formData.msnf_pct || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    msnf_pct: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="lactose">Lactose %</Label>
-              <Input
-                id="lactose"
-                type="number"
-                step="0.01"
-                value={formData.lactose_pct || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    lactose_pct: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="other_solids">Other Solids %</Label>
-              <Input
-                id="other_solids"
-                type="number"
-                step="0.01"
-                value={formData.other_solids_pct}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    other_solids_pct: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="sp_coeff">SP Coefficient (optional)</Label>
-              <Input
-                id="sp_coeff"
-                type="number"
-                step="0.01"
-                placeholder="e.g., 1.0"
-                value={formData.sp_coeff || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    sp_coeff: e.target.value
-                      ? parseFloat(e.target.value)
-                      : undefined,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="pac_coeff">PAC Coefficient (optional)</Label>
-              <Input
-                id="pac_coeff"
-                type="number"
-                step="0.01"
-                placeholder="e.g., 1.0"
-                value={formData.pac_coeff || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    pac_coeff: e.target.value
-                      ? parseFloat(e.target.value)
-                      : undefined,
-                  })
-                }
-              />
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="cost">Cost per Kg (optional)</Label>
-              <Input
-                id="cost"
-                type="number"
-                step="0.01"
-                placeholder="e.g., 250.00"
-                value={formData.cost_per_kg || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    cost_per_kg: e.target.value
-                      ? parseFloat(e.target.value)
-                      : undefined,
-                  })
-                }
-              />
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="tags">Tags (comma-separated, optional)</Label>
-              <Input
-                id="tags"
-                placeholder="e.g., organic, premium"
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    tags: e.target.value
-                      .split(",")
-                      .map((t) => t.trim())
-                      .filter((t) => t),
-                  })
-                }
-              />
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="verification_status">
-               Data Verification Status
-              </Label>
-              <Select
-                value={formData.verification_status}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    verification_status: value as VerificationStatus,
-                  })
-                }
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="verified">
-                   Verified — Checked and usable
-                  </SelectItem>
-                  <SelectItem value="supplier_data">
-                   Supplier Data — Based on spec sheet
-                  </SelectItem>
-                  <SelectItem value="lab_tested">
-                   Lab Tested — Based on lab testing
-                  </SelectItem>
-                  <SelectItem value="estimated">
-                   Estimated — Use carefully
-                  </SelectItem>
-                  <SelectItem value="ai_estimated">
-                   AI Estimated — Not final
-                  </SelectItem>
-                  <SelectItem value="user_entered">
-                   User Entered — Needs review
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="supplier_data_sheet_url">
-               Supplier Data Sheet URL (optional)
-              </Label>
-              <Input
-                id="supplier_data_sheet_url"
-                placeholder="https://..."
-                value={formData.supplier_data_sheet_url}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    supplier_data_sheet_url: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="formulation_warnings">
-               Formulation Warnings (comma-separated, optional)
-              </Label>
-              <Input
-                id="formulation_warnings"
-                placeholder="e.g., High acid, Contains nuts"
-                value={formData.formulation_warnings?.join(", ")}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    formulation_warnings: e.target.value
-                      .split(",")
-                      .map((t) => t.trim())
-                      .filter((t) => t),
-                  })
-                }
-              />
-              {formData.formulation_warnings &&
-                formData.formulation_warnings.length > 0 && (
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    {formData.formulation_warnings.map((w, i) => (
-                      <Badge key={i} variant="destructive">
-                        {w}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-            </div>
-
-            <div className="col-span-2">
-              <Label htmlFor="verified_source">Data Source (optional)</Label>
-              <Input
-                id="verified_source"
-                placeholder="e.g., Amul spec sheet, NDDB lab report"
-                value={formData.verified_source}
-                onChange={(e) =>
-                  setFormData({ ...formData, verified_source: e.target.value })
-                }
-              />
-            </div>
           </div>
+
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "simple" | "advanced")}>
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="simple">Simple</TabsTrigger>
+              <TabsTrigger value="advanced">Advanced</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="simple" className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="water">Water %</Label>
+                  <Input
+                    id="water"
+                    type="number"
+                    step="0.01"
+                    value={formData.water_pct || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        water_pct: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="fat">Fat %</Label>
+                  <Input
+                    id="fat"
+                    type="number"
+                    step="0.01"
+                    value={formData.fat_pct || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        fat_pct: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="sugars">Sugar %</Label>
+                  <Input
+                    id="sugars"
+                    type="number"
+                    step="0.01"
+                    value={formData.sugars_pct || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        sugars_pct: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="protein">
+                    Protein % {formData.category === "dairy" ? "" : "(dairy only)"}
+                  </Label>
+                  <Input
+                    id="protein"
+                    type="number"
+                    step="0.01"
+                    disabled={formData.category !== "dairy"}
+                    value={formData.protein_pct || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        protein_pct: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="other_solids">Other Solids %</Label>
+                  <Input
+                    id="other_solids"
+                    type="number"
+                    step="0.01"
+                    value={formData.other_solids_pct}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        other_solids_pct: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* PHASE 5.1: auto-derived, read-only in Simple mode */}
+              <div className="rounded-md border bg-muted/30 p-3 grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground">Total Solids (derived)</div>
+                  <div className="font-semibold">
+                    {(100 - (formData.water_pct || 0)).toFixed(1)}%
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">MSNF (derived)</div>
+                  <div className="font-semibold">{(formData.msnf_pct || 0).toFixed(1)}%</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Lactose (derived)</div>
+                  <div className="font-semibold">{(formData.lactose_pct || 0).toFixed(1)}%</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="cost">Cost per Kg (optional)</Label>
+                  <Input
+                    id="cost"
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g., 250.00"
+                    value={formData.cost_per_kg || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cost_per_kg: e.target.value
+                          ? parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="verification_status">
+                   Data Verification Status
+                  </Label>
+                  <Select
+                    value={formData.verification_status}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        verification_status: value as VerificationStatus,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">
+                       Verified — Checked and usable
+                      </SelectItem>
+                      <SelectItem value="supplier_data">
+                       Supplier Data — Based on spec sheet
+                      </SelectItem>
+                      <SelectItem value="lab_tested">
+                       Lab Tested — Based on lab testing
+                      </SelectItem>
+                      <SelectItem value="estimated">
+                       Estimated — Use carefully
+                      </SelectItem>
+                      <SelectItem value="ai_estimated">
+                       AI Estimated — Not final
+                      </SelectItem>
+                      <SelectItem value="user_entered">
+                       User Entered — Needs review
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="verified_source">Data Source (optional)</Label>
+                  <Input
+                    id="verified_source"
+                    placeholder="e.g., Amul spec sheet, NDDB lab report"
+                    value={formData.verified_source}
+                    onChange={(e) =>
+                      setFormData({ ...formData, verified_source: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="advanced" className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="water-adv">Water %</Label>
+                  <Input
+                    id="water-adv"
+                    type="number"
+                    step="0.01"
+                    value={formData.water_pct || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, water_pct: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="fat-adv">Fat %</Label>
+                  <Input
+                    id="fat-adv"
+                    type="number"
+                    step="0.01"
+                    value={formData.fat_pct || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, fat_pct: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sugars-adv">Sugars %</Label>
+                  <Input
+                    id="sugars-adv"
+                    type="number"
+                    step="0.01"
+                    value={formData.sugars_pct || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, sugars_pct: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="other_solids-adv">Other Solids %</Label>
+                  <Input
+                    id="other_solids-adv"
+                    type="number"
+                    step="0.01"
+                    value={formData.other_solids_pct}
+                    onChange={(e) =>
+                      setFormData({ ...formData, other_solids_pct: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+
+                {/* Advanced mode: MSNF/lactose are directly editable, not derived */}
+                <div>
+                  <Label htmlFor="msnf">MSNF % (lab value, overrides derivation)</Label>
+                  <Input
+                    id="msnf"
+                    type="number"
+                    step="0.01"
+                    value={formData.msnf_pct || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, msnf_pct: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lactose">Lactose %</Label>
+                  <Input
+                    id="lactose"
+                    type="number"
+                    step="0.01"
+                    value={formData.lactose_pct || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, lactose_pct: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="sp_coeff">SP Coefficient (optional)</Label>
+                  <Input
+                    id="sp_coeff"
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g., 1.0"
+                    value={formData.sp_coeff || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        sp_coeff: e.target.value ? parseFloat(e.target.value) : undefined,
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pac_coeff">PAC Coefficient (optional)</Label>
+                  <Input
+                    id="pac_coeff"
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g., 1.0"
+                    value={formData.pac_coeff || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        pac_coeff: e.target.value ? parseFloat(e.target.value) : undefined,
+                      })
+                    }
+                  />
+                </div>
+
+                {/* PHASE 5.2: full sugar breakdown + DE — only for categories where it matters */}
+                {ADVANCED_SUGAR_CATEGORIES.includes(formData.category) && (
+                  <>
+                    <div>
+                      <Label htmlFor="de">DE Index (optional)</Label>
+                      <Input
+                        id="de"
+                        type="number"
+                        step="1"
+                        placeholder="e.g., 42 (glucose syrup DE42)"
+                        value={formData.de ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            de: e.target.value ? parseFloat(e.target.value) : undefined,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="col-span-2 grid grid-cols-3 gap-2">
+                      <div>
+                        <Label htmlFor="sugar_split_glucose">Glucose/Dextrose % of sugars</Label>
+                        <Input
+                          id="sugar_split_glucose"
+                          type="number"
+                          step="0.01"
+                          value={formData.sugar_split?.glucose ?? ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              sugar_split: { ...formData.sugar_split, glucose: parseFloat(e.target.value) || 0 },
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="sugar_split_fructose">Fructose % of sugars</Label>
+                        <Input
+                          id="sugar_split_fructose"
+                          type="number"
+                          step="0.01"
+                          value={formData.sugar_split?.fructose ?? ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              sugar_split: { ...formData.sugar_split, fructose: parseFloat(e.target.value) || 0 },
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="sugar_split_sucrose">Sucrose % of sugars</Label>
+                        <Input
+                          id="sugar_split_sucrose"
+                          type="number"
+                          step="0.01"
+                          value={formData.sugar_split?.sucrose ?? ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              sugar_split: { ...formData.sugar_split, sucrose: parseFloat(e.target.value) || 0 },
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="col-span-2">
+                  <Label htmlFor="tags">Tags (comma-separated, optional)</Label>
+                  <Input
+                    id="tags"
+                    placeholder="e.g., organic, premium"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        tags: e.target.value.split(",").map((t) => t.trim()).filter((t) => t),
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="supplier_data_sheet_url">
+                   Supplier Data Sheet URL (optional)
+                  </Label>
+                  <Input
+                    id="supplier_data_sheet_url"
+                    placeholder="https://..."
+                    value={formData.supplier_data_sheet_url}
+                    onChange={(e) =>
+                      setFormData({ ...formData, supplier_data_sheet_url: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="formulation_warnings">
+                   Formulation Warnings (comma-separated, optional)
+                  </Label>
+                  <Input
+                    id="formulation_warnings"
+                    placeholder="e.g., High acid, Contains nuts"
+                    value={formData.formulation_warnings?.join(", ")}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        formulation_warnings: e.target.value
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter((t) => t),
+                      })
+                    }
+                  />
+                  {formData.formulation_warnings &&
+                    formData.formulation_warnings.length > 0 && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {formData.formulation_warnings.map((w, i) => (
+                          <Badge key={i} variant="destructive">
+                            {w}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           <div className="flex justify-end gap-2">
             <Button

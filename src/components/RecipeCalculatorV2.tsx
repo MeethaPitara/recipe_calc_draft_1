@@ -578,7 +578,19 @@ export default function RecipeCalculatorV2({
     if (externalRecipe && availableIngredients.length > 0) {
       console.log(" Loading external recipe:", externalRecipe.name);
 
-      const hydratedRows = externalRecipe.rows.map(row => {
+      const hydratedRows = externalRecipe.rows.map((row: any) => {
+        // PHASE 5.4: a frozen ingredient_snapshot means this row was saved
+        // after the snapshot fix shipped — trust it exactly as saved, never
+        // re-resolve against today's (possibly drifted) live ingredient data.
+        // Otherwise (older recipes saved before this column existed), fall
+        // back to the old live-lookup-and-recompute behavior.
+        if (row.ingredient_snapshot) {
+          return {
+            ...row,
+            ingredientData: row.ingredient_snapshot,
+          };
+        }
+
         // Try to find by name match (case insensitive)
         const found = availableIngredients.find(i =>
           i.name.toLowerCase() === row.ingredient.toLowerCase() ||
@@ -2154,6 +2166,26 @@ export default function RecipeCalculatorV2({
             </div>
           </CardHeader>
           <CardContent className="pt-4 space-y-4">
+            {/* PHASE 5.3: aggregate accuracy banner — fires if any in-use
+                ingredient's data isn't verified/lab_tested. */}
+            {(() => {
+              const unverifiedCount = rows.filter(r =>
+                r.ingredientData && r.quantity_g > 0 &&
+                r.ingredientData.verification_status &&
+                r.ingredientData.verification_status !== 'verified' &&
+                r.ingredientData.verification_status !== 'lab_tested'
+              ).length;
+              if (unverifiedCount === 0) return null;
+              return (
+                <Alert className="py-2 h-auto border-amber-300 bg-amber-50/40 dark:bg-amber-950/20">
+                  <AlertCircle className="h-3 w-3 text-amber-600" />
+                  <AlertDescription className="text-[11px] leading-tight text-amber-700 dark:text-amber-400">
+                    {unverifiedCount} ingredient{unverifiedCount > 1 ? 's' : ''} in this recipe {unverifiedCount > 1 ? 'have' : 'has'} unverified composition data — treat these metrics as estimates until the data is lab-tested or supplier-confirmed.
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
+
             {/* Main Composition Grid (Gauges) */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               {renderCoreMetric('Fat', metrics.fat_pct, 'fat')}

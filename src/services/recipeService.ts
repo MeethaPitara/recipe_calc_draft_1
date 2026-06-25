@@ -16,6 +16,7 @@ export interface RecipeRowInput {
   sugars_g: number;
   other_solids_g: number;
   total_solids_g: number;
+  ingredient_snapshot: IngredientData;
 }
 
 export const recipeService = {
@@ -53,6 +54,9 @@ export const recipeService = {
         sugars_g,
         other_solids_g: other_g,
         total_solids_g: ts_g,
+        // PHASE 5.4: freeze the full composition as it was at save time —
+        // reload must replay this, not re-resolve the ingredient live.
+        ingredient_snapshot: r.ing,
       };
     });
 
