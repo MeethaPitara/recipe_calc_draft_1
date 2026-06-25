@@ -2199,7 +2199,7 @@ export default function RecipeCalculatorV2({
             </div>
 
             {/* Performance & Chemical Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 py-2 border-t border-b bg-muted/5 rounded-md px-2">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-4 py-2 border-t border-b bg-muted/5 rounded-md px-2">
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground">Protein</span>
                 <span className="text-sm font-semibold">{metrics.protein_pct.toFixed(1)}%</span>
@@ -2231,6 +2231,30 @@ export default function RecipeCalculatorV2({
                 <span className="text-[10px] uppercase font-bold text-muted-foreground">Overrun Est.</span>
                 <span className="text-sm font-semibold">~{metrics.overrunPrediction?.estimatedPct.toFixed(0)}%</span>
               </div>
+              {/* PHASE 8.3: serving temp from the freezing-curve model, with
+                  the profile's target window and an "(approx)" flag when
+                  leightonTable.json had to be extrapolated to reach it. */}
+              {metrics.servingTempC != null && (
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                    Serving Temp{metrics.servingTempExtrapolated ? ' (approx)' : ''}
+                  </span>
+                  <Badge variant={
+                    metrics.profileBands &&
+                      metrics.servingTempC >= metrics.profileBands.servingTempC[0] &&
+                      metrics.servingTempC <= metrics.profileBands.servingTempC[1]
+                      ? 'default'
+                      : 'secondary'
+                  } className="w-fit text-[10px] px-1 h-5">
+                    {metrics.servingTempC.toFixed(1)}°C
+                    {metrics.profileBands && (
+                      <span className="ml-1 opacity-70">
+                        ({metrics.profileBands.servingTempC[0]} to {metrics.profileBands.servingTempC[1]})
+                      </span>
+                    )}
+                  </Badge>
+                </div>
+              )}
             </div>
 
             {/* Scientific Validation Alerts Embedded */}

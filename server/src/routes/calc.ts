@@ -3,6 +3,7 @@ import { calcMetricsV2 } from '../lib/core/calc.v2.js';
 import { recommendTemps, estimateFrozenWater, recommendServeTemp, getScoopableRange, calculateIdealServeTemp, getTemperatureGuidance } from '../lib/core/scoopability.js';
 import { diagnose, DiagnosisMetrics } from '../lib/core/recipeDiagnosis.js';
 import { PROFILES, ProductId } from '../lib/core/scienceConfig.js';
+import { computeFreezingCurve } from '../lib/core/freezingCurve.js';
 
 const router = Router();
 
@@ -88,9 +89,33 @@ router.post('/metrics', async (req, res) => {
             fat: profile.fat, msnf: profile.msnf, totalSugar: profile.totalSugar,
             totalSolids: profile.totalSolids, sp: profile.sp, afp: profile.afp, fpdt: profile.fpdt,
             lactoseRiskMaxPct: profile.lactoseRiskMaxPct, proteinRiskMaxPct: profile.proteinRiskMaxPct,
+            servingTempC: profile.servingTempC,
         };
 
-        res.json({ success: true, metrics, diagnosis, productProfile: profileId, profileBands, servingTempApprox: true });
+        // PHASE 8.2: the freezing-curve-derived serving temperature — this
+        // is the physically-grounded figure (reuses leightonTable.json,
+        // same data calc.v2.ts's FPDT already trusts), distinct from the
+        // older heuristic estimates in serving.v1.ts/scoopability.ts. Not a
+        // replacement for those yet (see handoff — three serving-temp
+        // computations currently coexist); this is the one Phase 8 asks
+        // for and the one diagnosis-grade accuracy should come from.
+        const freezingCurve = computeFreezingCurve({
+            se_g: metrics.se_g,
+            water_g: metrics.water_g,
+            targetFrozenFraction: profile.targetFrozenFraction,
+        });
+
+        res.json({
+            success: true,
+            metrics,
+            diagnosis,
+            productProfile: profileId,
+            profileBands,
+            servingTempApprox: true,
+            servingTempC: freezingCurve.servingTempC,
+            servingTempExtrapolated: freezingCurve.servingTempExtrapolated,
+            freezingCurve: freezingCurve.curve,
+        });
     } catch (e: any) {
         console.error('Calculation Error:', e);
         res.status(500).json({ error: e.message });

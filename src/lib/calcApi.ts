@@ -72,10 +72,19 @@ export type MetricsV2 = {
     fat: [number, number]; msnf: [number, number]; totalSugar: [number, number];
     totalSolids: [number, number]; sp: [number, number]; afp: [number, number]; fpdt: [number, number];
     lactoseRiskMaxPct: number; proteinRiskMaxPct: number;
+    servingTempC: [number, number];
   };
   // PHASE 7.5: true until Phase 8's freezingCurve.ts replaces serving.v1.ts's
   // estimate with the Leighton-based curve.
   servingTempApprox?: boolean;
+  // PHASE 8.2: physically-grounded serving temp from freezingCurve.ts
+  // (reuses leightonTable.json, same data the FPDT calc already trusts).
+  servingTempC?: number;
+  // True when leightonTable.json had to be extrapolated past its real data
+  // (current top: 75 g/100g water) to reach this figure — see the TODO at
+  // the interpolation site in freezingCurve.ts.
+  servingTempExtrapolated?: boolean;
+  freezingCurve?: { tempC: number; frozenPct: number; extrapolated: boolean }[];
 };
 
 // Mirrors server/src/lib/core/recipeDiagnosis.ts's Diagnosis shape — the
@@ -114,6 +123,9 @@ export async function calcMetricsV2(
     productProfile: response.productProfile,
     profileBands: response.profileBands,
     servingTempApprox: response.servingTempApprox,
+    servingTempC: response.servingTempC,
+    servingTempExtrapolated: response.servingTempExtrapolated,
+    freezingCurve: response.freezingCurve,
   } as MetricsV2;
 }
 
