@@ -4,11 +4,15 @@
 
 """#### 0.2 Setup PageIndex"""
 
+import os
+
 from pageindex import PageIndexClient
 import pageindex.utils as utils
 
 # Get your PageIndex API key from https://dash.pageindex.ai/api-keys
-PAGEINDEX_API_KEY = "830e8d00ab1849c3ba03069d757d3cee"
+# PHASE 11.6: was a hardcoded, committed key -- treat the old value as
+# compromised and rotate it. Set PAGEINDEX_API_KEY in your environment.
+PAGEINDEX_API_KEY = os.environ["PAGEINDEX_API_KEY"]
 pi_client = PageIndexClient(api_key=PAGEINDEX_API_KEY)
 
 """#### 0.3 Setup LLM
@@ -19,7 +23,9 @@ Choose your preferred LLM for reasoning-based retrieval. In this example, we use
 import google.generativeai as genai
 import asyncio
 
-GEMINI_API_KEY = "AIzaSyBLN9mHm_zpnDmuyUblLIXJ1ppcPNLdq68"
+# PHASE 11.6: was a hardcoded, committed key -- treat the old value as
+# compromised and rotate it. Set GEMINI_API_KEY in your environment.
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 genai.configure(api_key=GEMINI_API_KEY)
 
 async def call_llm(prompt, model="gemini-2.5-flash", temperature=0):
