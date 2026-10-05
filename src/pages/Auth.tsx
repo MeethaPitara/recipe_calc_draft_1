@@ -23,6 +23,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   // Redirect if already logged in
@@ -63,7 +64,7 @@ const Auth = () => {
     setLoading(true);
     setErrors({});
 
-    const { error } = await signUp(email, password);
+    const { error, verificationRequired } = await signUp(email, password);
 
     setLoading(false);
 
@@ -81,12 +82,13 @@ const Auth = () => {
           variant: "destructive",
         });
       }
-    } else {
+    } else if (verificationRequired) {
+      setVerificationEmail(email.trim());
+      setPassword("");
       toast({
-        title: "Success!",
-        description: "Your account has been created. You are now signed in.",
+        title: "Check your email",
+        description: "Confirm your email address before signing in.",
       });
-      navigate("/");
     }
   };
 
@@ -180,6 +182,13 @@ const Auth = () => {
 
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
+                {verificationEmail && (
+                  <Alert>
+                    <AlertDescription>
+                      We sent a confirmation link to {verificationEmail}. Open it before signing in. Check your spam folder if it is missing.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <Alert>
                   <AlertDescription>
                    Create an account to save and manage your proprietary recipes securely.

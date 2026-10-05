@@ -13,7 +13,7 @@ interface AuthContextValue {
     loading: boolean;
     isGuest: boolean;
     signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-    signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+    signUp: (email: string, password: string) => Promise<{ error: string | null; verificationRequired: boolean }>;
     signOut: () => void;
     continueAsGuest: () => Promise<void>;
 }
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const signUp = useCallback(async (email: string, password: string) => {
         const result = await authService.signUp(email, password);
         if (result.session) setSession(result.session);
-        return { error: result.error };
+        return { error: result.error, verificationRequired: result.verificationRequired };
     }, []);
 
     const signOut = useCallback(() => {

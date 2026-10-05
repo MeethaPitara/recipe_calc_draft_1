@@ -55,14 +55,12 @@ export const authService = {
     /**
      * Register a new user via backend API.
      */
-    async signUp(email: string, password: string): Promise<{ session: AuthSession | null; error: string | null }> {
+    async signUp(email: string, password: string): Promise<{ session: AuthSession | null; error: string | null; verificationRequired: boolean }> {
         try {
-            const data = await apiPost<{ session: AuthSession }>('/api/auth/signup', { email, password });
-            localStorage.setItem(TOKEN_KEY, data.session.token);
-            notifyListeners('SIGNED_IN', data.session);
-            return { session: data.session, error: null };
+            await apiPost<{ email: string; verificationRequired: true }>('/api/auth/signup', { email, password });
+            return { session: null, error: null, verificationRequired: true };
         } catch (e: any) {
-            return { session: null, error: e.message || 'Sign up failed' };
+            return { session: null, error: e.message || 'Sign up failed', verificationRequired: false };
         }
     },
 
