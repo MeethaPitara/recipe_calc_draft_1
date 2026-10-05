@@ -8,10 +8,11 @@
 
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAccount } from '../middleware/auth.js';
 
 const router = Router();
 router.use(requireAuth as any);
+router.use(requireAccount);
 
 // ── POST /train ──
 router.post('/train', async (req, res) => {
@@ -38,7 +39,9 @@ router.post('/train', async (req, res) => {
                     )
                 )
             `)
-            .eq('outcome', 'success');
+            .eq('outcome', 'success')
+            .eq('user_id', req.user!.id)
+            .eq('recipes.user_id', req.user!.id);
 
         if (error) throw error;
 
@@ -106,7 +109,7 @@ router.post('/train', async (req, res) => {
 });
 
 // ── GET /export ──
-router.get('/export', async (_req, res) => {
+router.get('/export', async (req, res) => {
     try {
         const { data: recipes } = await supabase
             .from('recipes')
@@ -115,6 +118,7 @@ router.get('/export', async (_req, res) => {
                 recipe_rows ( ingredient, quantity_g, sugars_g, fat_g, msnf_g, other_solids_g, total_solids_g ),
                 calculated_metrics ( total_quantity_g, sp, pac, fat_pct, sugars_pct )
             `)
+            .eq('user_id', req.user!.id)
             .order('created_at', { ascending: false });
 
         const result = (recipes || []).map((recipe: any) => ({
@@ -142,6 +146,7 @@ router.get('/check-training', async (req, res) => {
             .from('recipe_outcomes')
             .select('*', { count: 'exact', head: true })
             .eq('outcome', 'success')
+            .eq('user_id', req.user!.id)
             .not('recipe_id', 'is', null)
             .gt('created_at', lastTrained as string);
 

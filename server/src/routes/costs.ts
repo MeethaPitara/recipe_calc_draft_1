@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAccount } from '../middleware/auth.js';
+import { ownsRecipe } from '../lib/ownership.js';
 
 const router = Router();
 
 router.use(requireAuth as any);
+router.use(requireAccount);
 
 // ── POST / — Log a cost record ──
 router.post('/', async (req, res) => {
@@ -13,6 +15,11 @@ router.post('/', async (req, res) => {
 
         if (!recipe_id || cost_per_kg === undefined) {
             res.status(400).json({ error: 'recipe_id and cost_per_kg are required.' });
+            return;
+        }
+
+        if (!await ownsRecipe(recipe_id, req.user!.id)) {
+            res.status(404).json({ error: 'Recipe not found' });
             return;
         }
 
@@ -44,6 +51,11 @@ router.get('/', async (req, res) => {
         const { recipe_id } = req.query;
         if (!recipe_id) {
             res.status(400).json({ error: 'recipe_id is required' });
+            return;
+        }
+
+        if (!await ownsRecipe(recipe_id as string, req.user!.id)) {
+            res.status(404).json({ error: 'Recipe not found' });
             return;
         }
 

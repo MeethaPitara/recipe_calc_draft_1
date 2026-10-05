@@ -1,8 +1,9 @@
 import express from 'express';
 import { supabase } from '../lib/supabaseClient.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAccount } from '../middleware/auth.js';
 
 const router = express.Router();
+router.use(requireAuth as any, requireAccount);
 
 // GET /api/target-profiles
 router.get('/', requireAuth, async (req, res) => {

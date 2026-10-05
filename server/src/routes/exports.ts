@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAccount } from '../middleware/auth.js';
 const PdfPrinter = require('pdfmake/js/Printer.js').default;
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 
 const router = Router();
 router.use(requireAuth as any);
+router.use(requireAccount);
 
 // Initialize pdfmake with standard fonts
 const fonts = {
@@ -32,7 +33,7 @@ router.get('/manufacturer/:recipeId', async (req, res) => {
         const recipeId = req.params.recipeId;
 
         // Fetch recipe, rows, and metrics
-        const { data: recipe, error: recipeError } = await supabase.from('recipes').select('*').eq('id', recipeId).single();
+        const { data: recipe, error: recipeError } = await supabase.from('recipes').select('*').eq('id', recipeId).eq('user_id', req.user!.id).single();
         if (recipeError || !recipe) return res.status(404).json({ error: 'Recipe not found' });
 
         const { data: rows } = await supabase.from('recipe_rows').select('*').eq('recipe_id', recipeId);
@@ -109,7 +110,7 @@ router.get('/trial/:trialId', async (req, res) => {
     try {
         const trialId = req.params.trialId;
 
-        const { data: trial, error: trialError } = await supabase.from('trial_records').select('*, recipes(*)').eq('id', trialId).single();
+        const { data: trial, error: trialError } = await supabase.from('trial_records').select('*, recipes!inner(*)').eq('id', trialId).eq('user_id', req.user!.id).eq('recipes.user_id', req.user!.id).single();
         if (trialError || !trial) return res.status(404).json({ error: 'Trial not found' });
 
         const { data: qaRecords } = await supabase.from('qa_records').select('*').eq('trial_id', trialId);
@@ -177,7 +178,7 @@ router.get('/investor/:recipeId', async (req, res) => {
 
         const recipeId = req.params.recipeId;
 
-        const { data: recipe, error: recipeError } = await supabase.from('recipes').select('*').eq('id', recipeId).single();
+        const { data: recipe, error: recipeError } = await supabase.from('recipes').select('*').eq('id', recipeId).eq('user_id', req.user!.id).single();
         if (recipeError || !recipe) return res.status(404).json({ error: 'Recipe not found' });
 
         await logExport(req.user!.id, 'investor', recipeId);

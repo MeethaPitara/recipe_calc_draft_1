@@ -12,30 +12,30 @@
 
 import { Router } from "express";
 import { supabase } from "../lib/supabaseClient.js";
-import { requireAuth, optionalAuth } from "../middleware/auth.js";
+import { requireAuth, optionalAuth, requireAccount, GUEST_USER_ID } from "../middleware/auth.js";
 
 const router = Router();
 
 // ── GET / — List all ingredients ──
 router.get("/", optionalAuth as any, async (req, res) => {
   try {
-    const userEmail = req.user?.email;
+    const userEmail = req.user && req.user.id !== GUEST_USER_ID ? req.user.email : undefined;
 
-    let query = supabase.from("ingredients").select("*").order("name");
-
-    // Show system ingredients + user's own
-    if (userEmail) {
-      query = query.or(`user_email.is.null,user_email.eq.${userEmail}`);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      res.status(500).json({ error: error.message });
+    const [system, own] = await Promise.all([
+      supabase.from("ingredients").select("*").is("user_email", null),
+      userEmail
+        ? supabase.from("ingredients").select("*").eq("user_email", userEmail)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (system.error || own.error) {
+      res.status(500).json({ error: (system.error || own.error)!.message });
       return;
     }
 
     // Transform DB rows → frontend IngredientData shape
-    const ingredients = (data || []).map(transformRow);
+    const ingredients = [...(system.data || []), ...(own.data || [])]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(transformRow);
     res.json(ingredients);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -51,26 +51,29 @@ router.get("/search", optionalAuth as any, async (req, res) => {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("ingredients")
-      .select("*")
-      .ilike("name", `%${q}%`)
-      .order("name")
-      .limit(20);
+    const [system, own] = await Promise.all([
+      supabase.from("ingredients").select("*").is("user_email", null).ilike("name", `%${q}%`).order("name").limit(20),
+      req.user?.email && req.user.id !== GUEST_USER_ID
+        ? supabase.from("ingredients").select("*").eq("user_email", req.user.email).ilike("name", `%${q}%`).order("name").limit(20)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    if (error) {
-      res.status(500).json({ error: error.message });
+    if (system.error || own.error) {
+      res.status(500).json({ error: (system.error || own.error)!.message });
       return;
     }
 
-    res.json((data || []).map(transformRow));
+    res.json([...(system.data || []), ...(own.data || [])]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 20)
+      .map(transformRow));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
 // ── GET /:id ──
-router.get("/:id", async (req, res) => {
+router.get("/:id", optionalAuth as any, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("ingredients")
@@ -78,7 +81,8 @@ router.get("/:id", async (req, res) => {
       .eq("id", req.params.id)
       .single();
 
-    if (error || !data) {
+    const userEmail = req.user && req.user.id !== GUEST_USER_ID ? req.user.email : undefined;
+    if (error || !data || (data.user_email !== null && data.user_email !== userEmail)) {
       res.status(404).json({ error: "Ingredient not found" });
       return;
     }
@@ -90,7 +94,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ── POST / — Create ──
-router.post("/", requireAuth as any, async (req, res) => {
+router.post("/", requireAuth as any, requireAccount, async (req, res) => {
   try {
     const {
       name,
@@ -163,7 +167,7 @@ router.post("/", requireAuth as any, async (req, res) => {
 });
 
 // ── PUT /:id — Update ──
-router.put("/:id", requireAuth as any, async (req, res) => {
+router.put("/:id", requireAuth as any, requireAccount, async (req, res) => {
   try {
     const updates: Record<string, any> = {};
     const fields = [
@@ -200,9 +204,16 @@ router.put("/:id", requireAuth as any, async (req, res) => {
       .from("ingredients")
       .select("*")
       .eq("id", req.params.id)
-      .single();
+      .eq("user_email", req.user!.email)
+      .maybeSingle();
 
-    if (currentState && !fetchErr) {
+    if (fetchErr) throw fetchErr;
+    if (!currentState) {
+      res.status(404).json({ error: "Ingredient not found" });
+      return;
+    }
+
+    if (currentState) {
       // 2. Get max version number for this ingredient
       const { data: versionsData } = await supabase
         .from("ingredient_versions")
@@ -230,11 +241,17 @@ router.put("/:id", requireAuth as any, async (req, res) => {
       .from("ingredients")
       .update(updates)
       .eq("id", req.params.id)
+      .eq("user_email", req.user!.email)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       res.status(500).json({ error: error.message });
+      return;
+    }
+
+    if (!data) {
+      res.status(404).json({ error: "Ingredient not found" });
       return;
     }
 
@@ -245,8 +262,20 @@ router.put("/:id", requireAuth as any, async (req, res) => {
 });
 
 // ── GET /:id/versions ──
-router.get("/:id/versions", requireAuth as any, async (req, res) => {
+router.get("/:id/versions", requireAuth as any, requireAccount, async (req, res) => {
   try {
+    const { data: ingredient, error: ownerError } = await supabase
+      .from("ingredients")
+      .select("id")
+      .eq("id", req.params.id)
+      .eq("user_email", req.user!.email)
+      .maybeSingle();
+    if (ownerError) throw ownerError;
+    if (!ingredient) {
+      res.status(404).json({ error: "Ingredient not found" });
+      return;
+    }
+
     const { data, error } = await supabase
       .from("ingredient_versions")
       .select("id, version_number, snapshot, changed_at")
@@ -265,15 +294,23 @@ router.get("/:id/versions", requireAuth as any, async (req, res) => {
 });
 
 // ── DELETE /:id ──
-router.delete("/:id", requireAuth as any, async (req, res) => {
+router.delete("/:id", requireAuth as any, requireAccount, async (req, res) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("ingredients")
       .delete()
-      .eq("id", req.params.id);
+      .eq("id", req.params.id)
+      .eq("user_email", req.user!.email)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       res.status(500).json({ error: error.message });
+      return;
+    }
+
+    if (!data) {
+      res.status(404).json({ error: "Ingredient not found" });
       return;
     }
 

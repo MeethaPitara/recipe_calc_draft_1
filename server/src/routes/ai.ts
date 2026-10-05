@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient.js';
 import { callGemini, callGeminiWithSearch, callGeminiVision } from '../lib/geminiClient.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAccount } from '../middleware/auth.js';
 import { calcMetricsV2 } from '../lib/core/calc.v2.js';
 import { balancingEngine } from '../lib/core/optimize.engine.js';
 import type { OptimizeTarget } from '../lib/core/optimize.js';
 
 const router = Router();
 router.use(requireAuth as any);
+router.use(requireAccount);
 
 const AI_ENABLED = process.env.AI_ENABLED === 'true';
 router.use((req, res, next) => {
@@ -18,9 +19,13 @@ router.use((req, res, next) => {
     next();
 });
 
-async function fetchIngredientsFromSupabase() {
-    const { data } = await supabase.from('ingredients').select('*');
-    return data || [];
+async function fetchIngredientsFromSupabase(userEmail: string) {
+    const [system, own] = await Promise.all([
+        supabase.from('ingredients').select('*').is('user_email', null),
+        supabase.from('ingredients').select('*').eq('user_email', userEmail),
+    ]);
+    if (system.error || own.error) throw system.error || own.error;
+    return [...(system.data || []), ...(own.data || [])];
 }
 
 export const FOOD_ENGINEER_INTENT_PROMPT = `You are an expert ice cream and gelato food scientist. You parse recipe
@@ -157,7 +162,7 @@ router.post('/optimize', async (req, res) => {
             return;
         }
 
-        const allIngredients = await fetchIngredientsFromSupabase();
+        const allIngredients = await fetchIngredientsFromSupabase(req.user!.email);
         const dbSummary = allIngredients.map(r => ({ name: r.name, category: r.category, fat_pct: r.fat_pct, msnf_pct: r.msnf_pct, sugars_pct: r.sugars_pct || r.sugar_pct }));
 
         let intentTargets: any = {};
@@ -319,7 +324,7 @@ router.post('/create', async (req, res) => {
         let totalTokens = 0;
         let totalLatency = 0;
 
-        const allIngredients = await fetchIngredientsFromSupabase();
+        const allIngredients = await fetchIngredientsFromSupabase(req.user!.email);
         const dbSummary = allIngredients.map(r => ({ name: r.name, category: r.category, fat_pct: r.fat_pct, msnf_pct: r.msnf_pct, sugars_pct: r.sugars_pct || r.sugar_pct }));
 
         let referenceRecipe: any = null;
@@ -327,7 +332,7 @@ router.post('/create', async (req, res) => {
         let searchReasoning = 'No search performed';
 
         try {
-            const { data: recipes } = await supabase.from('recipes').select('id, recipe_name, product_type, recipe_rows ( ingredient, quantity_g )').order('created_at', { ascending: false }).limit(50);
+            const { data: recipes } = await supabase.from('recipes').select('id, recipe_name, product_type, recipe_rows ( ingredient, quantity_g )').eq('user_id', req.user!.id).order('created_at', { ascending: false }).limit(50);
             if (recipes && recipes.length > 0) {
                 const summaries = (recipes as any[]).map((r: any, i: number) => ({
                     index: i, name: r.recipe_name, product_type: r.product_type,

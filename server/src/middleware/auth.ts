@@ -13,6 +13,8 @@ export interface AuthUser {
     role?: string;
 }
 
+export const GUEST_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 // Extend Express Request
 declare global {
     namespace Express {
@@ -52,6 +54,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     } catch (err) {
         res.status(401).json({ error: 'Invalid or expired token.' });
     }
+}
+
+/** Persisted user data requires a real app account, not the shared guest identity. */
+export function requireAccount(req: Request, res: Response, next: NextFunction): void {
+    if (!req.user || req.user.id === GUEST_USER_ID) {
+        res.status(403).json({ error: 'An account is required for saved data.' });
+        return;
+    }
+    next();
 }
 
 /**

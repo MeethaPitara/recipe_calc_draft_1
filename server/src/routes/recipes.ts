@@ -11,22 +11,34 @@
 
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAccount } from '../middleware/auth.js';
+import { ownsRecipe } from '../lib/ownership.js';
 
 const router = Router();
 
+async function ingredientCostMap(names: string[], userEmail: string): Promise<Record<string, number>> {
+    const [system, own] = await Promise.all([
+        supabase.from('ingredients').select('name, cost_per_kg').is('user_email', null).in('name', names),
+        supabase.from('ingredients').select('name, cost_per_kg').eq('user_email', userEmail).in('name', names),
+    ]);
+    if (system.error || own.error) return {};
+    return Object.fromEntries([...(system.data || []), ...(own.data || [])]
+        .map((ingredient: any) => [ingredient.name, ingredient.cost_per_kg || 0]));
+}
+
 // All recipe routes require auth
 router.use(requireAuth as any);
+router.use(requireAccount);
 
 // ── GET /stats — Get recipe statistics ──
 router.get('/stats', async (req, res) => {
     try {
         const [recipesRes, outcomesRes] = await Promise.all([
-            supabase.from('recipes').select('id', { count: 'exact', head: true }),
-            supabase.from('recipe_outcomes').select('id,outcome', { count: 'exact' })
+            supabase.from('recipes').select('id', { count: 'exact', head: true }).eq('user_id', req.user!.id),
+            supabase.from('recipe_outcomes').select('id,outcome', { count: 'exact' }).eq('user_id', req.user!.id)
         ]);
 
-        const { data: outcomes } = await supabase.from('recipe_outcomes').select('outcome');
+        const { data: outcomes } = await supabase.from('recipe_outcomes').select('outcome').eq('user_id', req.user!.id);
         const successfulOutcomes = outcomes?.filter(o => o.outcome === 'success').length || 0;
 
         res.json({
@@ -46,6 +58,7 @@ router.get('/recent', async (req, res) => {
         const { data: recipes, error: recipesError } = await supabase
             .from('recipes')
             .select('*')
+            .eq('user_id', req.user!.id)
             .order('created_at', { ascending: false })
             .limit(10);
 
@@ -81,7 +94,8 @@ router.get('/export', async (req, res) => {
               recipe_rows (
                 ingredient, quantity_g, water_g, sugars_g, fat_g, msnf_g, other_solids_g, total_solids_g, lactose_g
               )
-            `);
+            `)
+            .eq('user_id', req.user!.id);
 
         if (error) throw error;
         res.json(recipes || []);
@@ -129,6 +143,7 @@ router.get('/:id', async (req, res) => {
             .from('recipes')
             .select('*')
             .eq('id', req.params.id)
+            .eq('user_id', req.user!.id)
             .single();
 
         if (recipeError || !recipe) {
@@ -173,15 +188,11 @@ router.post('/', async (req, res) => {
 
         if (rows && Array.isArray(rows) && rows.length > 0) {
             const ingredientNames = rows.map((r: any) => r.ingredient);
-            const { data: ingredientsData } = await supabase.from('ingredients').select('name, cost_per_kg').in('name', ingredientNames);
-            
-            if (ingredientsData) {
-                const costMap = Object.fromEntries(ingredientsData.map((i: any) => [i.name, i.cost_per_kg || 0]));
-                for (const r of rows) {
-                    if (r.quantity_g > 0) {
-                        totalWeight += r.quantity_g;
-                        totalCost += (r.quantity_g / 1000) * (costMap[r.ingredient] || 0);
-                    }
+            const costMap = await ingredientCostMap(ingredientNames, req.user!.email);
+            for (const r of rows) {
+                if (r.quantity_g > 0) {
+                    totalWeight += r.quantity_g;
+                    totalCost += (r.quantity_g / 1000) * (costMap[r.ingredient] || 0);
                 }
             }
             if (totalWeight > 0) {
@@ -295,7 +306,13 @@ router.put('/:id', async (req, res) => {
         const { recipe_name, product_type, rows, metrics, tags, is_base_recipe } = req.body;
 
         // check if locked
-        const { data: existingRecipe } = await supabase.from('recipes').select('is_production_locked').eq('id', recipeId).single();
+        const { data: existingRecipe, error: existingError } = await supabase.from('recipes')
+            .select('is_production_locked').eq('id', recipeId).eq('user_id', req.user!.id).maybeSingle();
+        if (existingError) throw existingError;
+        if (!existingRecipe) {
+            res.status(404).json({ error: 'Recipe not found' });
+            return;
+        }
         if (existingRecipe?.is_production_locked) {
             res.status(403).json({ error: 'Recipe is production locked and cannot be modified. Please clone it to make edits.' });
             return;
@@ -307,15 +324,11 @@ router.put('/:id', async (req, res) => {
 
         if (rows && Array.isArray(rows) && rows.length > 0) {
             const ingredientNames = rows.map((r: any) => r.ingredient);
-            const { data: ingredientsData } = await supabase.from('ingredients').select('name, cost_per_kg').in('name', ingredientNames);
-            
-            if (ingredientsData) {
-                const costMap = Object.fromEntries(ingredientsData.map((i: any) => [i.name, i.cost_per_kg || 0]));
-                for (const r of rows) {
-                    if (r.quantity_g > 0) {
-                        totalWeight += r.quantity_g;
-                        totalCost += (r.quantity_g / 1000) * (costMap[r.ingredient] || 0);
-                    }
+            const costMap = await ingredientCostMap(ingredientNames, req.user!.email);
+            for (const r of rows) {
+                if (r.quantity_g > 0) {
+                    totalWeight += r.quantity_g;
+                    totalCost += (r.quantity_g / 1000) * (costMap[r.ingredient] || 0);
                 }
             }
             if (totalWeight > 0) {
@@ -337,7 +350,8 @@ router.put('/:id', async (req, res) => {
         const { error: updateError } = await supabase
             .from('recipes')
             .update(updates)
-            .eq('id', recipeId);
+            .eq('id', recipeId)
+            .eq('user_id', req.user!.id);
 
         if (updateError) {
             res.status(500).json({ error: updateError.message });
@@ -412,6 +426,10 @@ router.put('/:id', async (req, res) => {
 // ── POST /:id/outcome — Mark recipe as successful for ML ──
 router.post('/:id/outcome', async (req, res) => {
     try {
+        if (!await ownsRecipe(req.params.id, req.user!.id)) {
+            res.status(404).json({ error: 'Recipe not found' });
+            return;
+        }
         const { error } = await supabase.from('recipe_outcomes').insert({
             recipe_id: req.params.id,
             user_id: req.user!.id,
@@ -429,12 +447,16 @@ router.post('/:id/outcome', async (req, res) => {
 // ── PATCH /:id/lock — Lock recipe for production ──
 router.patch('/:id/lock', async (req, res) => {
     try {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('recipes')
             .update({ is_production_locked: true, updated_at: new Date().toISOString() })
-            .eq('id', req.params.id);
+            .eq('id', req.params.id)
+            .eq('user_id', req.user!.id)
+            .select('id')
+            .maybeSingle();
 
         if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Recipe not found' });
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -445,12 +467,16 @@ router.patch('/:id/lock', async (req, res) => {
 router.patch('/:id/base', async (req, res) => {
     try {
         const { is_base_recipe } = req.body;
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('recipes')
             .update({ is_base_recipe: !!is_base_recipe, updated_at: new Date().toISOString() })
-            .eq('id', req.params.id);
+            .eq('id', req.params.id)
+            .eq('user_id', req.user!.id)
+            .select('id')
+            .maybeSingle();
 
         if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Recipe not found' });
         res.json({ success: true, is_base_recipe: !!is_base_recipe });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -467,6 +493,7 @@ router.post('/:id/clone', async (req, res) => {
             .from('recipes')
             .select('*')
             .eq('id', recipeId)
+            .eq('user_id', req.user!.id)
             .single();
 
         if (origError || !original) {
@@ -527,13 +554,21 @@ router.post('/:id/clone', async (req, res) => {
 // ── DELETE /:id ──
 router.delete('/:id', async (req, res) => {
     try {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('recipes')
             .delete()
-            .eq('id', req.params.id);
+            .eq('id', req.params.id)
+            .eq('user_id', req.user!.id)
+            .select('id')
+            .maybeSingle();
 
         if (error) {
             res.status(500).json({ error: error.message });
+            return;
+        }
+
+        if (!data) {
+            res.status(404).json({ error: 'Recipe not found' });
             return;
         }
 

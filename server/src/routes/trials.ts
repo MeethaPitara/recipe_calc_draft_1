@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { supabase } from '../lib/supabaseClient.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAccount } from '../middleware/auth.js';
+import { ownsRecipe } from '../lib/ownership.js';
 
 const router = Router();
 
 router.use(requireAuth as any);
+router.use(requireAccount);
 
 // ── GET / — Get trials (optionally filtered by recipe_id) ──
 router.get('/', async (req, res) => {
@@ -16,6 +18,7 @@ router.get('/', async (req, res) => {
                 *,
                 qa_records (*)
             `)
+            .eq('user_id', req.user!.id)
             .order('created_at', { ascending: false });
 
         if (recipe_id) {
@@ -42,6 +45,10 @@ router.post('/', async (req, res) => {
 
         if (!recipe_id || !batch_size_g) {
             return res.status(400).json({ error: 'recipe_id and batch_size_g are required.' });
+        }
+
+        if (!await ownsRecipe(recipe_id, req.user!.id)) {
+            return res.status(404).json({ error: 'Recipe not found.' });
         }
 
         // PHASE 6.2: freeze the recipe (header + rows + metrics) as it is
@@ -133,10 +140,12 @@ router.patch('/:id', async (req, res) => {
             .from('trial_records')
             .update(updates)
             .eq('id', req.params.id)
+            .eq('user_id', req.user!.id)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
+        if (!trial) return res.status(404).json({ error: 'Trial not found' });
         res.json({ success: true, trial });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
